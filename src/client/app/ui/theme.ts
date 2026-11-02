@@ -44,6 +44,12 @@ function applyTheme(theme) {
   icon.innerHTML = isLight ? SUN : MOON;
 }
 
+export function toggleTheme() {
+  const nextTheme = document.body.classList.contains("theme-light") ? "dark" : "light";
+  localStorage.setItem(STORAGE_KEY, nextTheme);
+  applyTheme(nextTheme);
+}
+
 function initThemeControls() {
   const btn = document.getElementById("themeToggleBtn");
   const savedTheme = getSavedTheme();
@@ -52,12 +58,7 @@ function initThemeControls() {
   localStorage.setItem(STORAGE_KEY, savedTheme);
 
   if (btn) {
-    btn.addEventListener("click", () => {
-      const currentlyLight = document.body.classList.contains("theme-light");
-      const nextTheme = currentlyLight ? "dark" : "light";
-      localStorage.setItem(STORAGE_KEY, nextTheme);
-      applyTheme(nextTheme);
-    });
+    btn.addEventListener("click", toggleTheme);
   }
 
   document.querySelectorAll('input[name="theme"]').forEach((input) => {

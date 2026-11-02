@@ -24,5 +24,6 @@ export async function readIndexHtmlSource(projectRoot) {
     indexPartialPaths.map((relativePath) => readFile(resolve(partialsRoot, relativePath), "utf8"))
   );
 
-  return `${chunks.join("\n").trimEnd()}\n`;
+  const sidebar = await readFile(resolve(partialsRoot, "sidebar.html"), "utf8");
+  return `${chunks.join("\n").replace("<!-- axis-sidebar -->", sidebar.trim()).trimEnd()}\n`;
 }

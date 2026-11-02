@@ -619,7 +619,7 @@
   }
   </style>
 </head>
-<body class="profile-page profile-edit-page">
+<body class="profile-page profile-edit-page" data-sidebar-page>
   <script>
     document.body.classList.add(window.__appThemeClass || "theme-dark");
   </script>
@@ -629,9 +629,6 @@
     </a>
 
     <div class="header-actions">
-      <button id="themeToggleBtn" class="header-icon-btn theme-toggle-btn" aria-label="Сменить тему" title="Сменить тему">
-        <span class="theme-toggle-icon"></span>
-      </button>
       <a href="profile.html" class="header-icon-btn" aria-label="Вернуться в профиль" title="Вернуться в профиль">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M15 18l-6-6 6-6"/>
@@ -639,6 +636,213 @@
       </a>
     </div>
   </header>
+  <!-- shared-sidebar:start -->
+<nav id="workspaceSidebar" class="tabs" aria-label="Разделы приложения" data-i18n-aria="navigation">
+      <div class="sidebar-toolbar">
+        <button id="sidebarToggle" type="button" aria-controls="sidebarNavigation" aria-expanded="true" aria-label="Свернуть панель"><svg class="sidebar-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="18" height="18" x="3" y="3" rx="2" />
+  <path d="M9 3v18" />
+  <path d="m16 15-3-3 3-3" />
+</svg>
+</button>
+      </div>
+      <div class="sidebar-scroll" id="sidebarNavigation">
+
+      <button type="button" class="tab lg-btn active" data-target="overview"><svg class="sidebar-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="7" height="9" x="3" y="3" rx="1" />
+  <rect width="7" height="5" x="14" y="3" rx="1" />
+  <rect width="7" height="9" x="14" y="12" rx="1" />
+  <rect width="7" height="5" x="3" y="16" rx="1" />
+</svg>
+
+        <span class="lg-btn__label" data-i18n="overview">Обзор объекта</span>
+        <span class="lg-btn__glow" aria-hidden="true"></span>
+      </button>
+      <div class="sidebar-section-label" data-i18n="inspections">Проверки</div>
+      <div class="tabs-group" data-tabs-group="inspections">
+
+        <div class="tabs-group-menu" id="inspectionTabsMenu">
+          <button type="button" class="tab tabs-group-item" data-target="geo">
+            <span class="tabs-group-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path>
+                <circle cx="12" cy="12" r="8"></circle>
+              </svg>
+            </span>
+            <span>
+              <strong data-i18n="geodesy">Геодезия</strong>
+              <small>Привязка и положение конструкций</small>
+            </span>
+          </button>
+          <button type="button" class="tab tabs-group-item" data-target="reinforcement">
+            <span class="tabs-group-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M5 3v18M12 3v18M19 3v18M3 7h18M3 17h18"></path>
+              </svg>
+            </span>
+            <span>
+              <strong data-i18n="reinforcement">Армирование</strong>
+              <small>Состав и параметры армирования</small>
+            </span>
+          </button>
+          <button type="button" class="tab tabs-group-item" data-target="geometry">
+            <span class="tabs-group-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"></path>
+                <path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v9"></path>
+              </svg>
+            </span>
+            <span>
+              <strong data-i18n="geometry">Геометрия</strong>
+              <small>Размеры и допустимые отклонения</small>
+            </span>
+          </button>
+          <button type="button" class="tab tabs-group-item" data-target="strength">
+            <span class="tabs-group-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M12 3 5 6v5c0 4.8 2.8 8 7 10 4.2-2 7-5.2 7-10V6l-7-3Z"></path>
+                <path d="m9 12 2 2 4-4"></path>
+              </svg>
+            </span>
+            <span>
+              <strong data-i18n="strength">Прочность</strong>
+              <small>Контроль прочности бетона</small>
+            </span>
+          </button>
+        </div>
+      </div>
+      <button type="button" class="tab lg-btn" data-target="controlPlan"><svg class="sidebar-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M13 5h8" />
+  <path d="M13 12h8" />
+  <path d="M13 19h8" />
+  <path d="m3 17 2 2 4-4" />
+  <path d="m3 7 2 2 4-4" />
+</svg>
+
+        <span class="lg-btn__label" data-i18n="controlPlan">План контроля</span>
+        <span class="lg-btn__glow" aria-hidden="true"></span>
+      </button>
+      <button type="button" class="tab lg-btn" data-target="summary"><svg class="sidebar-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 16v5" />
+  <path d="M16 14.639V21" />
+  <path d="M20 10.656V21" />
+  <path d="m22 3-8.646 8.646a.5.5 0 0 1-.708 0L9.354 8.354a.5.5 0 0 0-.707 0L2 15" />
+  <path d="M4 18.463V21" />
+  <path d="M8 14.656V21" />
+</svg>
+
+        <span class="lg-btn__label" data-i18n="summary">Итог</span>
+        <span class="lg-btn__glow" aria-hidden="true"></span>
+      </button>
+      <button type="button" class="tab lg-btn" data-target="documents"><svg class="sidebar-icon" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg><span class="lg-btn__label" data-i18n="documents_title">Исполнительная документация</span></button>
+      <button type="button" class="tab lg-btn" data-target="journal"><svg class="sidebar-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M2 6h4" />
+  <path d="M2 10h4" />
+  <path d="M2 14h4" />
+  <path d="M2 18h4" />
+  <rect width="16" height="20" x="4" y="2" rx="2" />
+  <path d="M15 2v20" />
+  <path d="M15 7h5" />
+  <path d="M15 12h5" />
+  <path d="M15 17h5" />
+</svg>
+
+        <span class="lg-btn__label" data-i18n="journal">Журнал</span>
+        <span class="lg-btn__glow" aria-hidden="true"></span>
+      </button>
+      <button type="button" class="tab lg-btn" data-target="knowledge"><svg class="sidebar-icon" aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 5v16" />
+  <path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z" />
+</svg>
+
+        <span class="lg-btn__label" data-i18n="knowledge">База знаний</span>
+        <span class="lg-btn__glow" aria-hidden="true"></span>
+      </button>
+      </div>
+      <div class="sidebar-account">
+  <button id="headerProfileButton" class="account-trigger" type="button" aria-haspopup="menu" aria-controls="accountMenu" aria-expanded="false" data-i18n-aria="profile" aria-label="Профиль">
+    <span class="account-avatar"><img id="headerProfileAvatar" alt="" hidden /><svg class="header-profile-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg></span><span class="account-trigger-name" data-account-name data-i18n="profile">Профиль</span>
+  </button>
+  <div id="accountMenu" class="account-menu" role="menu" aria-label="Профиль" hidden>
+    <div class="account-menu-identity" role="presentation"><strong data-account-name data-i18n="profile">Профиль</strong></div>
+    <a class="account-menu-item" href="profile.html" role="menuitem" tabindex="-1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg><span data-i18n="profile">Профиль</span></a>
+    <a class="account-menu-item" href="edit-profile.html" role="menuitem" tabindex="-1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 1.72l-.12.87a2 2 0 0 1-1.18 1.52l-.2.09a2 2 0 0 1-1.9-.18l-.7-.52a2 2 0 0 0-2.64.59l-.22.38a2 2 0 0 0 .46 2.7l.7.53a2 2 0 0 1 .72 1.7v.24a2 2 0 0 1-.72 1.7l-.7.53a2 2 0 0 0-.46 2.7l.22.38a2 2 0 0 0 2.64.59l.7-.52a2 2 0 0 1 1.9-.18l.2.09a2 2 0 0 1 1.18 1.52l.12.87a2 2 0 0 0 2 1.72h.44a2 2 0 0 0 2-1.72l.12-.87a2 2 0 0 1 1.18-1.52l.2-.09a2 2 0 0 1 1.9.18l.7.52a2 2 0 0 0 2.64-.59l.22-.39a2 2 0 0 0-.46-2.69l-.7-.53a2 2 0 0 1-.72-1.7v-.24a2 2 0 0 1 .72-1.7l.7-.53a2 2 0 0 0 .46-2.7l-.22-.38a2 2 0 0 0-2.64-.59l-.7.52a2 2 0 0 1-1.9.18l-.2-.09a2 2 0 0 1-1.18-1.52l-.12-.87a2 2 0 0 0-2-1.72Z"/><circle cx="12" cy="12" r="3"/></svg><span data-i18n="accountSettings">Настройки аккаунта</span></a>
+    <button class="account-menu-item" type="button" role="menuitem" tabindex="-1" data-account-theme><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z"/></svg><span data-i18n="changeTheme">Сменить тему</span></button>
+    <button class="account-menu-item" type="button" role="menuitem" tabindex="-1" data-account-language><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a17 17 0 0 1 0 18 17 17 0 0 1 0-18Z"/></svg><span data-i18n="language">Язык</span><span class="account-preference-value" data-language-value>Русский</span></button>
+    <div class="account-menu-divider" role="separator"></div>
+    <button id="btnLogout" class="account-menu-item" type="button" role="menuitem" tabindex="-1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5V3h4M15 8l5 4-5 4M9 12h11"/></svg><span data-i18n="signOut">Выйти</span></button>
+  </div>
+</div>
+      <div class="sidebar-resize" data-edge="right" role="separator" tabindex="0" aria-orientation="vertical" aria-controls="workspaceSidebar" aria-valuemin="64" aria-valuemax="360" aria-valuenow="240" data-i18n-aria="resizeSidebar" aria-label="Ширина панели навигации"></div>
+    </nav>
+<!-- shared-sidebar:end -->
+  <script type="module">import { initProfileNavigation } from "./dist/app/ui/profile-navigation.js"; await initProfileNavigation();</script>
 
   <main class="profile-main profile-edit-main">
     <div class="profile-shell account-settings-shell">
@@ -855,6 +1059,9 @@
     function renderAvatar(dataUrl = "") {
       const normalized = String(dataUrl || "").trim();
       avatarDataUrl = normalized;
+      const sidebarAvatar = document.getElementById("headerProfileAvatar");
+      if (sidebarAvatar) { sidebarAvatar.src = normalized; sidebarAvatar.hidden = !normalized; }
+      document.getElementById("headerProfileButton")?.classList.toggle("has-avatar", !!normalized);
       const fallbackInitials = `${(profileNameInput?.value || "S").trim().slice(0, 1)}${(profileSurnameInput?.value || "V").trim().slice(0, 1)}`.trim() || "SV";
       if (accountAvatarImage) {
         accountAvatarImage.src = normalized;
@@ -873,6 +1080,7 @@
       profileSurnameInput.value = String(data.lastName || "").trim();
       profileEmailInput.value = String(data.email || user?.email || "").trim();
       profileLocationInput.value = String(data.location || "").trim();
+      document.querySelectorAll("[data-account-name]").forEach(el => { el.textContent = [data.firstName, data.lastName].filter(Boolean).join(" ") || "Профиль"; el.removeAttribute("data-i18n"); });
       renderAvatar(String(data.avatarDataUrl || "").trim());
       setStatus(avatarHelperText, "PNG, JPG up to 4 MB.");
     }

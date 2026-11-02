@@ -1,3 +1,4 @@
+import { changeLanguage } from "./helpers/account-preferences.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
@@ -54,7 +55,7 @@ test("engineering forms preserve beam dimensions and distinguish shaft clear spa
     assert.equal(await page.locator(".geom-stair-projStepHeight").isVisible(), false);
     assert.equal(await page.locator(".geom-stair-projFlightWidth").isVisible(), true);
     assert.equal(await page.locator('#geomStairsList [data-dimension="length"]').count(), 2);
-    await page.locator("#workspaceLanguage").selectOption("en");
+    await changeLanguage(page, "en");
     assert.match(await page.locator("#geomStairsList").textContent(), /Physical dimensions/u);
     assert.equal(await page.locator("#geometry [data-reference]").count(), 1);
     await page.locator('.tabs [data-target="documents"]').click();
@@ -202,7 +203,7 @@ test("height-only controls keep loaded coordinate records and exclude hidden coo
     assert.doesNotMatch((await heightRow.allInnerTexts()).join(" "), /ΔX|ΔY/u);
     await page.locator('.tabs [data-target="geo"]').click();
     await page.locator("#btnClearForm").click();
-    await page.locator("#workspaceLanguage").selectOption("en");
+    await changeLanguage(page, "en");
     assert.equal(await page.locator('#constructionType option[value="excavation"]').textContent(), "Excavation");
     await page.locator("#btnGeo").click();
     await page.getByText(/Enter the survey point and measurement source\./u).waitFor();

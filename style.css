@@ -2257,19 +2257,6 @@ body.theme-light .summary-text-content li {
   color: #4b5563;
 }
 
-/* Альтернативный вариант: галочка (если браузер поддерживает) */
-@supports (content: "✔") {
-  select option:checked::after {
-    content: "✔";
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #60a5fa;
-    font-size: 12px;
-    font-weight: 600;
-  }
-}
 
 /* Стили для выбранного значения в самом select (более плотная типографика) */
 .construction-bar select {

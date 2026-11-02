@@ -1,3 +1,4 @@
+import { changeTheme } from "./helpers/account-preferences.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
@@ -34,7 +35,7 @@ test("inspection fields and actions fit desktop, tablet and mobile in both theme
   for (const width of [1440, 1024, 768, 390, 320]) {
     await page.setViewportSize({width,height:1000});
     for (const theme of ["light","dark"]) {
-      if (!await page.locator("body").evaluate((body, theme) => body.classList.contains("theme-"+theme),theme)) await page.locator("#themeToggleBtn").click();
+      if (!await page.locator("body").evaluate((body, theme) => body.classList.contains("theme-"+theme),theme)) await changeTheme(page);
       for (const target of targets) {
         await openModule(page,target,width);
         const section = page.locator("#"+target);

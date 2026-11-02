@@ -1,3 +1,4 @@
+import { changeTheme, changeLanguage } from "./helpers/account-preferences.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
@@ -57,7 +58,7 @@ test("workspace: navigation, themes, language, mobile layout and persistence", a
     assert.equal(await page.locator("#summary").isVisible(), true);
     await page.locator("#analyticsBlock").waitFor();
     await page.locator('.tabs [data-target="overview"]').click();
-    await page.locator("#workspaceLanguage").selectOption("en");
+    await changeLanguage(page, "en");
     await page.locator('h2[data-i18n="overview"]').filter({ hasText: "Project overview" }).waitFor();
     assert.equal(await page.locator("html").getAttribute("lang"), "en");
     await page.locator('.tabs [data-target="controlPlan"]').click();
@@ -67,14 +68,14 @@ test("workspace: navigation, themes, language, mobile layout and persistence", a
     await page.locator("#controlPlanTableBody .control-plan-status").filter({ hasText: "Blocked" }).first().waitFor();
     await page.locator("#controlPlanSearch").fill("unmatched-structure-123");
     await page.locator("#controlPlanEmpty").filter({ hasText: "No structures match" }).waitFor();
-    await page.locator("#workspaceLanguage").selectOption("ru");
+    await changeLanguage(page, "ru");
     await page.locator("#controlPlanEmpty").filter({ hasText: "Нет конструкций" }).waitFor();
-    await page.locator("#workspaceLanguage").selectOption("en");
+    await changeLanguage(page, "en");
     await page.locator("#controlPlanSearch").fill("");
     await page.locator('.tabs [data-target="overview"]').click();
     await page.reload();
     await page.locator('h2[data-i18n="overview"]').filter({ hasText: "Project overview" }).waitFor();
-    await page.locator("#themeToggleBtn").click();
+    await changeTheme(page);
     assert.equal(await page.locator("body").evaluate(e => e.classList.contains("theme-dark")), true);
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
@@ -94,7 +95,7 @@ test("workspace: navigation, themes, language, mobile layout and persistence", a
     assert.ok(await page.evaluate(() => window.scrollY > 0), "Workspace must use document scrolling");
     await page.locator("#controlPlanTableBody summary").first().click();
     await page.locator(".control-plan-task-detail").first().waitFor({ state: "visible" });
-    await page.locator("#themeToggleBtn").click();
+    await changeTheme(page);
     assert.equal(await page.locator("body").evaluate(e => e.classList.contains("theme-light")), true);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await page.locator('#bottomNav [data-tab="journal"]').click();
@@ -128,7 +129,7 @@ test("workspace layouts and geometry form work in both themes on desktop and mob
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
       for (const theme of ["light", "dark"]) {
-        if (!await page.locator("body").evaluate((e, theme) => e.classList.contains(`theme-${theme}`), theme)) await page.locator("#themeToggleBtn").click();
+        if (!await page.locator("body").evaluate((e, theme) => e.classList.contains(`theme-${theme}`), theme)) await changeTheme(page);
         for (const target of ["overview", "controlPlan", "journal", "geo", "reinforcement", "geometry", "strength", "summary", "knowledge"]) {
           if (width === 1440) await page.locator(`.tabs [data-target="${target}"]`).click();
           else if (["geo", "reinforcement", "geometry", "strength"].includes(target)) {

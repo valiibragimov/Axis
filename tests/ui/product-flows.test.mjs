@@ -1,3 +1,4 @@
+import { changeLanguage } from "./helpers/account-preferences.mjs";
 import { completeSlabAcceptance } from "./helpers/engineering-forms.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -89,7 +90,7 @@ test("real IFC import, engineering localization, bounded model selection and rep
     await page.reload();
     await page.locator("#geoBimElementSelectResults").waitFor({ state: "attached" });
     assert.ok(await page.locator("#geoBimElementSelect option").count() <= 102);
-    await page.locator("#workspaceLanguage").selectOption("en");
+    await changeLanguage(page, "en");
     for (const target of ["geo", "reinforcement", "geometry", "strength"]) {
       await page.locator(`.tabs [data-target="${target}"]`).click();
       assert.equal(await page.locator(`#${target} h2`).evaluate(e => /[А-Яа-я]/u.test(e.textContent)), false);
@@ -102,7 +103,7 @@ test("real IFC import, engineering localization, bounded model selection and rep
     await page.locator("#geomBimSearchInput").fill("C-9999");
     await page.waitForFunction(() => document.getElementById("geomBimElementSelect").options.length === 2);
     await page.locator("#geomBimElementSelect").selectOption("large-9999");
-    await page.locator("#workspaceLanguage").selectOption("ru");
+    await changeLanguage(page, "ru");
     assert.equal(await page.locator("#geomBimElementSelect").inputValue(), "large-9999");
     await page.locator('.tabs [data-target="controlPlan"]').click();
     const download = page.waitForEvent("download"); await page.locator("#btnControlPlanExportCsv").click();

@@ -36,9 +36,17 @@ function renderTranslations() {
     if (!option.hasAttribute("value")) option.value = original;
     if (!option.hasAttribute("data-i18n")) option.textContent = translateEngineeringLabel(original);
   });
+  document.querySelectorAll<HTMLElement>("[data-language-value]").forEach(el => { el.textContent = i18next.resolvedLanguage === "en" ? "English" : "Русский"; });
   const selector = document.getElementById("workspaceLanguage") as HTMLSelectElement | null;
   if (selector) selector.value = i18next.resolvedLanguage || "ru";
   document.dispatchEvent(new CustomEvent("app:language-changed"));
+}
+
+export async function setWorkspaceLanguage(language: string) {
+  const next = language === "en" ? "en" : "ru";
+  await i18next.changeLanguage(next);
+  try { localStorage.setItem("workspace_language", next); } catch { /* Optional preference. */ }
+  renderTranslations();
 }
 
 export async function initializeLocalization() {
@@ -52,8 +60,6 @@ export async function initializeLocalization() {
   }).observe(document.body, { childList: true, subtree: true });
   document.getElementById("workspaceLanguage")?.addEventListener("change", async event => {
     const language = (event.target as HTMLSelectElement).value === "en" ? "en" : "ru";
-    await i18next.changeLanguage(language);
-    try { localStorage.setItem("workspace_language", language); } catch { /* Optional preference persistence. */ }
-    renderTranslations();
+    await setWorkspaceLanguage(language);
   });
 }

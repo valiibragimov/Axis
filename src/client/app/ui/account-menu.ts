@@ -1,3 +1,6 @@
+import { toggleTheme } from "./theme.js";
+import { setWorkspaceLanguage } from "../../shared/i18n/index.js";
+
 /** Shared account menu: focus stays with the trigger on dismissal. */
 export function initAccountMenu() {
   const trigger = document.getElementById("headerProfileButton");
@@ -51,9 +54,13 @@ export function initAccountMenu() {
   menu.parentElement?.addEventListener("focusout", event => {
     if (event.relatedTarget instanceof Node && !menu.parentElement?.contains(event.relatedTarget)) close();
   });
-  menu.addEventListener("click", event => {
+  menu.addEventListener("click", async event => {
     if (!(event.target instanceof Element)) return;
-    if (event.target.closest("[data-account-theme]")) document.getElementById("themeToggleBtn")?.click();
+    if (event.target.closest("[data-account-theme]")) { toggleTheme(); return; }
+    if (event.target.closest("[data-account-language]")) {
+      await setWorkspaceLanguage(document.documentElement.lang === "en" ? "ru" : "en");
+      return;
+    }
     if (event.target.closest('[role="menuitem"]')) close(true);
   });
 }

@@ -1,3 +1,4 @@
+import { changeTheme, changeLanguage } from "./helpers/account-preferences.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
@@ -86,10 +87,10 @@ test("sidebar resizes from the right edge, collapses, restores, and supports key
     await page.keyboard.press("Escape");
     await page.mouse.up();
     assert.equal(await width(), 360, "Escape restores the pre-drag width");
-    await page.locator("#themeToggleBtn").click();
+    await changeTheme(page);
     await sidebar.locator('[data-target="overview"]').click();
     await capture(page, "overview-dark");
-    await page.locator("#workspaceLanguage").selectOption("en");
+    await changeLanguage(page, "en");
     await right.press("Home");
     await geo.focus();
     assert.equal(await page.locator("#sidebarTooltip").textContent(), "Geodesy");
@@ -182,7 +183,7 @@ test("profile and account settings retain usable layouts with synthetic account 
         export const reauthenticateWithCredential=async()=>{};
         export const updatePassword=async()=>{};
         export const updateEmail=async()=>{};` });
-      if (url.pathname.endsWith("profile-feed.json")) return route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: [], generatedAt: new Date().toISOString() }) });
+      if (url.pathname.endsWith("profile-feed.json")) return route.fulfill({ contentType: "application/json", body: JSON.stringify({ sections: { regulatory: Array.from({length: 20}, (_, i) => ({id: "fixture-" + i, section: "regulatory", category: "code", categoryLabel: "СП", title: "Нормативный материал " + i, summary: "Проверочный материал для прокрутки инфоленты.", sourceLabel: "Источник", sourceUrl: "https://example.com", url: "https://example.com/" + i, publishedAt: null, publishedLabel: "2026"})), industry: [] }, sources: [], generatedAt: new Date().toISOString() }) });
       return route.continue();
     });
     for (const theme of ["light", "dark"]) {
@@ -193,6 +194,22 @@ test("profile and account settings retain usable layouts with synthetic account 
           await page.goto(`${server.url}/${route}.html`);
           if (route === "profile") {
             await page.locator("#projectsContainer .project-card").first().waitFor();
+            assert.equal(await page.locator("#profileEditLink, #profileMenuButton").count(), 0);
+            assert.equal(await page.locator("header button, header select").count(), 0);
+            assert.ok((await page.locator("#profileAvatarButton").boundingBox()).width >= 80);
+            if (width > 768) {
+              assert.equal(await page.locator('#workspaceSidebar a[data-target="geometry"]').getAttribute("href"), "index.html#geometry");
+              assert.equal(Math.round((await page.locator("#workspaceSidebar").boundingBox()).width), 240);
+              await page.locator("#sidebarToggle").click();
+              assert.equal(Math.round((await page.locator("#workspaceSidebar").boundingBox()).width), 64);
+              await page.locator("#sidebarToggle").click();
+            }
+            await page.locator("#profileFeedPanel .profile-feed-item").first().waitFor();
+            assert.ok((await page.locator(".profile-feed-card").boundingBox()).height <= 560);
+            const feed = page.locator("#profileFeedPanel");
+            assert.equal(await feed.evaluate(el => el.scrollHeight > el.clientHeight), true, await feed.evaluate(el => JSON.stringify({height:el.clientHeight, scroll:el.scrollHeight, items:el.children.length, style:getComputedStyle(el).cssText, grid:getComputedStyle(el).display, flex:getComputedStyle(el).flex})));
+            await feed.evaluate(el => { el.scrollTop = 200; });
+            assert.ok(await feed.evaluate(el => el.scrollTop > 0));
             await page.locator("#headerProfileButton").click();
             assert.equal(await page.locator("#accountMenu").isVisible(), true);
             await page.keyboard.press("Escape");
@@ -201,7 +218,7 @@ test("profile and account settings retain usable layouts with synthetic account 
           else {
             await page.locator("#profileNameInput").waitFor();
             assert.equal(await page.getByRole("link", { name: "Вернуться в профиль" }).isVisible(), true);
-            assert.equal(await page.getByRole("button", { name: "Сменить тему" }).isVisible(), true);
+            assert.equal(await page.locator("header #themeToggleBtn").count(), 0);
           }
           await noOverflow(page);
           if (width !== 820 && width !== 320) await capture(page, `${route}-${theme}-${width}`);
@@ -241,7 +258,7 @@ test("account menu remains reachable and keyboard operable in both themes and on
     for (const width of [1440, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       for (const theme of ["light", "dark"]) {
-        if (!await page.locator("body").evaluate((el, theme) => el.classList.contains("theme-" + theme), theme)) await page.locator("#themeToggleBtn").click();
+        if (!await page.locator("body").evaluate((el, theme) => el.classList.contains("theme-" + theme), theme)) await changeTheme(page);
         const trigger = page.locator("#headerProfileButton");
         await trigger.focus();
         await trigger.press("ArrowDown");
@@ -260,9 +277,8 @@ test("account menu remains reachable and keyboard operable in both themes and on
         assert.equal(await page.locator("#accountMenu").isVisible(), false);
         await trigger.click();
         await page.locator("[data-account-theme]").click();
-        assert.equal(await page.locator("#accountMenu").isVisible(), false);
+        assert.equal(await page.locator("#accountMenu").isVisible(), true);
         assert.equal(await page.locator("body").evaluate((el, theme) => el.classList.contains("theme-" + theme), theme), false);
-        await trigger.click();
         await page.locator(".brand").click();
         assert.equal(await page.locator("#accountMenu").isVisible(), false);
         await noOverflow(page);

@@ -75,7 +75,8 @@ test("profile page keeps its primary shell accessible", async () => {
   assert.equal(response.status, 200);
   assert.match(body, /Профиль — Axis/);
   assert.match(body, /id="btnLogout"/);
-  assert.match(body, /id="themeToggleBtn"/);
+  assert.match(body, /data-account-theme/);
+  assert.doesNotMatch(body, /id="themeToggleBtn"/);
   assert.match(body, /id="profileShareSheetHandle"/);
   assert.match(body, /finishProfileShareSheetDrag/);
   assert.match(body, /profile-settings-sheet__section-title">Security</);

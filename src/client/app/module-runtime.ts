@@ -542,10 +542,12 @@ export function createModuleRuntime({
     const sectionTargets = new Set(
       Array.from(document.querySelectorAll<HTMLElement>(".section")).map((section) => section.id)
     );
-    const initialTarget = savedTarget && sectionTargets.has(savedTarget)
+    const requestedTarget = location.hash.slice(1);
+    const initialTarget = sectionTargets.has(requestedTarget) ? requestedTarget : savedTarget && sectionTargets.has(savedTarget)
       ? savedTarget
       : document.querySelector<HTMLElement>(".tab.active[data-target]")?.dataset.target || "overview";
     activateTarget(initialTarget, storageKey);
+    if (sectionTargets.has(requestedTarget)) history.replaceState(history.state, "", location.pathname + location.search);
   };
 
   const initBottomNav = (storageKey: string) => {
