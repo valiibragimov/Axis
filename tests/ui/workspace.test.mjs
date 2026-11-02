@@ -18,7 +18,7 @@ test("workspace: navigation, themes, language, mobile layout and persistence", a
     await page.locator("#overviewReadinessValue").filter({ hasText: "0%" }).waitFor();
     const sidebar = await page.locator(".tabs").boundingBox();
     assert.equal(sidebar.x, 0);
-    assert.equal(sidebar.y, 64);
+    assert.equal(sidebar.y, 0);
     await page.locator('.tabs [data-target="geo"]').click();
     assert.equal(await page.locator("#geo").isVisible(), true);
     await page.locator('.tabs [data-target="strength"]').click();
@@ -79,7 +79,7 @@ test("workspace: navigation, themes, language, mobile layout and persistence", a
     assert.equal(await page.locator("body").evaluate(e => e.classList.contains("theme-dark")), true);
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-    assert.equal(await page.locator(".tabs").isVisible(), false);
+    assert.equal(await page.locator(".sidebar-scroll").evaluate(el => el.inert), true);
     const context = await page.locator("main > .construction-bar").boundingBox();
     assert.ok(context.height < 190, `Mobile project context is too tall: ${context.height}`);
     for (const target of ["overview", "controlPlan", "summary", "journal", "knowledge"]) {
@@ -104,6 +104,7 @@ test("workspace: navigation, themes, language, mobile layout and persistence", a
     await page.locator("#btnAllArticles").click();
     await page.locator("#knowledgeArticlesGrid").waitFor({ state: "visible" });
     assert.equal(await page.evaluate(() => typeof window.openArticle), "undefined");
+    await page.locator("#sidebarToggle").click();
     await page.locator("[data-workspace-home]").focus();
     await page.keyboard.press("Enter");
     await page.locator("#overview.active").waitFor();

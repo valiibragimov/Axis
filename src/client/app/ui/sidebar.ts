@@ -14,6 +14,16 @@ export function initSidebar() {
   if (!sidebar || !toggle) return;
   const desktop = matchMedia("(min-width: 769px)");
   const handles = [...sidebar.querySelectorAll<HTMLElement>(".sidebar-resize")];
+  const backdrop = document.createElement("button");
+  backdrop.className = "sidebar-backdrop";
+  backdrop.type = "button";
+  backdrop.hidden = true;
+  backdrop.tabIndex = -1;
+  document.body.append(backdrop);
+  const scroll = sidebar.querySelector<HTMLElement>(".sidebar-scroll");
+  const brand = sidebar.querySelector<HTMLElement>(".sidebar-brand");
+  const toolbar = sidebar.querySelector(".sidebar-toolbar");
+  let mobileOpen = false;
   const tooltip = document.createElement("div");
   tooltip.className = "sidebar-tooltip";
   tooltip.id = "sidebarTooltip";
@@ -40,9 +50,24 @@ export function initSidebar() {
   const render = () => {
     const current = collapsed ? COLLAPSED : width;
     document.body.style.setProperty("--sidebar-width", `${current}px`);
-    sidebar.dataset.collapsed = String(collapsed);
-    toggle.setAttribute("aria-expanded", String(!collapsed));
-    toggle.setAttribute("aria-label", t(collapsed ? "expandSidebar" : "collapseSidebar"));
+    sidebar.dataset.collapsed = String(desktop.matches && collapsed);
+    sidebar.dataset.mobileOpen = String(!desktop.matches && mobileOpen);
+    const floatingToggle = !desktop.matches && !mobileOpen;
+    toggle.classList.toggle("sidebar-mobile-toggle", floatingToggle);
+    const toggleHost = floatingToggle ? document.body : toolbar;
+    if (toggleHost && toggle.parentElement !== toggleHost) {
+      const focused = document.activeElement === toggle;
+      if (floatingToggle) toggleHost.prepend(toggle);
+      else toggleHost.append(toggle);
+      if (focused) toggle.focus();
+    }
+    if (scroll) scroll.inert = !desktop.matches && !mobileOpen;
+    if (brand) brand.tabIndex = desktop.matches ? (collapsed ? -1 : 0) : (mobileOpen ? 0 : -1);
+    backdrop.hidden = desktop.matches || !mobileOpen;
+    backdrop.setAttribute("aria-label", t("collapseSidebar"));
+    const expanded = desktop.matches ? !collapsed : mobileOpen;
+    toggle.setAttribute("aria-expanded", String(expanded));
+    toggle.setAttribute("aria-label", t(expanded ? "collapseSidebar" : "expandSidebar"));
     for (const handle of handles) {
       handle.tabIndex = desktop.matches ? 0 : -1;
       handle.setAttribute("aria-valuenow", String(current));
@@ -52,7 +77,21 @@ export function initSidebar() {
   const save = () => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ width, collapsed })); } catch { /* Optional. */ }
   };
+  const closeMobile = (restore = false) => {
+    if (desktop.matches || !mobileOpen) return;
+    mobileOpen = false;
+    render();
+    if (restore) toggle.focus();
+  };
+  backdrop.addEventListener("click", () => closeMobile(true));
+  sidebar.addEventListener("focusout", event => {
+    if (event.relatedTarget instanceof Node && !sidebar.contains(event.relatedTarget)) closeMobile();
+  });
+  sidebar.addEventListener("click", event => {
+    if (event.target instanceof Element && event.target.closest(".tab, [data-workspace-home]")) closeMobile(true);
+  });
   const toggleSidebar = () => {
+    if (!desktop.matches) { mobileOpen = !mobileOpen; render(); return; }
     collapsed = !collapsed;
     hideTooltip();
     render();
@@ -127,13 +166,13 @@ export function initSidebar() {
   tooltip.addEventListener("pointerenter", () => clearTimeout(tooltipTimer));
   tooltip.addEventListener("pointerleave", hideTooltip);
   document.addEventListener("keydown", event => {
-    if (event.key === "Escape") { hideTooltip(); finishDrag(true); }
+    if (event.key === "Escape") { hideTooltip(); closeMobile(true); finishDrag(true); }
   });
   sidebar.querySelector(".sidebar-scroll")?.addEventListener("scroll", hideTooltip);
   window.addEventListener("resize", hideTooltip);
   window.addEventListener("blur", () => finishDrag(true));
-  desktop.addEventListener("change", () => { finishDrag(true); hideTooltip(); render(); });
+  desktop.addEventListener("change", () => { mobileOpen = false; finishDrag(true); hideTooltip(); render(); });
   document.addEventListener("app:language-changed", () => { hideTooltip(); render(); });
-  document.addEventListener("app:tab-activated", hideTooltip);
+  document.addEventListener("app:tab-activated", () => { hideTooltip(); closeMobile(true); });
   render();
 }

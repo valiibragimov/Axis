@@ -92,11 +92,11 @@ export function initAuthBootstrap({
 }
 
 export function initStaticBootstrap({ regulatoryDocs, showNotification }: StaticBootstrapOptions) {
-  document.querySelector("header")?.classList.remove("header-hidden");
   initInspectionWorkspace();
   initSidebar();
   initAccountMenu();
-  document.querySelector("[data-workspace-home]")?.addEventListener("click", () => {
+  document.querySelector("[data-workspace-home]")?.addEventListener("click", event => {
+    event.preventDefault();
     document.querySelector<HTMLButtonElement>('.tab[data-target="overview"]')?.click();
     window.scrollTo({ top: 0, behavior: "instant" });
   });

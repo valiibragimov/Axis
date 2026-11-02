@@ -98,7 +98,8 @@ test("sidebar resizes from the right edge, collapses, restores, and supports key
     for (const viewportWidth of [1024, 820, 768, 390, 320]) {
       await page.setViewportSize({ width: viewportWidth, height: 900 });
       await noOverflow(page);
-      assert.equal(await sidebar.locator(".sidebar-toolbar").isVisible(), viewportWidth > 768);
+      assert.equal(await page.locator("#sidebarToggle").isVisible(), true);
+      assert.equal(await sidebar.locator(".sidebar-scroll").evaluate(el => el.inert), viewportWidth <= 768);
       if (viewportWidth <= 768) {
         assert.equal(await page.locator("#bottomNav").isVisible(), true);
         assert.equal(await right.getAttribute("tabindex"), "-1");
@@ -217,7 +218,7 @@ test("profile and account settings retain usable layouts with synthetic account 
           }
           else {
             await page.locator("#profileNameInput").waitFor();
-            assert.equal(await page.getByRole("link", { name: "Вернуться в профиль" }).isVisible(), true);
+            assert.equal(await page.locator('#accountMenu a[href="profile.html"]').count(), 1);
             assert.equal(await page.locator("header #themeToggleBtn").count(), 0);
           }
           await noOverflow(page);
@@ -279,7 +280,7 @@ test("account menu remains reachable and keyboard operable in both themes and on
         await page.locator("[data-account-theme]").click();
         assert.equal(await page.locator("#accountMenu").isVisible(), true);
         assert.equal(await page.locator("body").evaluate((el, theme) => el.classList.contains("theme-" + theme), theme), false);
-        await page.locator(".brand").click();
+        await page.locator("#overview h2").click();
         assert.equal(await page.locator("#accountMenu").isVisible(), false);
         await noOverflow(page);
       }
