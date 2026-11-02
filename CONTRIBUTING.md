@@ -8,6 +8,8 @@ Read [Development](docs/development.md) for setup and test commands, and [Archit
 
 ## Before submitting
 
+For a new feature, follow the acceptance criteria in [AGENTS.md](AGENTS.md#new-feature-acceptance): identify ownership and reuse existing calculations before choosing module boundaries. CI enforces static dependency boundaries for all shared and server application code through lint and negative CLI fixtures. New `inspections/*/evaluation.ts` files automatically enter the engineering strict profile. These checks complement review; they do not detect every duplicate algorithm or guarantee data safety by themselves.
+
 - Preserve engineering units, tolerances, normative references and saved record identities.
 - Keep evaluation logic independent of UI and storage. Use existing feature APIs and shared contracts.
 - Add tests for changed behaviour, especially calculations, IFC mapping, report output, concurrency and data formats.

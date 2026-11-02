@@ -22,5 +22,5 @@
     "src/client/features/inspections/geometry/evaluation.ts",
     "src/client/features/inspections/strength/evaluation.ts"
   ],
-  "include": []
+  "include": ["src/client/features/inspections/*/evaluation.ts"]
 }

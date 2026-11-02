@@ -73,12 +73,17 @@ export default [
     }
   },
   {
-    files: ["src/shared/bim/**/*.ts", "server/src/application/**/*.ts"],
+    files: ["src/shared/**/*.ts", "server/src/application/**/*.ts"],
     rules: {
       "no-restricted-imports": ["error", { patterns: [{
-        group: ["**/client/**", "**/repositories/**", "**/infrastructure/**", "firebase*", "express", "piscina"],
+        group: ["**/client/**", "**/server/**", "**/functions/**", "**/repositories/**", "**/infrastructure/**", "firebase", "firebase/**", "firebase-admin", "firebase-admin/**", "@firebase/**", "express", "piscina"],
         message: "Domain and application modules depend on ports, not UI or infrastructure."
-      }] }]
+      }] }],
+      "no-restricted-syntax": ["error",
+        { selector: "ImportExpression", message: "Shared and application code uses explicit static dependencies." },
+        { selector: "CallExpression[callee.name='require']", message: "Shared and application code uses explicit static dependencies." }
+      ],
+      "no-restricted-globals": ["error", "window", "document", "localStorage", "indexedDB", "navigator", "globalThis", "self"]
     }
   },
   {

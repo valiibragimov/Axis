@@ -23,6 +23,12 @@ Single Responsibility: split by a real reason to change, not by file length. Dep
 
 Use feature public APIs across feature boundaries. Do not add global state bridges. Pass workspace dependencies through `WorkspaceContext` at composition; features own their mutable state. Do not add infrastructure imports to calculation or evaluation modules. Preserve stable IDs and stored Firestore contracts; a data format change needs a versioned migration and a rollback path.
 
+## New feature acceptance
+
+Before implementation, identify the feature owner, existing public API and evaluator, persistence adapter, and failure/retry path. Reuse the authoritative calculation rather than copying it into UI, reports or analytics. Keep new inspection evaluators under `src/client/features/inspections/<feature>/evaluation.ts`; the engineering strict profile includes that convention automatically. For other new modules, assess their compiler closure and add a scoped strict entry before introducing untyped contracts.
+
+At review, account for changed units/tolerances, incomplete inputs, stable identities, old stored records and concurrent project/user changes. Persistence changes need synthetic rejection/retry/recovery tests; schema changes need the migration/rollback contract described above. State the supported runtime/workspace scope. Use the existing CI typecheck, lint and test gates; their negative fixtures must reject forbidden dependencies as well as accept supported ports. Duplicate calculation prevention still requires review of consumers; import checks are not semantic clone detection.
+
 ## HTTP contract
 
 Request validators are in `server/src/http-contract.ts`; `scripts/build/generate-api.mjs` composes the OpenAPI contract. Run `npm run api:generate` after changes. `api/openapi.json`, `src/shared/api-schema.d.ts` and route modules are generated: never edit them manually. `npm run api:check` rejects drift. Own HTTP calls use the generated types and route identifiers, with deadlines and auth. Do not log request bodies, reports or tokens.
