@@ -239,7 +239,7 @@ export async function exportControlPlanPdf() {
     const documentCode = requisites.documentCode;
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
-          doc.setProperties({ title: "Axis — План контроля качества", creator: "Axis" });
+    doc.setProperties({ title: "Axis - Inspection and Test Plan", creator: "Axis" });
     const fontReady = await ensurePdfFontLoaded();
     const pdfFontLoaded = fontReady ? registerPdfFont(doc) : false;
     if (pdfFontLoaded) {

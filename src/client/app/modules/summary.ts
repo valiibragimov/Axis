@@ -1563,7 +1563,7 @@ function initSummaryHandlers() {
 
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF({ unit: "mm", format: "a4" });
-          doc.setProperties({ title: "Axis — Итоговое заключение", creator: "Axis" });
+          doc.setProperties({ title: "Axis - Final inspection report", creator: "Axis" });
           const fontReady = await ensurePdfFontLoaded();
           const pdfFontLoaded = fontReady ? registerPdfFont(doc) : false;
           if (pdfFontLoaded) {
