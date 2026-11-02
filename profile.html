@@ -46,73 +46,35 @@
   <!-- HEADER -->
   <header>
     <a class="brand" href="index.html" aria-label="На главную">
-      <svg width="24" height="24" viewBox="0 0 40 40" class="brand-icon" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M17 5h6l13 30h-8l-3-8H15l-3 8H4L17 5Zm3 9-3 7h6l-3-7Z" /></svg>
       <h1>Axis</h1>
     </a>
 
-    <button
-      id="profileMobileSettingsButton"
-      class="header-icon-btn profile-mobile-header-btn profile-settings-trigger"
-      type="button"
-      aria-label="Open profile settings"
-      aria-haspopup="dialog"
-      aria-expanded="false"
-      aria-controls="profileSettingsSheet"
-      title="Profile settings"
-    >
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="5.5"></circle>
-        <circle cx="12" cy="12" r="2.25"></circle>
-        <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"></path>
-      </svg>
-    </button>
-
     <div class="profile-mobile-header-title" id="profileHeaderTitle" aria-live="polite">
       <a class="brand profile-mobile-header-brand" href="index.html" aria-label="На главную">
-        <svg width="24" height="24" viewBox="0 0 40 40" class="brand-icon" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M17 5h6l13 30h-8l-3-8H15l-3 8H4L17 5Zm3 9-3 7h6l-3-7Z" /></svg>
         <h1>Axis</h1>
       </a>
-    </div>
-
-    <div class="profile-mobile-header-menu">
-      <button
-        id="profileMobileShareButton"
-        class="header-icon-btn profile-mobile-header-btn profile-mobile-share-trigger"
-        type="button"
-        aria-label="Поделиться профилем"
-        aria-haspopup="dialog"
-        aria-expanded="false"
-        aria-controls="profileShareSheet"
-        title="Поделиться профилем"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <circle cx="5" cy="12" r="1.8" />
-          <circle cx="12" cy="12" r="1.8" />
-          <circle cx="19" cy="12" r="1.8" />
-        </svg>
-      </button>
     </div>
 
     <div class="header-actions">
       <button id="themeToggleBtn" class="header-icon-btn theme-toggle-btn" aria-label="Сменить тему" title="Сменить тему">
         <span class="theme-toggle-icon"></span>
       </button>
-      <span id="headerProfileButton" class="header-icon-btn" title="Профиль">
-        <img id="headerProfileAvatar" class="header-profile-avatar" alt="Профиль" hidden />
-        <svg class="header-profile-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        </svg>
-      </span>
-      <button id="btnLogout" aria-label="Выйти" class="header-icon-btn header-icon-btn--danger" title="Выйти">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-          <polyline points="16 17 21 12 16 7"/>
-          <line x1="21" y1="12" x2="9" y2="12"/>
-        </svg>
-      </button>
     </div>
   </header>
+  <aside class="account-rail" aria-label="Аккаунт"><div class="sidebar-account">
+  <button id="headerProfileButton" class="account-trigger" type="button" aria-haspopup="menu" aria-controls="accountMenu" aria-expanded="false" data-i18n-aria="profile" aria-label="Профиль">
+    <span class="account-avatar"><img id="headerProfileAvatar" alt="" hidden /><svg class="header-profile-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg></span><span class="account-trigger-name" data-account-name data-i18n="profile">Профиль</span><span class="account-chevron" aria-hidden="true">⌃</span>
+  </button>
+  <div id="accountMenu" class="account-menu" role="menu" aria-label="Профиль" hidden>
+    <div class="account-menu-identity" role="presentation"><strong data-account-name data-i18n="profile">Профиль</strong><span data-i18n="workspace">Рабочая среда</span></div>
+    <a class="account-menu-item" href="profile.html" role="menuitem" tabindex="-1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg><span data-i18n="profile">Профиль</span></a>
+    <a class="account-menu-item" href="edit-profile.html" role="menuitem" tabindex="-1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 3-1 3-3 1-2 3 2 2-1 3 2 3 3-1 2 2 3-1 1-3 3-1 1-3-2-2 1-3-3-2-3 1Z"/><circle cx="12" cy="12" r="3"/></svg><span data-i18n="accountSettings">Настройки аккаунта</span></a>
+    <button class="account-menu-item" type="button" role="menuitem" tabindex="-1" data-account-theme><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z"/></svg><span data-i18n="changeTheme">Сменить тему</span></button>
+    <div class="account-menu-divider" role="separator"></div>
+    <button id="btnLogout" class="account-menu-item" type="button" role="menuitem" tabindex="-1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5V3h4M15 8l5 4-5 4M9 12h11"/></svg><span data-i18n="signOut">Выйти</span></button>
+  </div>
+</div></aside>
+  <script type="module">import { initAccountMenu } from './dist/app/ui/account-menu.js'; initAccountMenu();</script>
 
   <main class="profile-main">
     <section class="section active profile-section">
@@ -826,6 +788,7 @@
       const displayName = resolveProfileDisplayName();
       if (profileDisplayName) {
         profileDisplayName.textContent = displayName;
+        document.querySelectorAll("[data-account-name]").forEach(el => { el.textContent = displayName; el.removeAttribute("data-i18n"); });
       }
       if (profileSettingsSignedIn) {
         profileSettingsSignedIn.textContent = currentUserEmail || displayName || "Пользователь";

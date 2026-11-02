@@ -57,25 +57,30 @@ test("inspection fields and actions fit desktop, tablet and mobile in both theme
   }
 }));
 
-test("long select names can be read with keyboard without changing selection or stored evidence", async () => fixture(async page => {
+test("long select labels stay bounded without changing selection or stored evidence", async () => fixture(async page => {
   await page.setViewportSize({width:390,height:844});
   await openModule(page,"geometry",390);
   const fullName = "Производственный корпус «Инженерный» — " + "длинное-наименование-без-пробела".repeat(20);
   const before = await page.evaluate(()=>localStorage.getItem("tehnadzor-demo:v2:database"));
   const selected = await page.locator("#projectSelector").inputValue();
   await page.locator("#projectSelector").evaluate((select, text)=>{select.selectedOptions[0].textContent=text;},fullName);
-  const reveal = page.locator("#projectSelector + .select-full-name");
-  await reveal.waitFor({state:"visible"});
-  await reveal.focus();
-  await page.keyboard.press("Enter");
-  assert.equal(await page.locator("#workspaceHelp").innerText(),fullName);
-  assert.equal(await page.locator("#workspaceHelp").evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;}),true);
-  await page.keyboard.press("Escape");
-  assert.equal(await reveal.evaluate(e=>document.activeElement===e),true);
+  await page.waitForFunction(() => document.querySelector("#projectSelector option:checked").label.endsWith("…"));
+  assert.equal(await page.locator(".select-full-name").count(),0);
+  assert.equal(await page.locator("#projectSelector option:checked").textContent(),fullName);
+  assert.ok((await page.locator("#projectSelector option:checked").getAttribute("label")).length <= 56);
+  if (await page.evaluate(() => CSS.supports("appearance", "base-select"))) {
+    await page.locator("#projectSelector").click();
+    const bounds = await page.locator("#projectSelector option:checked").boundingBox();
+    assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= 390);
+    await page.keyboard.press("Escape");
+  }
   assert.equal(await page.locator("#projectSelector").inputValue(),selected);
   assert.equal(await page.evaluate(()=>localStorage.getItem("tehnadzor-demo:v2:database")),before);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await page.setViewportSize({width:1440,height:1000});
+  await page.locator('.tabs [data-target="documents"]').focus();
+  assert.equal(await page.locator("#sidebarTooltip").isVisible(),false);
+  await page.locator("#sidebarToggle").click();
   await page.locator('.tabs [data-target="documents"]').focus();
   await page.locator("#sidebarTooltip").waitFor({state:"visible"});
   assert.match(await page.locator("#sidebarTooltip").innerText(), /Исполнительная документация/u);
@@ -113,18 +118,9 @@ test("comments stay bounded and coordinate inputs retain project/actual pairs on
   await page.screenshot({path:"output/playwright/ux/after-mobile-coordinates.png"});
   const selectedName = "Длинное-название-класса-поверхности".repeat(100);
   await page.locator("#geoPlateFlatnessClass").evaluate((select, name)=>{select.selectedOptions[0].textContent=name;},selectedName);
-  const reveal=page.locator("#geoPlateFlatnessClass + .select-full-name");
-  await reveal.waitFor({state:"visible"});
-  await reveal.click();
-  const popover=page.locator("#workspaceHelp");
-  assert.equal(await popover.evaluate(e=>e.closest("dialog:modal")?.id),"geoCoordinatesSheet");
-  assert.equal(await popover.evaluate(e=>{const r=e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+20));}),true);
-  await popover.hover();
-  await page.mouse.wheel(0,400);
-  await page.waitForFunction(()=>document.getElementById("workspaceHelp").scrollTop>0);
-  await page.keyboard.press("Escape");
-  assert.equal(await popover.evaluate(e=>e.matches(":popover-open")),false);
+  await page.waitForFunction(()=>document.querySelector("#geoPlateFlatnessClass option:checked").label.endsWith("…"));
+  assert.equal(await page.locator(".select-full-name").count(),0);
+  assert.equal(await page.locator("#geoPlateFlatnessClass option:checked").textContent(),selectedName);
   assert.equal(await page.locator("#geoCoordinatesSheet").evaluate(e=>e.matches(":modal")),true);
-  assert.equal(await reveal.evaluate(e=>e===document.activeElement),true);
 
 }));

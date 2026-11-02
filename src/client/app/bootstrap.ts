@@ -1,3 +1,4 @@
+import { initAccountMenu } from "./ui/account-menu.js";
 import { initSidebar } from "./ui/sidebar.js";
 import { initInspectionWorkspace } from "./ui/inspection-workspace.js";
 import { onAuthStateChanged } from "../infrastructure/firebase/auth.js";
@@ -94,6 +95,7 @@ export function initStaticBootstrap({ regulatoryDocs, showNotification }: Static
   document.querySelector("header")?.classList.remove("header-hidden");
   initInspectionWorkspace();
   initSidebar();
+  initAccountMenu();
   document.querySelector("[data-workspace-home]")?.addEventListener("click", () => {
     document.querySelector<HTMLButtonElement>('.tab[data-target="overview"]')?.click();
     window.scrollTo({ top: 0, behavior: "instant" });

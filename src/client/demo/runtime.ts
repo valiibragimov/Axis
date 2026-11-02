@@ -58,7 +58,7 @@ export function mountDemoRuntimeControls() {
   });
 
   [
-    "headerProfileButton",
+
     "btnLogout",
     "btnSummaryGenerate",
     "btnSummaryExportPdf"

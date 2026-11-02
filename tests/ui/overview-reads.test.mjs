@@ -20,7 +20,7 @@ test("overview shares one issues read with its control plan on each refresh", as
     for (const collection of ["inspections", "geoNodes", "reinfChecks", "geomChecks", "strengthChecks", "issues"]) {
       assert.equal(reads.filter(read => read.project === "project-a" && read.collection === collection).length, 2, collection);
     }
-    assert.equal(await page.locator("#overviewProjectName").innerText(), "Project A");
+    assert.equal(await page.locator("#overviewProjectName").count(), 0);
     assert.equal(await page.locator("#overviewIssuesCount").innerText(), "1");
     assert.equal(await page.locator("#objectOverview").getAttribute("aria-busy"), "false");
   } finally { await harness.close(); }
@@ -59,7 +59,7 @@ for (const lateError of [undefined, "synthetic late failure"]) {
       await page.evaluate(async () => { window.race.select("project-b"); await window.race.renderOverview(); });
       const readiness = await page.locator("#overviewModulesCount").innerText();
       await page.evaluate(async error => { window.race.release(0, error); await window.race.finish("old"); }, lateError);
-      assert.equal(await page.locator("#overviewProjectName").innerText(), "Project B");
+      assert.equal(await page.locator("#overviewProjectName").count(), 0);
       assert.equal(await page.locator("#overviewModulesCount").innerText(), readiness);
       assert.equal(await page.locator("#objectOverview").getAttribute("aria-busy"), "false");
     } finally { await harness.close(); }

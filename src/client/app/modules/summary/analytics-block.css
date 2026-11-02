@@ -1,3 +1,4 @@
+@layer legacy {
 /* Summary analytics block */
 #analyticsBlockContainer {
   margin-top: 0;
@@ -1096,4 +1097,6 @@ body.theme-light .analytics-chart-wrap {
   .analytics-drilldown-detail-grid {
     grid-template-columns: 1fr;
   }
+}
+
 }

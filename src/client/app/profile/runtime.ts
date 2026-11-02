@@ -1,3 +1,4 @@
+import { t } from "../../shared/i18n/index.js";
 interface UserProfileSnapshot {
   exists: () => boolean;
   data: () => Record<string, unknown> | undefined;
@@ -25,6 +26,11 @@ export function createProfileRuntime({
 
   const publishEngineerName = (value: string) => {
     currentEngineerName = value;
+    document.querySelectorAll<HTMLElement>("[data-account-name]").forEach(el => {
+      el.textContent = value || t("profile");
+      if (value) el.removeAttribute("data-i18n");
+      else el.setAttribute("data-i18n", "profile");
+    });
   };
 
   const setHeaderProfileAvatar = (dataUrl = "") => {

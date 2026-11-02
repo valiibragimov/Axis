@@ -66,14 +66,6 @@ function getIfcCount() {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function getProjectName() {
-  const selector = workspace.projectSelector;
-  const option = selector && selector.selectedIndex >= 0
-    ? selector.options[selector.selectedIndex]
-    : null;
-  return option?.textContent?.trim() || t("noProject");
-}
-
 function normalizeIssueModule(issue: IssueRecord) {
   const raw = String(issue.moduleKey || issue.module || "").trim().toLowerCase();
   return MODULE_ALIASES[raw] || raw;
@@ -170,7 +162,6 @@ export async function renderOverview() {
 
   root.setAttribute("aria-busy", "true");
   root.classList.add("is-loading");
-  setText("overviewProjectName", hasProject ? getProjectName() : t("selectProjectHint"));
   setText("overviewChecksCount", totalChecks);
   setText("overviewIfcCount", ifcCount);
 

@@ -87,9 +87,7 @@ export function initSidebar() {
     });
     handle.addEventListener("pointermove", event => {
       if (!drag || event.pointerId !== drag.pointerId) return;
-      // The left edge is pinned to the viewport: an inward drag must also open a collapsed rail.
-      const direction = handle.dataset.edge === "left" && !drag.collapsed ? -1 : 1;
-      resize(drag.width + (event.clientX - drag.x) * direction);
+      resize(drag.width + event.clientX - drag.x);
     });
     handle.addEventListener("pointerup", () => finishDrag());
     handle.addEventListener("pointercancel", () => finishDrag(true));
@@ -110,9 +108,7 @@ export function initSidebar() {
   sidebar.querySelectorAll<HTMLElement>(".tab, .sidebar-link, #sidebarToggle").forEach(control => {
     const showTooltip = () => {
       hideTooltip();
-      const label = control.querySelector<HTMLElement>("[data-i18n]");
-      const clipped = label && label.scrollWidth > label.clientWidth;
-      if ((!collapsed && !clipped) || !desktop.matches || drag) return;
+      if (!collapsed || !desktop.matches || drag) return;
       tooltipSource = control;
       tooltip.textContent = control.getAttribute("aria-label") || control.querySelector("[data-i18n]")?.textContent || control.textContent;
       tooltip.hidden = false;

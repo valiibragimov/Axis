@@ -17,7 +17,7 @@ async function noOverflow(page) {
   assert.ok(overflow.scrollWidth <= overflow.width, JSON.stringify(overflow));
 }
 
-test("sidebar resizes from either edge, collapses, restores, and supports keyboard and tooltips", async () => {
+test("sidebar resizes from the right edge, collapses, restores, and supports keyboard and tooltips", async () => {
   const server = await startStaticServer(resolve("dist-demo"));
   const browser = await launch();
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
@@ -28,7 +28,7 @@ test("sidebar resizes from either edge, collapses, restores, and supports keyboa
     await page.locator("#overviewReadinessValue").filter({ hasText: "0%" }).waitFor();
     const sidebar = page.locator("#workspaceSidebar");
     const right = page.locator('.sidebar-resize[data-edge="right"]');
-    const left = page.locator('.sidebar-resize[data-edge="left"]');
+    assert.equal(await page.locator(".sidebar-resize").count(), 1);
     const width = async () => Math.round((await sidebar.boundingBox()).width);
     const drag = async (handle, dx) => {
       const box = await handle.boundingBox();
@@ -41,7 +41,7 @@ test("sidebar resizes from either edge, collapses, restores, and supports keyboa
     await capture(page, "overview-light");
     await drag(right, 80);
     assert.equal(await width(), 320);
-    await drag(left, 80);
+    await drag(right, -80);
     assert.equal(await width(), 240);
     await drag(right, -160);
     assert.equal(await width(), 64);
@@ -65,10 +65,10 @@ test("sidebar resizes from either edge, collapses, restores, and supports keyboa
     assert.equal(await width(), 64);
     await page.locator("#sidebarToggle").click();
     assert.equal(await width(), 240);
-    await drag(left, 160);
-    assert.equal(await width(), 64, "The left edge collapses without leaving the viewport");
-    await drag(left, 176);
-    assert.equal(await width(), 240, "The left edge expands without leaving the viewport");
+    await drag(right, -160);
+    assert.equal(await width(), 64, "The right edge collapses without leaving the viewport");
+    await drag(right, 176);
+    assert.equal(await width(), 240, "The right edge expands without leaving the viewport");
     await right.press("End");
     assert.equal(await width(), 360);
     await right.press("Home");
@@ -97,7 +97,7 @@ test("sidebar resizes from either edge, collapses, restores, and supports keyboa
     for (const viewportWidth of [1024, 820, 768, 390, 320]) {
       await page.setViewportSize({ width: viewportWidth, height: 900 });
       await noOverflow(page);
-      assert.equal(await sidebar.isVisible(), viewportWidth > 768);
+      assert.equal(await sidebar.locator(".sidebar-toolbar").isVisible(), viewportWidth > 768);
       if (viewportWidth <= 768) {
         assert.equal(await page.locator("#bottomNav").isVisible(), true);
         assert.equal(await right.getAttribute("tabindex"), "-1");
@@ -148,7 +148,7 @@ test("public pages share responsive surfaces and auth fields retain accessible n
           await page.goto(`${server.url}/${route}.html`);
           await noOverflow(page);
           assert.equal(await page.locator("html").evaluate(e => e.classList.contains(`theme-${localStorage.getItem("app_theme")}`)), true);
-          assert.equal(await page.locator("body").evaluate(e => getComputedStyle(e).backgroundColor), theme === "dark" ? "rgb(17, 21, 25)" : "rgb(247, 248, 250)");
+          assert.equal(await page.locator("body").evaluate(e => getComputedStyle(e).backgroundColor), theme === "dark" ? "rgb(19, 20, 22)" : "rgb(246, 246, 247)");
           if (["login", "register"].includes(route)) {
             assert.equal(await page.getByLabel("Email", { exact: true }).isVisible(), true);
             assert.equal(await page.getByLabel("Пароль", { exact: true }).isVisible(), true);
@@ -191,7 +191,13 @@ test("profile and account settings retain usable layouts with synthetic account 
         for (const width of [1440, 820, 390, 320]) {
           await page.setViewportSize({ width, height: 1000 });
           await page.goto(`${server.url}/${route}.html`);
-          if (route === "profile") await page.locator("#projectsContainer .project-card").first().waitFor();
+          if (route === "profile") {
+            await page.locator("#projectsContainer .project-card").first().waitFor();
+            await page.locator("#headerProfileButton").click();
+            assert.equal(await page.locator("#accountMenu").isVisible(), true);
+            await page.keyboard.press("Escape");
+            assert.equal(await page.locator("#headerProfileButton").evaluate(el => el === document.activeElement), true);
+          }
           else {
             await page.locator("#profileNameInput").waitFor();
             assert.equal(await page.getByRole("link", { name: "Вернуться в профиль" }).isVisible(), true);
@@ -219,6 +225,48 @@ test("all workspace sections fit beside the widest sidebar on a tablet", async (
       await page.locator(`#${target}.active`).waitFor();
       await capture(page, `tablet-${target}`);
       await noOverflow(page);
+    }
+  } finally { await browser.close(); await server.close(); }
+});
+
+
+test("account menu remains reachable and keyboard operable in both themes and on mobile", async () => {
+  const server = await startStaticServer(resolve("dist-demo"));
+  const browser = await launch();
+  try {
+    const page = await browser.newPage({ reducedMotion: "reduce" });
+    await page.goto(server.url + "/demo.html");
+    await page.locator("#overviewReadinessValue").filter({ hasText: "0%" }).waitFor();
+    assert.equal(await page.locator("header #headerProfileButton, header #btnLogout, .brand-icon").count(), 0);
+    for (const width of [1440, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const theme of ["light", "dark"]) {
+        if (!await page.locator("body").evaluate((el, theme) => el.classList.contains("theme-" + theme), theme)) await page.locator("#themeToggleBtn").click();
+        const trigger = page.locator("#headerProfileButton");
+        await trigger.focus();
+        await trigger.press("ArrowDown");
+        assert.equal(await trigger.getAttribute("aria-expanded"), "true");
+        assert.equal(await page.locator('#accountMenu [role="menuitem"]').first().evaluate(el => el === document.activeElement), true);
+        await page.keyboard.press("End");
+        assert.equal(await page.locator("#btnLogout").evaluate(el => el === document.activeElement), true);
+        await page.keyboard.press("Home");
+        await page.keyboard.press("ArrowDown");
+        assert.equal(await page.locator('#accountMenu a[href="edit-profile.html"]').evaluate(el => el === document.activeElement), true);
+        const bounds = await page.locator("#accountMenu").boundingBox();
+        assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width && bounds.y >= 0 && bounds.y + bounds.height <= 900);
+        await capture(page, "account-" + theme + "-" + width);
+        await page.keyboard.press("Escape");
+        assert.equal(await trigger.evaluate(el => el === document.activeElement), true, `${width} ${theme} focus: ${await page.evaluate(()=>document.activeElement.outerHTML.slice(0,150))}`);
+        assert.equal(await page.locator("#accountMenu").isVisible(), false);
+        await trigger.click();
+        await page.locator("[data-account-theme]").click();
+        assert.equal(await page.locator("#accountMenu").isVisible(), false);
+        assert.equal(await page.locator("body").evaluate((el, theme) => el.classList.contains("theme-" + theme), theme), false);
+        await trigger.click();
+        await page.locator(".brand").click();
+        assert.equal(await page.locator("#accountMenu").isVisible(), false);
+        await noOverflow(page);
+      }
     }
   } finally { await browser.close(); await server.close(); }
 });
