@@ -11,6 +11,7 @@ export interface DocumentUploadPorts {
 export function createDocumentUploader(ports: DocumentUploadPorts) {
   return async (target: DocumentUploadTarget, uid: string, bytes: Uint8Array) => {
     const version = await ports.loadAuthorized(target, uid);
+    if (!(bytes instanceof Uint8Array)) throw new Error("PDF_INVALID_OR_TOO_LARGE");
     if (bytes.length) {
       validatePdfBytes(bytes);
       const sha256 = createHash("sha256").update(bytes).digest("hex");
