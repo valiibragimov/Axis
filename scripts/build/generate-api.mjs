@@ -27,7 +27,7 @@ feedItem.properties = { ...Object.fromEntries(["id", "section", "category", "cat
 feedItem.required = Object.keys(feedItem.properties);
 const feed = object({ ok, generatedAt: string, sections: object({ regulatory: { type: "array", items: feedItem }, industry: { type: "array", items: feedItem } }), sources: { type: "array", items: object({ id: string, label: string, status: { type: "string", enum: ["ok", "error"] }, itemsCount: integer, error: string }, ["id", "label", "status", "itemsCount"]) }, cache: object({ hit: { type: "boolean" }, expiresAt: string }) });
 const document = {
-  openapi: "3.1.0", info: { title: "Tehnadzor HTTP API", version: "1.0.0" },
+  openapi: "3.1.0", info: { title: "Axis HTTP API", version: "1.0.0" },
   components: { securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "Firebase ID token" } }, schemas: {
     ApiError: object({ ok: { type: "boolean", const: false }, error: string, details: { type: "array", items: object({ path: string, message: string }) } }, ["ok", "error"]),
     DocumentUploadResponse: object({ ok, versionId: string }),

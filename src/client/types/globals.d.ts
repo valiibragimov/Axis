@@ -47,6 +47,7 @@ declare global {
     };
     jspdf?: {
       jsPDF?: new (...args: unknown[]) => {
+          setProperties: (properties: { title?: string; creator?: string }) => unknown;
         setFont?: (...args: unknown[]) => unknown;
         setFontSize?: (...args: unknown[]) => unknown;
         addPage?: (...args: unknown[]) => unknown;

@@ -57,7 +57,7 @@ export function buildDemoHtml(source) {
     if (node.tagName === "title") tree.detachNode(node);
   }
   const title = element("title");
-  tree.insertText(title, "Интерактивная демонстрация Tehnadzor");
+  tree.insertText(title, "Интерактивная демонстрация Axis");
   tree.appendChild(head, title);
   tree.appendChild(head, element("meta", { name: "robots", content: "noindex,nofollow" }));
   tree.appendChild(head, element("link", { rel: "icon", href: "data:," }));

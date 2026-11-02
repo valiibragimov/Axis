@@ -238,7 +238,7 @@ async function fetchText(url, timeoutMs = PROFILE_FEED_FETCH_TIMEOUT_MS) {
       redirect: "follow",
       signal: controller.signal,
       headers: {
-        "User-Agent": "TechNadzorOnline/1.0 (+static-feed-builder)",
+        "User-Agent": "Axis/1.0 (+static-feed-builder)",
         Accept: "application/rss+xml, application/xml, text/xml, text/html;q=0.9, */*;q=0.8"
       }
     });

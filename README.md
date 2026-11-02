@@ -1,8 +1,10 @@
 [Русский](README.ru.md) | [English](README.md)
 
-# Tehnadzor
+# Axis
 
-Tehnadzor is a web application for construction inspection. It helps field engineers and quality control teams record measurements, compare them with design values and tolerances, and follow up on defects within a project.
+[Branding and compatibility](docs/branding.md)
+
+Axis is a web application for construction inspection. It helps field engineers and quality control teams record measurements, compare them with design values and tolerances, and follow up on defects within a project.
 
 The work centres on four kinds of checks: survey coordinates and elevations, reinforcement, structural geometry, and concrete strength. IFC models provide element context and some design values alongside the measurements taken on site.
 
@@ -34,8 +36,8 @@ See [Architecture](ARCHITECTURE.md) for module boundaries and data consistency.
 Use Node.js 22.12 or later in the Node 22 release line, npm, and Python 3 for the static server below. The pinned Node version is in [.nvmrc](.nvmrc).
 
 ```sh
-git clone https://github.com/valiibragimov/tehnadzor.git
-cd tehnadzor
+git clone https://github.com/valiibragimov/axis.git
+cd axis
 npm ci
 npm ci --prefix server
 npm ci --prefix functions
@@ -88,4 +90,4 @@ The [CI workflow](.github/workflows/ci.yml) runs these checks on pull requests t
 
 ## License
 
-Tehnadzor is proprietary software. Public source access does not grant permission to use, modify or distribute it. See [LICENSE](LICENSE) for the terms.
+Axis is proprietary software. Public source access does not grant permission to use, modify or distribute it. See [LICENSE](LICENSE) for the terms.

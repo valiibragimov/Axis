@@ -328,7 +328,7 @@ function recordMatchesRow(record: Record<string, unknown>, row: { constructionKe
 function formatNormativeBasis(constructionKey: string, module: ControlPlanModuleDefinition, subtype = "") {
   const config = getInspectionConfig(constructionKey, module.inspectionModule, subtype);
   const docs = config?.normativeDocs || [];
-  if (!docs.length) return "Нормативная матрица Tehnadzor";
+  if (!docs.length) return "Нормативная матрица Axis";
   return docs
     .map((doc) => [doc.document, doc.clause, doc.tolerance].filter(Boolean).join(", "))
     .filter(Boolean)

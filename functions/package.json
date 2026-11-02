@@ -1,5 +1,5 @@
 {
-  "name": "tehnadzor-functions",
+  "name": "axis-functions",
   "private": true,
   "main": "dist/functions/src/index.js",
   "engines": {

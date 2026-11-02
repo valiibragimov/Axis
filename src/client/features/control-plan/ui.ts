@@ -239,6 +239,7 @@ export async function exportControlPlanPdf() {
     const documentCode = requisites.documentCode;
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+          doc.setProperties({ title: "Axis — План контроля качества", creator: "Axis" });
     const fontReady = await ensurePdfFontLoaded();
     const pdfFontLoaded = fontReady ? registerPdfFont(doc) : false;
     if (pdfFontLoaded) {
@@ -324,7 +325,7 @@ export async function exportControlPlanPdf() {
       doc.text(getExportFileDate(), metaX + 16, stampY + 31, { maxWidth: 25 });
 
       applyFont(6);
-      doc.text("Формат A4. Документ сформирован Tehnadzor.", frameLeft + 2, pageHeight - frameBottom - 1.5);
+      doc.text("Формат A4. Документ сформирован Axis.", frameLeft + 2, pageHeight - frameBottom - 1.5);
     };
 
     const addOfficialPage = () => {
@@ -403,7 +404,7 @@ export async function exportControlPlanPdf() {
     drawTableRow(["Адрес", requisites.projectAddress, "Дата", requisites.documentDate], detailsWidths);
     drawTableRow(["Заказчик", requisites.customerName, "Тех. заказчик", requisites.technicalCustomerName], detailsWidths);
     drawTableRow(["Подрядчик", requisites.contractorName, "Технадзор", requisites.technicalSupervisorCompany], detailsWidths);
-    drawTableRow(["Основание", "Данные журнала проверок, замечаний и повторного контроля Tehnadzor", "Экспорт", `${rows.length} из ${plan.summary.totalRows} строк`], detailsWidths);
+    drawTableRow(["Основание", "Данные журнала проверок, замечаний и повторного контроля Axis", "Экспорт", `${rows.length} из ${plan.summary.totalRows} строк`], detailsWidths);
 
     drawSectionTitle("2. Сводные показатели");
     const summaryWidths = [48, 28, 48, 28, 48, 28];

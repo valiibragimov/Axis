@@ -1,4 +1,4 @@
-# Tehnadzor engineering rules
+# Axis engineering rules
 
 ## Working agreement
 

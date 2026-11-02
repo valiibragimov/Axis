@@ -1,4 +1,4 @@
-# Tehnadzor engineering revision specification
+# Axis engineering revision specification
 
 [Русский](engineering-revision.ru.md)
 

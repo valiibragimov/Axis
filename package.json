@@ -1,8 +1,8 @@
 {
-  "name": "tehnadzor",
+  "name": "axis",
   "version": "0.1.0",
   "type": "module",
-  "description": "Tehnadzor is a proprietary web application for construction supervision, QA/QC workflows, and BIM/IFC-based inspection records.",
+  "description": "Axis is a proprietary web application for construction supervision, QA/QC workflows, and BIM/IFC-based inspection records.",
   "license": "UNLICENSED",
   "private": true,
   "engines": {

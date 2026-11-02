@@ -1,6 +1,6 @@
 {
-  "name": "Tehnadzor",
-  "short_name": "Технадзор",
+  "name": "Axis",
+  "short_name": "Axis",
   "description": "Система технического надзора строительных конструкций",
   "start_url": "/index.html",
   "display": "standalone",

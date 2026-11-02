@@ -100,7 +100,7 @@ export const APP_CONFIG = {
     "BIM_IMPORT_API_BASE",
     readRuntimeConfigString("AI_REPORT_API_BASE", "")
   ),
-  AI_REPORT_SERVICE_NAME: "TechNadzor AI",
+  AI_REPORT_SERVICE_NAME: "Axis AI",
 };
 
 export const UI_TEXT = {

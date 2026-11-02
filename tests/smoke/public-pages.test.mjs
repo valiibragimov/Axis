@@ -29,7 +29,7 @@ test("login page renders the auth shell", async () => {
   const { response, body } = await fetchText("/login.html");
 
   assert.equal(response.status, 200);
-  assert.match(body, /<title>Вход — Tehnadzor<\/title>/);
+  assert.match(body, /<title>Вход — Axis<\/title>/);
   assert.match(body, /id="loginEmail"/);
   assert.match(body, /id="loginPassword"/);
   assert.match(body, /id="btnLogin"/);
@@ -40,7 +40,7 @@ test("register page exposes registration controls", async () => {
   const { response, body } = await fetchText("/register.html");
 
   assert.equal(response.status, 200);
-  assert.match(body, /<title>Регистрация — Tehnadzor<\/title>/);
+  assert.match(body, /<title>Регистрация — Axis<\/title>/);
   assert.match(body, /id="registerEmail"/);
   assert.match(body, /id="registerPassword"/);
   assert.match(body, /id="btnRegister"/);
@@ -49,7 +49,7 @@ test("register page exposes registration controls", async () => {
 test("about page offers a readable product workflow and workspace entry", async () => {
   const { response, body } = await fetchText("/about.html");
   assert.equal(response.status, 200);
-  for (const text of ["О проекте — Tehnadzor", "Стройконтроль без лишней беготни", "BIM / IFC", "Нормативный ассистент", "Повторный контроль", "Проверка идёт по шагам"]) assert.ok(body.includes(text));
+  for (const text of ["О проекте — Axis", "Стройконтроль без лишней беготни", "BIM / IFC", "Нормативный ассистент", "Повторный контроль", "Проверка идёт по шагам"]) assert.ok(body.includes(text));
   assert.match(body, /href="index.html">Открыть рабочую среду/);
   assert.match(body, /<ol class="product-workflow">/);
   assert.doesNotMatch(body, /data-parallax|about-cinematic|scroll-reveal/);
@@ -59,7 +59,7 @@ test("privacy page explains product data handling in plain language", async () =
   const { response, body } = await fetchText("/privacy.html");
 
   assert.equal(response.status, 200);
-  assert.match(body, /Политика конфиденциальности — Tehnadzor/);
+  assert.match(body, /Политика конфиденциальности — Axis/);
   assert.match(body, /Федерального закона №152-ФЗ/);
   assert.match(body, /BIM \/ IFC-файлами/);
   assert.match(body, /Права пользователя/);
@@ -73,7 +73,7 @@ test("profile page keeps its primary shell accessible", async () => {
   const { response, body } = await fetchText("/profile.html");
 
   assert.equal(response.status, 200);
-  assert.match(body, /Профиль — Tehnadzor/);
+  assert.match(body, /Профиль — Axis/);
   assert.match(body, /id="btnLogout"/);
   assert.match(body, /id="themeToggleBtn"/);
   assert.match(body, /id="profileShareSheetHandle"/);

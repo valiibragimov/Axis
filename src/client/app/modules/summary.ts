@@ -1112,7 +1112,7 @@ function buildSummaryReportModel() {
     construction: constructionValue,
     date: dateValue,
     engineer: engineerValue,
-    systemLine: "Документ сформирован в системе «Технадзор онлайн».",
+    systemLine: "Документ сформирован в системе «Axis».",
     basisText,
     modules,
     issues,
@@ -1244,7 +1244,7 @@ export async function updateSummaryTab() {
 // Инициализация обработчиков для вкладки "Итог"
 function initSummaryHandlers() {
   // Конфигурация API сервера
-  const reportServiceName = APP_CONFIG.AI_REPORT_SERVICE_NAME || "TechNadzor AI";
+  const reportServiceName = APP_CONFIG.AI_REPORT_SERVICE_NAME || "Axis AI";
   const configuredReportApiBase = (APP_CONFIG.AI_REPORT_API_BASE || "").trim();
   const REPORT_API_BASE = configuredReportApiBase;
   const useRemoteReport = Boolean(REPORT_API_BASE);
@@ -1563,6 +1563,7 @@ function initSummaryHandlers() {
 
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF({ unit: "mm", format: "a4" });
+          doc.setProperties({ title: "Axis — Итоговое заключение", creator: "Axis" });
           const fontReady = await ensurePdfFontLoaded();
           const pdfFontLoaded = fontReady ? registerPdfFont(doc) : false;
           if (pdfFontLoaded) {
@@ -1655,7 +1656,7 @@ function initSummaryHandlers() {
             doc.text("Дата", metaX + 2, stampY + 34);
             doc.text(requisites.documentDate, metaX + 16, stampY + 34, { maxWidth: 25 });
             applyFont(6);
-            doc.text("Формат A4. Документ сформирован Tehnadzor.", frameLeft + 2, pageHeight - frameBottom - 1.5);
+            doc.text("Формат A4. Документ сформирован Axis.", frameLeft + 2, pageHeight - frameBottom - 1.5);
           };
 
           const addOfficialPage = () => {

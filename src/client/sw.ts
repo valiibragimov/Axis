@@ -1,4 +1,4 @@
-// Service Worker для Tehnadzor
+// Service Worker для Axis
 const CACHE_NAME = "tehnadzor-dev";
 const OFFLINE_URL = "index.html";
 const MANIFEST_URL = "manifest.json";

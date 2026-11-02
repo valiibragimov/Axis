@@ -7,7 +7,7 @@ const PROFILE_FEED_ITEMS_PER_SECTION = Math.max(
   Math.min(12, Number(process.env.PROFILE_FEED_ITEMS_PER_SECTION || 6))
 );
 const PROFILE_FEED_USER_AGENT =
-  process.env.PROFILE_FEED_USER_AGENT || "TechNadzorOnline/1.0 (+profile-feed)";
+  process.env.PROFILE_FEED_USER_AGENT || "Axis/1.0 (+profile-feed)";
 
 export const { getProfileFeed } = createProfileFeedService({
   cacheTtlMs: PROFILE_FEED_CACHE_TTL_MS,

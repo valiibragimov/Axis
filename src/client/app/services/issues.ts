@@ -97,10 +97,10 @@ export function createIssuePayloadFromJournalEntry(
     context,
     title,
     description: details,
-    normativeBasis: normalizeText(options.normativeBasis, "Основание берётся из исходной проверки и нормативной матрицы Tehnadzor."),
+    normativeBasis: normalizeText(options.normativeBasis, "Основание берётся из исходной проверки и нормативной матрицы Axis."),
     correctiveAction: normalizeText(
       options.correctiveAction,
-      "Устранить отклонение, выполнить повторный контроль и зафиксировать результат в Tehnadzor."
+      "Устранить отклонение, выполнить повторный контроль и зафиксировать результат в Axis."
     ),
     responsibleName: normalizeText(options.responsibleName),
     dueDate: Number(options.dueDate || addDays(now, DEFAULT_DUE_DAYS)),

@@ -520,7 +520,7 @@ const httpServer = app.listen(PORT, localDevelopment ? "127.0.0.1" : "0.0.0.0", 
   const address = httpServer.address();
   console.log(`[startup] listeningPort=${typeof address === "object" && address ? address.port : PORT}`);
   const port = typeof address === "object" && address ? address.port : PORT;
-  console.log(`Tehnadzor API listening on port ${port}`);
+  console.log(`Axis API listening on port ${port}`);
   for (const operation of ["health", "generateReport", "importIfc", "deleteBimElements", "profileFeed"] as const) {
     console.log(`[route] ${operation}=${API_ROUTES[operation]}`);
   }

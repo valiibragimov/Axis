@@ -2,7 +2,7 @@
 
 # Architecture
 
-Tehnadzor is a TypeScript modular monolith. The browser, Express API and Firebase Function are separate runtimes; shared engineering and publication code has no dependency on their UI or storage implementations.
+Axis is a TypeScript modular monolith. The browser, Express API and Firebase Function are separate runtimes; shared engineering and publication code has no dependency on their UI or storage implementations.
 
 ## Runtime responsibilities
 

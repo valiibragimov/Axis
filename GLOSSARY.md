@@ -1,4 +1,4 @@
-# Tehnadzor engineering language / Термины инженерного контроля
+# Axis engineering language / Термины инженерного контроля
 
 **Elevation / Высотная отметка**: Vertical position relative to the project's reference level. Вертикальное положение относительно принятого проектом уровня; отличается от физической высоты конструкции.
 

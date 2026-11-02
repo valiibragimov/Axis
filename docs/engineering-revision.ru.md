@@ -1,4 +1,4 @@
-# Спецификация инженерной ревизии Tehnadzor
+# Спецификация инженерной ревизии Axis
 
 [English](engineering-revision.md)
 

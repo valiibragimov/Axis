@@ -1,4 +1,4 @@
-# UX/UI-ревизия Tehnadzor
+# UX/UI-ревизия Axis
 
 [Русский](ux-ui-revision.ru.md) | [English](ux-ui-revision.md)
 

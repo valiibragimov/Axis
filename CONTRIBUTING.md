@@ -26,4 +26,4 @@ Keep the English and Russian versions in sync when changing documented behaviour
 
 ## Licensing
 
-Tehnadzor is proprietary software under [LICENSE](LICENSE). Contributions may be incorporated into the proprietary project. Contributing does not grant a separate license to use the application; usage rights require the copyright holder's written permission.
+Axis is proprietary software under [LICENSE](LICENSE). Contributions may be incorporated into the proprietary project. Contributing does not grant a separate license to use the application; usage rights require the copyright holder's written permission.

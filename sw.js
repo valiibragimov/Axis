@@ -1,5 +1,5 @@
-// Service Worker для Tehnadzor
-const CACHE_NAME = "tehnadzor-ba7cbd019316";
+// Service Worker для Axis
+const CACHE_NAME = "tehnadzor-27fb6fa0d508";
 const OFFLINE_URL = "index.html";
 const MANIFEST_URL = "manifest.json";
 const BYPASS_CACHE_EXTENSIONS = [".css", ".js", ".html"];
@@ -157,6 +157,9 @@ self.addEventListener("fetch", (event) => {
     if (url.protocol !== "http:" && url.protocol !== "https:") {
         return;
     }
+    // Private API responses must never enter CacheStorage or its offline fallback.
+    if (event.request.headers.has("Authorization") || url.pathname.includes("/documents/"))
+        return;
     // Пропускаем Firebase и Google API
     if (event.request.url.includes("firebase") ||
         event.request.url.includes("googleapis") ||
@@ -178,7 +181,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(fetch(request)
         .then((response) => {
         // Кешируем только успешные ответы и только http/https
-        if (response.status === 200 && response.type === "basic") {
+        if (response.status === 200 && response.type === "basic" && !/private|no-store/i.test(response.headers.get("Cache-Control") || "")) {
             const responseClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
                 try {

@@ -1,5 +1,5 @@
 {
-  "name": "tehnadzor-report-server",
+  "name": "axis-report-server",
   "version": "1.0.0",
   "description": "Local HTTP API for construction inspections, BIM imports and reports",
   "main": "dist/server/src/index.js",
