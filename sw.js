@@ -1,5 +1,5 @@
 // Service Worker для Axis
-const CACHE_NAME = "tehnadzor-27fb6fa0d508";
+const CACHE_NAME = "tehnadzor-9f20077265f7";
 const OFFLINE_URL = "index.html";
 const MANIFEST_URL = "manifest.json";
 const BYPASS_CACHE_EXTENSIONS = [".css", ".js", ".html"];

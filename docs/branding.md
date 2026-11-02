@@ -1,3 +1,5 @@
+[Русский](branding.ru.md) | [English](branding.md)
+
 # Axis branding and compatibility
 
 Axis is the product name in both English and Russian. Use `Axis` in UI, PWA metadata, documentation, API titles and newly generated reports. The repository is https://github.com/valiibragimov/axis.
