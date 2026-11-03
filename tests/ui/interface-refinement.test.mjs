@@ -42,3 +42,31 @@ test("saved inspections and journal expose independent keyboard actions", async 
     await server.close();
   }
 });
+
+test("mobile navigation and inspection steps expose valid button states", async () => {
+  const server = await startStaticServer(resolve("dist-demo"));
+  const browser = await chromium.launch({ headless: true, ...(process.platform === "win32" ? { channel: "chrome" } : {}) });
+  try {
+    const page = await browser.newPage({ viewport: { width: 320, height: 900 }, reducedMotion: "reduce" });
+    await page.goto(server.url + "/demo.html");
+    await page.locator("#overviewReadinessValue").filter({ hasText: "0%" }).waitFor();
+    const navigation = page.locator("#bottomNav");
+    assert.equal(await navigation.getByRole("tablist").count(), 0);
+    assert.equal(await navigation.locator('[aria-current="page"]').getAttribute("data-tab"), "overview");
+    await navigation.getByRole("button", { name: "Проверки", exact: true }).click();
+    await page.locator('#bottomInspectionMenu [data-tab="geometry"]').click();
+    const steps = page.getByRole("group", { name: "Шаги геометрии" });
+    await steps.getByRole("button", { name: "Параметры", exact: true }).press("Enter");
+    assert.equal(await steps.getByRole("button", { name: "Параметры", pressed: true, exact: true }).count(), 1);
+    assert.equal(await steps.getByRole("button", { pressed: false }).count(), 1);
+    assert.equal(await navigation.locator('[aria-current="page"]').getAttribute("data-tab-group"), "inspections");
+    assert.equal(await navigation.locator("[aria-selected]").count(), 0);
+    const carousel = page.locator("#summaryWorkspaceCarousel");
+    await navigation.getByRole("button", { name: "Итог", exact: true }).click();
+    await carousel.focus();
+    assert.equal(await carousel.evaluate(element => element === document.activeElement), true);
+  } finally {
+    await browser.close();
+    await server.close();
+  }
+});

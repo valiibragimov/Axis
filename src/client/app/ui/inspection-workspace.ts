@@ -12,7 +12,7 @@ export function initInspectionWorkspace() {
     wizard.querySelectorAll<HTMLElement>("[data-wizard-step]").forEach(button => {
       const active = Number(button.dataset.wizardStep) === current;
       button.classList.toggle("is-active", active);
-      button.setAttribute("aria-selected", String(active));
+      button.setAttribute("aria-pressed", String(active));
     });
     const progress = wizard.querySelector<HTMLElement>("[data-wizard-progress]");
     if (progress) progress.textContent = t("wizardProgress", { current, total: steps.length });

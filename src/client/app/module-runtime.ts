@@ -474,7 +474,8 @@ export function createModuleRuntime({
         item.dataset.tab === target
         || (item.dataset.tabGroup === "inspections" && INSPECTION_TARGETS.has(String(target || "")));
       item.classList.toggle("active", isActive);
-      item.setAttribute("aria-selected", isActive ? "true" : "false");
+      if (isActive) item.setAttribute("aria-current", "page");
+      else item.removeAttribute("aria-current");
       item.tabIndex = isActive ? 0 : -1;
       if (isActive) {
         activeItem = item;

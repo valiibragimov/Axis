@@ -291,6 +291,15 @@
   .knowledge-breadcrumbs, .knowledge-breadcrumbs span { color: var(--text-muted); }
   .knowledge-breadcrumbs a { color: var(--accent); text-decoration: underline; }
   .knowledge-article-card__status { color: var(--text-muted); background: var(--surface-subtle); border-color: var(--border); border-radius: 4px; font-weight: 500; }
+  .knowledge-article-view { padding-inline: 0; }
+  .article-content { padding: 24px; background: var(--surface); color: var(--text); border-color: var(--border); box-shadow: none; }
+  .article-content :is(p, ul, ol) { max-width: 70ch; color: var(--text-muted); font-size: 1rem; line-height: 1.75; }
+  .article-content :is(h2, h3, h4) { color: var(--text); border-color: var(--border); }
+  .article-content h2 { font-size: 1.25rem; border-top-width: 1px; }
+  .article-content h3 { font-size: 1.125rem; }
+  .article-content a { color: var(--accent); }
+  .article-table-of-contents { background: var(--surface-subtle); border-color: var(--border); }
+  .article-table-of-contents h3 { color: var(--text); }
   .knowledge-subcategory-group h3 { color: var(--text-muted); font-size: 15px; font-weight: 500; margin-bottom: 12px; }
   .knowledge-construction-card__icon, .knowledge-subcategory-group h3 span { color: var(--text-muted); }
   .knowledge-module-item__label { color: var(--accent); font-size: 14px; }
@@ -661,7 +670,10 @@
     .bottom-nav, .bottom-nav.floating { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; backdrop-filter: none; box-shadow: 0 4px 16px #0002; }
     .bottom-nav__active-capsule { display: none; }
     .bottom-nav-item { border: 0; background: transparent; color: var(--text-muted); border-radius: 6px; }
-    .bottom-nav-item__label, .bottom-nav-item__icon { color: inherit; opacity: 1; }
+    .bottom-nav-item__label, .bottom-nav-item__icon { color: inherit; -webkit-text-fill-color: currentColor; opacity: 1; }
+    #bottomNav .bottom-nav-item { opacity: 1; }
+    #bottomNav .bottom-nav-item__label { color: var(--text-muted); }
+    #bottomNav .bottom-nav-item.active .bottom-nav-item__label { color: var(--accent); }
     .bottom-nav-item.active { background: var(--accent-subtle); color: var(--accent); }
   }
   /* Form primitives shared by inspections and supporting pages. */
