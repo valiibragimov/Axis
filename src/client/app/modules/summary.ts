@@ -41,9 +41,7 @@ let analyticsTemplatePromise = null;
 let analyticsWarmupPromise = null;
 let summaryWorkspacePage = 0;
 const SUMMARY_WORKSPACE_MAX_HEIGHT = 440;
-const analyticsTemplateUrl = document.documentElement.dataset.runtimeMode === "demo"
-  ? new URL("./modules/summary/analytics-block.html", import.meta.url)
-  : new URL("../../modules/summary/analytics-block.html", import.meta.url);
+const analyticsTemplateUrl = new URL("../../modules/summary/analytics-block.html", import.meta.url);
 
 let getStrengthChecks = () => new Map<string, StrengthCheckRecord>();
 let getReinforcementChecks =

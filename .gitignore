@@ -53,8 +53,6 @@ node_modules/
 server/node_modules/
 functions/node_modules/
 dist/
-dist-demo/
-dist-local/
 .local/
 dist-hosting/
 server/dist/
@@ -104,3 +102,7 @@ firebase-export-*/
 
 # dataconnect generated files
 .dataconnect
+
+build/
+output/
+tmp/

@@ -4,7 +4,7 @@
 
 Stage 8 pilot, 31 October 2026, baseline `c36954f`.
 
-`npm run typecheck:engineering` uses `tsconfig.engineering.json` and is included in the existing `npm run typecheck`/CI gate. It enables `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` and `useUnknownInCatchVariables` for acceptance criteria, current assessment status, geometry dimension keys and geodesy evaluation. Imported geodesy/domain type contracts are checked too. It emits nothing, does not load ambient Node/DOM globals, and leaves the global legacy configuration unchanged.
+`npm run typecheck:engineering` uses `config/typescript/tsconfig.engineering.json` and is included in the existing `npm run typecheck`/CI gate. It enables `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` and `useUnknownInCatchVariables` for acceptance criteria, current assessment status, geometry dimension keys and geodesy evaluation. Imported geodesy/domain type contracts are checked too. It emits nothing, does not load ambient Node/DOM globals, and leaves the global legacy configuration unchanged.
 
 Initial assessment found two unsafe indexed-access diagnostics in one geodesy expression. Named local values now let TypeScript verify the existing null guards; there are no non-null assertions, casts or suppressions. The current-status input uses `Record<string, unknown>` instead of `any`. A behavioral regression additionally exposed whitespace-only coordinates becoming numeric zero; they now remain incomplete, while actual zero remains valid. Stored identities, units, criteria and data formats do not change.
 

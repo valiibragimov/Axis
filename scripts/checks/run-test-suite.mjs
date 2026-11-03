@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { copyFileSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,7 +16,7 @@ try {
 } finally {
   // CI has no local .env. A developer may run the same synthetic checks while
   // serving login.html from this checkout; restore that login even on failure.
-  if (process.env.FIREBASE_CONFIG_MODE === "test" && existsSync(resolve(projectRoot, ".env"))) {
+  if (existsSync(resolve(projectRoot, ".env"))) {
     for (const args of [
       ["scripts/build/inject-firebase-config.mjs", "--restore-local"],
       ["scripts/build/stamp-service-worker-cache.mjs"]
@@ -27,6 +27,9 @@ try {
         status ||= 1;
         break;
       }
+    }
+    for (const [source, target] of [["dist/firebase.js", "dist-hosting/dist/firebase.js"], ["dist/sw.js", "dist-hosting/sw.js"]]) {
+      if (existsSync(resolve(projectRoot, target))) copyFileSync(resolve(projectRoot, source), resolve(projectRoot, target));
     }
   }
 }

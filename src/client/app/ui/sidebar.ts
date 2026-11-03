@@ -14,15 +14,21 @@ export function initSidebar() {
   if (!sidebar || !toggle) return;
   const desktop = matchMedia("(min-width: 769px)");
   const handles = [...sidebar.querySelectorAll<HTMLElement>(".sidebar-resize")];
-  const backdrop = document.createElement("button");
-  backdrop.className = "sidebar-backdrop";
-  backdrop.type = "button";
-  backdrop.hidden = true;
-  backdrop.tabIndex = -1;
-  document.body.append(backdrop);
+  const drawer = document.createElement("dialog");
+  drawer.className = "sidebar-drawer";
+  drawer.setAttribute("aria-label", t("navigation"));
+  document.body.append(drawer);
+  const accessLink = document.createElement("a");
+  accessLink.href = "#workspaceSidebar";
+  accessLink.className = "skip-link sidebar-access-link";
+  accessLink.textContent = t("expandSidebar");
+  document.body.prepend(accessLink);
+  const edge = document.createElement("div");
+  edge.className = "sidebar-swipe-edge";
+  edge.setAttribute("aria-hidden", "true");
+  document.body.append(edge);
   const scroll = sidebar.querySelector<HTMLElement>(".sidebar-scroll");
   const brand = sidebar.querySelector<HTMLElement>(".sidebar-brand");
-  const toolbar = sidebar.querySelector(".sidebar-toolbar");
   let mobileOpen = false;
   const tooltip = document.createElement("div");
   tooltip.className = "sidebar-tooltip";
@@ -52,19 +58,15 @@ export function initSidebar() {
     document.body.style.setProperty("--sidebar-width", `${current}px`);
     sidebar.dataset.collapsed = String(desktop.matches && collapsed);
     sidebar.dataset.mobileOpen = String(!desktop.matches && mobileOpen);
-    const floatingToggle = !desktop.matches && !mobileOpen;
-    toggle.classList.toggle("sidebar-mobile-toggle", floatingToggle);
-    const toggleHost = floatingToggle ? document.body : toolbar;
-    if (toggleHost && toggle.parentElement !== toggleHost) {
-      const focused = document.activeElement === toggle;
-      if (floatingToggle) toggleHost.prepend(toggle);
-      else toggleHost.append(toggle);
-      if (focused) toggle.focus();
-    }
+    const host = desktop.matches ? document.body : drawer;
+    if (sidebar.parentElement !== host) host.append(sidebar);
     if (scroll) scroll.inert = !desktop.matches && !mobileOpen;
     if (brand) brand.tabIndex = desktop.matches ? (collapsed ? -1 : 0) : (mobileOpen ? 0 : -1);
-    backdrop.hidden = desktop.matches || !mobileOpen;
-    backdrop.setAttribute("aria-label", t("collapseSidebar"));
+    if (mobileOpen && !desktop.matches && !drawer.open) drawer.showModal();
+    else if ((desktop.matches || !mobileOpen) && drawer.open) drawer.close();
+    document.body.classList.toggle("sidebar-is-open", !desktop.matches && mobileOpen);
+    drawer.setAttribute("aria-label", t("navigation"));
+    accessLink.textContent = t("expandSidebar");
     const expanded = desktop.matches ? !collapsed : mobileOpen;
     toggle.setAttribute("aria-expanded", String(expanded));
     toggle.setAttribute("aria-label", t(expanded ? "collapseSidebar" : "expandSidebar"));
@@ -81,14 +83,18 @@ export function initSidebar() {
     if (desktop.matches || !mobileOpen) return;
     mobileOpen = false;
     render();
-    if (restore) toggle.focus();
+    if (restore) accessLink.focus();
   };
-  backdrop.addEventListener("click", () => closeMobile(true));
-  sidebar.addEventListener("focusout", event => {
-    if (event.relatedTarget instanceof Node && !sidebar.contains(event.relatedTarget)) closeMobile();
+  drawer.addEventListener("click", event => { if (event.target === drawer) closeMobile(); });
+  drawer.addEventListener("cancel", event => { event.preventDefault(); closeMobile(true); });
+  drawer.addEventListener("close", () => { if (mobileOpen) { mobileOpen = false; render(); } });
+  accessLink.addEventListener("click", event => {
+    if (desktop.matches) return;
+    event.preventDefault(); mobileOpen = true; render();
+    sidebar.querySelector<HTMLElement>(".tab, a")?.focus();
   });
   sidebar.addEventListener("click", event => {
-    if (event.target instanceof Element && event.target.closest(".tab, [data-workspace-home]")) closeMobile(true);
+    if (event.target instanceof Element && event.target.closest(".tab, [data-workspace-home]")) closeMobile();
   });
   const toggleSidebar = () => {
     if (!desktop.matches) { mobileOpen = !mobileOpen; render(); return; }
@@ -144,6 +150,34 @@ export function initSidebar() {
     });
   }
   toggle.addEventListener("click", toggleSidebar);
+  // Observe only one-finger, horizontal intent; vertical scrolling and pinch zoom stay native.
+  let swipe: { x: number; y: number; open: boolean; horizontal: boolean } | null = null;
+  document.addEventListener("touchstart", event => {
+    swipe = null;
+    if (desktop.matches || event.touches.length !== 1 || document.querySelector("dialog:modal:not(.sidebar-drawer)")) return;
+    if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable=true]")) return;
+    const point = event.touches[0];
+    if (!point || (!mobileOpen && point.clientX > 28)) return;
+    swipe = { x: point.clientX, y: point.clientY, open: mobileOpen, horizontal: false };
+  }, { passive: true });
+  document.addEventListener("touchmove", event => {
+    if (!swipe || event.touches.length !== 1) { swipe = null; return; }
+    const point = event.touches[0];
+    if (!point) return;
+    const dx = point.clientX - swipe.x, dy = point.clientY - swipe.y;
+    if (!swipe.horizontal && Math.abs(dy) > 12 && Math.abs(dy) >= Math.abs(dx)) { swipe = null; return; }
+    if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.5 && (swipe.open ? dx < 0 : dx > 0)) swipe.horizontal = true;
+    if (swipe.horizontal && event.cancelable) event.preventDefault();
+  }, { passive: false });
+  document.addEventListener("touchend", event => {
+    const gesture = swipe; swipe = null;
+    const point = event.changedTouches[0];
+    if (!gesture?.horizontal || !point || desktop.matches || gesture.open !== mobileOpen) return;
+    const dx = point.clientX - gesture.x;
+    if (!gesture.open && dx >= 56) { mobileOpen = true; render(); }
+    else if (gesture.open && dx <= -56) closeMobile();
+  }, { passive: true });
+  document.addEventListener("touchcancel", () => { swipe = null; }, { passive: true });
   sidebar.querySelectorAll<HTMLElement>(".tab, .sidebar-link, #sidebarToggle").forEach(control => {
     const showTooltip = () => {
       hideTooltip();
@@ -166,13 +200,17 @@ export function initSidebar() {
   tooltip.addEventListener("pointerenter", () => clearTimeout(tooltipTimer));
   tooltip.addEventListener("pointerleave", hideTooltip);
   document.addEventListener("keydown", event => {
-    if (event.key === "Escape") { hideTooltip(); closeMobile(true); finishDrag(true); }
+    if (event.key === "Escape") {
+      hideTooltip();
+      if (document.getElementById("accountMenu")?.hidden !== false) closeMobile(true);
+      finishDrag(true);
+    }
   });
   sidebar.querySelector(".sidebar-scroll")?.addEventListener("scroll", hideTooltip);
   window.addEventListener("resize", hideTooltip);
   window.addEventListener("blur", () => finishDrag(true));
   desktop.addEventListener("change", () => { mobileOpen = false; finishDrag(true); hideTooltip(); render(); });
   document.addEventListener("app:language-changed", () => { hideTooltip(); render(); });
-  document.addEventListener("app:tab-activated", () => { hideTooltip(); closeMobile(true); });
+  document.addEventListener("app:tab-activated", () => { hideTooltip(); closeMobile(); });
   render();
 }

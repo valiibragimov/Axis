@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { startStaticServer } from "./helpers/static-server.mjs";
+import { pageScripts } from "./helpers/page-scripts.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -71,6 +72,7 @@ test("privacy page explains product data handling in plain language", async () =
 
 test("profile page keeps its primary shell accessible", async () => {
   const { response, body } = await fetchText("/profile.html");
+  const scripts = await pageScripts(body, `${staticServer.url}/profile.html`);
 
   assert.equal(response.status, 200);
   assert.match(body, /Профиль — Axis/);
@@ -78,19 +80,19 @@ test("profile page keeps its primary shell accessible", async () => {
   assert.match(body, /data-account-theme/);
   assert.doesNotMatch(body, /id="themeToggleBtn"/);
   assert.match(body, /id="profileShareSheetHandle"/);
-  assert.match(body, /finishProfileShareSheetDrag/);
+  assert.match(scripts, /finishProfileShareSheetDrag/);
   assert.match(body, /profile-settings-sheet__section-title">Security</);
   assert.match(body, /id="profileCurrentPassword"/);
   assert.match(body, /id="profileNewPassword"/);
   assert.match(body, /id="profileConfirmPassword"/);
   assert.match(body, /id="profileChangePasswordButton"/);
-  assert.match(body, /reauthenticateWithCredential/);
-  assert.match(body, /updatePassword/);
+  assert.match(scripts, /reauthenticateWithCredential/);
+  assert.match(scripts, /updatePassword/);
   assert.match(body, /class="profile-page is-profile-loading"/);
-  assert.match(body, /document\.body\.classList\.add\(window\.__appThemeClass \|\| "theme-dark"\)/u);
+  assert.match(scripts, /document\.body\.classList\.add\(window\.__appThemeClass \|\| "theme-dark"\)/u);
   assert.match(body, /style\.css\?v=83/u);
-  assert.match(body, /function revealProfilePage\(\)/);
-  assert.match(body, /document\.body\.classList\.add\("is-profile-ready"\)/);
+  assert.match(scripts, /function revealProfilePage\(\)/);
+  assert.match(scripts, /document\.body\.classList\.add\("is-profile-ready"\)/);
   assert.doesNotMatch(body, /href="edit-profile\.html#auth"/);
   assert.doesNotMatch(body, />Password and authentication</);
 });

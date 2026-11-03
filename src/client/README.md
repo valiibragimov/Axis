@@ -16,7 +16,9 @@
 | `infrastructure/` | Typed HTTP transport, Firebase facades and shared publication adapter |
 | `index-partials/` | Sources for generated root `index.html` |
 | `shared/` and `types/` | Small shared client modules and declarations |
-| `demo/` | Isolated sample-data runtime and replacement adapters |
+| `pages/`, `index-partials/` | HTML pages and fragments |
+| `styles/` | Shared styles and design system |
+| `assets/` | Icons, fonts, images and manifest |
 
 A feature exposes a small public API through `index.ts`. Cross-feature calls use that API or dependencies supplied at workspace composition. UI calls services; repositories own persistence. Do not add global state bridges or turn shared modules into a catch-all.
 

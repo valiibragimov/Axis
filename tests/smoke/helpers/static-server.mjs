@@ -33,7 +33,10 @@ function resolveRequestPath(rootDir, requestPathname) {
 export async function startStaticServer(rootDir) {
   const server = createServer((request, response) => {
     const url = new URL(request.url || "/", "http://127.0.0.1");
-    const filePath = resolveRequestPath(rootDir, url.pathname);
+    let filePath = resolveRequestPath(rootDir, url.pathname);
+    if (resolve(rootDir) === resolve(".") && filePath && !existsSync(filePath)) {
+      filePath = resolveRequestPath(resolve("dist-hosting"), url.pathname);
+    }
 
     if (!filePath || !existsSync(filePath) || statSync(filePath).isDirectory()) {
       response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });

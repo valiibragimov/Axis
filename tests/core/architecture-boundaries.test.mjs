@@ -36,10 +36,11 @@ test("a newly added inspection evaluator enters mandatory strict checking", asyn
   const directory = join(root, "src/client/features/inspections/architecture-probe");
   try {
     await mkdir(directory, { recursive: true });
-    const profile = JSON.parse(await readFile("tsconfig.engineering.json", "utf8"));
+    const profile = JSON.parse(await readFile("config/typescript/tsconfig.engineering.json", "utf8"));
     // Preserve the real include patterns/options, isolate the probe from concurrent tests.
-    profile.extends = resolve("tsconfig.base.json");
+    profile.extends = resolve("config/typescript/tsconfig.base.json");
     profile.files = [];
+    profile.include = profile.include.map(pattern => pattern.replace(/^\.\.\/\.\.\//u, ""));
     await writeFile(join(root, "tsconfig.json"), JSON.stringify(profile));
     await writeFile(`${directory}/evaluation.ts`, "export function evaluate(value) { return value; }");
     const result = spawnSync(process.execPath, ["node_modules/typescript/bin/tsc", "-p", join(root, "tsconfig.json")], { encoding: "utf8" });

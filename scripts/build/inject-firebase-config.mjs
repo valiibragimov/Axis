@@ -76,7 +76,8 @@ if (missingKeys.length > 0) {
 }
 
 // Synthetic CI configuration must never silently become a working login build.
-const testConfig = environment.FIREBASE_CONFIG_MODE === "test";
+const emulatorConfig = environment.FIREBASE_CONFIG_MODE === "emulator";
+const testConfig = emulatorConfig || environment.FIREBASE_CONFIG_MODE === "test";
 const projectId = environment.FIREBASE_WEB_PROJECT_ID || dotenv.FIREBASE_WEB_PROJECT_ID;
 if (testConfig && !projectId.startsWith("demo-")) {
   throw new Error("[firebase-config] Test configuration requires a demo- project ID.");
@@ -92,6 +93,7 @@ if (!testConfig && placeholderKeys.length > 0) {
 }
 
 let firebaseJs = await readFile(firebaseDistPath, "utf8");
+firebaseJs = firebaseJs.replace(/\n\/\/ Local emulator wiring[\s\S]*$/u, "");
 
 const configFields = ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"];
 for (const [index, key] of firebaseEnvKeys.entries()) {
@@ -105,6 +107,12 @@ for (const [index, key] of firebaseEnvKeys.entries()) {
   }
 }
 
+if (emulatorConfig) {
+  const config = JSON.parse(await readFile(resolve(projectRoot, "firebase.emulator.json"), "utf8"));
+  const authPort = config.emulators.auth.port;
+  const storePort = config.emulators.firestore.port;
+  firebaseJs += `\n// Local emulator wiring (build:local only).\nimport { connectAuthEmulator } from "./infrastructure/firebase/auth.js";\nimport { connectFirestoreEmulator } from "./infrastructure/firebase/firestore.js";\nif (!["127.0.0.1", "localhost"].includes(location.hostname)) throw new Error("Emulator builds may only run on loopback");\nconnectAuthEmulator(auth, "http://127.0.0.1:${authPort}", { disableWarnings: true });\nconnectFirestoreEmulator(db, "127.0.0.1", ${storePort});\n`;
+}
 await writeFile(firebaseDistPath, firebaseJs, "utf8");
 
 console.log(restoreLocal ? "[firebase-config] Local login configuration restored." : "[firebase-config] Firebase web config injected from environment.");

@@ -4,3 +4,4 @@
 /src/shared/api-routes.ts text eol=lf
 /src/client/infrastructure/api/routes.ts text eol=lf
 /src/client/infrastructure/bim-publication.d.ts text eol=lf
+/src/client/infrastructure/document-validation.d.ts text eol=lf

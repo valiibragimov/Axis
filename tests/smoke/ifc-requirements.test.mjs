@@ -102,7 +102,7 @@ test("viewer source uses one conceptual material and automatic display normaliza
 });
 
 test("BIM workspace CSS removes desktop minimum height that clips the viewer", async () => {
-  const css = await readFile(resolve(projectRoot, "style.css"), "utf8");
+  const css = await readFile(resolve(projectRoot, "src/client/styles/style.css"), "utf8");
 
   assert.match(
     css,
@@ -113,7 +113,7 @@ test("BIM workspace CSS removes desktop minimum height that clips the viewer", a
 });
 
 test("IFC dialog and BIM controls keep responsive layout and light-theme contrast", async () => {
-  const css = await readFile(resolve(projectRoot, "style.css"), "utf8");
+  const css = await readFile(resolve(projectRoot, "src/client/styles/style.css"), "utf8");
 
   assert.doesNotMatch(css, /^\s*header(?:\.header-hidden)?\s*\{/mu);
   assert.match(css, /^body > header\s*\{/mu);

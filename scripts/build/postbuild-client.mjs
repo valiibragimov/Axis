@@ -1,5 +1,5 @@
 import { build } from "esbuild";
-import { copyFile, mkdir, rename, rm } from "node:fs/promises";
+import { copyFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,6 +9,10 @@ const projectRoot = resolve(__dirname, "..", "..");
 const distRoot = resolve(projectRoot, "dist");
 
 const copies = [
+  { from: resolve(projectRoot, "node_modules/chart.js/dist/chart.umd.min.js"), to: resolve(distRoot, "vendor/chart.js") },
+  { from: resolve(projectRoot, "node_modules/jspdf/dist/jspdf.umd.min.js"), to: resolve(distRoot, "vendor/jspdf.js") },
+  { from: resolve(projectRoot, "node_modules/chart.js/LICENSE.md"), to: resolve(distRoot, "vendor/licenses/chart.js.txt") },
+  { from: resolve(projectRoot, "node_modules/jspdf/LICENSE"), to: resolve(distRoot, "vendor/licenses/jspdf.txt") },
   {
     from: resolve(projectRoot, "src", "client", "app", "modules", "summary", "analytics-block.css"),
     to: resolve(distRoot, "modules", "summary", "analytics-block.css")
@@ -24,17 +28,10 @@ for (const entry of copies) {
   await copyFile(entry.from, entry.to);
 }
 
-const distSwPath = resolve(distRoot, "sw.js");
-const rootSwPath = resolve(projectRoot, "sw.js");
-
-await rm(rootSwPath, { force: true });
-await rename(distSwPath, rootSwPath);
-
 console.log("Client postbuild complete:");
 for (const entry of copies) {
   console.log(`- copied ${entry.to}`);
 }
-console.log(`- promoted service worker to ${rootSwPath}`);
 
 await build({
   entryPoints: [resolve(projectRoot, "src/client/infrastructure/api/client.ts")],

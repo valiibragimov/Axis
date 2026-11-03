@@ -6,7 +6,7 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(scriptDirectory, "..", "..");
 const serverDirectory = resolve(projectRoot, "server");
 const typescriptCli = resolve(projectRoot, "node_modules", "typescript", "bin", "tsc");
-const tsconfig = resolve(projectRoot, "tsconfig.server.json");
+const tsconfig = resolve(projectRoot, "config/typescript/tsconfig.server.json");
 const serverEntry = resolve(serverDirectory, "dist", "server", "src", "index.js");
 
 function run(command, args, options = {}) {

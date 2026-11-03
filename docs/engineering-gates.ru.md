@@ -4,7 +4,7 @@
 
 Первый набор этапа 8, 31 октября 2026, база `c36954f`.
 
-`npm run typecheck:engineering` использует `tsconfig.engineering.json` и входит в существующий `npm run typecheck`/CI. Включены `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` и `useUnknownInCatchVariables` для критериев приёмки, текущего статуса оценки, ключей размеров геометрии и геодезического evaluation. Проверяются также импортированные контракты типов геодезии/domain. Emit отсутствует, ambient Node/DOM globals не подключаются, глобальный legacy-конфиг не меняется.
+`npm run typecheck:engineering` использует `config/typescript/tsconfig.engineering.json` и входит в существующий `npm run typecheck`/CI. Включены `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` и `useUnknownInCatchVariables` для критериев приёмки, текущего статуса оценки, ключей размеров геометрии и геодезического evaluation. Проверяются также импортированные контракты типов геодезии/domain. Emit отсутствует, ambient Node/DOM globals не подключаются, глобальный legacy-конфиг не меняется.
 
 Исходная оценка выявила две ошибки индексного доступа в одном выражении геодезии. Локальные значения позволяют TypeScript проверить существующие null-guards без non-null assertions, casts или подавлений. Вход текущего статуса теперь `Record<string, unknown>` вместо `any`. Поведенческая регрессия дополнительно выявила превращение пробельных координат в ноль: теперь они неполны, настоящий ноль остаётся допустимым. Идентичности, единицы, критерии и формат сохранённых данных не меняются.
 

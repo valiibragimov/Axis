@@ -2,11 +2,11 @@ const scriptPromises = new Map();
 
 const LIBS = {
   chartjs: {
-    src: "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js",
+    src: "/dist/vendor/chart.js",
     isLoaded: () => typeof window !== "undefined" && typeof window.Chart !== "undefined"
   },
   jspdf: {
-    src: "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+    src: "/dist/vendor/jspdf.js",
     isLoaded: () =>
       typeof window !== "undefined" &&
       typeof window.jspdf !== "undefined" &&

@@ -5,6 +5,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { startStaticServer } from "./helpers/static-server.mjs";
+import { pageScripts } from "./helpers/page-scripts.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -71,13 +72,14 @@ test("service worker keeps dynamic precache discovery and no stale stylesheet pi
 test("index page still wires PWA registration and manifest link", async () => {
   const response = await fetch(`${staticServer.url}/index.html`);
   const html = await response.text();
+  const scripts = await pageScripts(html, `${staticServer.url}/index.html`);
 
   assert.equal(response.status, 200);
   assert.match(html, /rel="manifest" href="manifest\.json"/);
-  assert.match(html, /navigator\.serviceWorker\.register\('sw\.js', \{ updateViaCache: 'none' \}\)/);
-  assert.match(html, /window\.__appThemeClass = className/u);
+  assert.match(scripts, /navigator\.serviceWorker\.register\('sw\.js', \{ updateViaCache: 'none' \}\)/);
+  assert.match(scripts, /window\.__appThemeClass = className/u);
   assert.match(html, /href="liquid-glass\.css\?v=/u);
-  assert.match(html, /<body class="home-page">\s*<script>\s*document\.body\.classList\.add\(window\.__appThemeClass/u);
+  assert.match(scripts, /document\.body\.classList\.add\(window\.__appThemeClass/u);
   assert.match(html, /id="appThemeColor"/u);
 });
 
@@ -100,7 +102,7 @@ test("journal exposes the issue registry workflow", async () => {
   const journalSource = await readFile(resolve(projectRoot, "src/client/app/modules/journal.ts"), "utf8");
   const appSource = await readFile(resolve(projectRoot, "src/client/app.ts"), "utf8");
   const summarySource = await readFile(resolve(projectRoot, "src/client/app/modules/summary.ts"), "utf8");
-  const css = await readFile(resolve(projectRoot, "style.css"), "utf8");
+  const css = await readFile(resolve(projectRoot, "src/client/styles/style.css"), "utf8");
 
   assert.equal(response.status, 200);
   assert.match(html, /id="journalIssuesPanel"/u);
@@ -195,7 +197,7 @@ test("object overview and grouped inspection navigation are present", async () =
   const html = await response.text();
   const runtimeSource = await readFile(resolve(projectRoot, "src/client/app/module-runtime.ts"), "utf8");
   const overviewSource = await readFile(resolve(projectRoot, "src/client/app/modules/overview.ts"), "utf8");
-  const css = await readFile(resolve(projectRoot, "style.css"), "utf8");
+  const css = await readFile(resolve(projectRoot, "src/client/styles/style.css"), "utf8");
 
   assert.equal(response.status, 200);
   assert.match(html, /id="overview"/u);
@@ -209,8 +211,8 @@ test("object overview and grouped inspection navigation are present", async () =
   assert.match(html, /id="inspectionTabsMenu"/u);
   assert.match(html, /class="tabs-group-item__icon"/u);
   assert.match(html, /data-target="geo"[\s\S]*?<circle cx="12" cy="12" r="3">/u);
-  assert.match(html, /data-tab-group="inspections"/u);
-  assert.match(html, /id="bottomInspectionMenu"/u);
+  assert.doesNotMatch(html, /id="bottomNav"/u);
+
   assert.match(runtimeSource, /modules\/overview\.js/u);
   assert.match(runtimeSource, /INSPECTION_TARGETS/u);
   assert.match(runtimeSource, /syncDesktopTabState/u);
@@ -421,18 +423,6 @@ test("IFC import runtime is not embedded back into app entrypoint", async () => 
   assert.match(headerSource, /id="bimImportedIfcCount"/u);
 });
 
-test("mobile wizard action stays fixed above bottom navigation", async () => {
-  const css = await readFile(resolve(projectRoot, "style.css"), "utf8");
-
-  assert.match(
-    css,
-    /body\.home-page main,\s*body\.home-page \.section\.active\s*\{\s*animation-name: fadeInOnly (?:!important)?;/u
-  );
-  assert.match(
-    css,
-    /\.wizard-footer\s*\{[\s\S]*?position: fixed (?:!important)?;[\s\S]*?bottom: calc\(74px \+ env\(safe-area-inset-bottom, 0px\)\) (?:!important)?;/u
-  );
-});
 
 test("app entrypoint delegates inspection evaluation to feature modules", async () => {
   const appSource = await readFile(resolve(projectRoot, "src/client/app.ts"), "utf8");
@@ -553,7 +543,7 @@ test("knowledge runtime imports article data and content helpers", async () => {
   const runtimeSource = await readFile(resolve(projectRoot, "src/client/app/modules/knowledge.ts"), "utf8");
   const articlesSource = await readFile(resolve(projectRoot, "src/client/app/modules/knowledge-articles.ts"), "utf8");
   const contentUtilsSource = await readFile(resolve(projectRoot, "src/client/app/modules/knowledge-content-utils.ts"), "utf8");
-  const css = await readFile(resolve(projectRoot, "style.css"), "utf8");
+  const css = await readFile(resolve(projectRoot, "src/client/styles/style.css"), "utf8");
   const articleModule = await import(pathToFileURL(resolve(projectRoot, "dist/app/modules/knowledge-articles.js")).href);
   const registryArticles = articleModule.KNOWLEDGE_ARTICLES;
 

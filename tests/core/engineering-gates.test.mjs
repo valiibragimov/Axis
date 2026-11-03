@@ -29,7 +29,7 @@ test("engineering evaluation rejects storage, UI, dynamic dependencies and expli
 });
 
 test("engineering strict profile checks real modules and rejects unsafe TypeScript", async () => {
-  const profile = resolve("tsconfig.engineering.json");
+  const profile = resolve("config/typescript/tsconfig.engineering.json");
   const control = spawnSync(process.execPath, ["node_modules/typescript/bin/tsc", "-p", profile], { encoding: "utf8" });
   assert.equal(control.status, 0, control.stdout + control.stderr);
   const directory = await mkdtemp(join(tmpdir(), "engineering-strict-"));

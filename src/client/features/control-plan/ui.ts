@@ -49,7 +49,7 @@ function getModuleTarget(moduleKey: string) {
 function activateAppTarget(target: string) {
   const normalizedTarget = target || "controlPlan";
   const trigger = document.querySelector<HTMLElement>(
-    `.tab[data-target="${normalizedTarget}"], .bottom-nav-item[data-tab="${normalizedTarget}"]`
+    `.tab[data-target="${normalizedTarget}"]`
   );
   if (trigger) {
     trigger.click();

@@ -2,11 +2,12 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile, readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { webFile, styleNames } from "./web-files.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = resolve(__dirname, "..", "..");
-const serviceWorkerPath = resolve(projectRoot, "sw.js");
+const serviceWorkerPath = resolve(projectRoot, "dist/sw.js");
 
 function extractConstString(source, constName) {
   const pattern = new RegExp(`const\\s+${constName}\\s*=\\s*"([^"]+)"`);
@@ -54,16 +55,16 @@ async function runtimeAssets(directory) {
   for (const entry of entries) {
     const path = `${directory}/${entry.name}`;
     if (entry.isDirectory()) result.push(...await runtimeAssets(path));
-    else if (entry.isFile() && /\.(js|css|html|wasm)$/.test(entry.name)) result.push(path);
+    else if (entry.isFile() && path !== "dist/sw.js" && /\.(js|css|html|wasm)$/.test(entry.name)) result.push(path);
   }
   return result;
 }
-const stylesheets = (await readdir(projectRoot)).filter(name => name.endsWith(".css"));
+const stylesheets = styleNames;
 const uniqueAssets = Array.from(new Set([...assets, ...stylesheets, ...await runtimeAssets("dist")])).sort();
 const hash = createHash("sha256");
 
 for (const asset of uniqueAssets) {
-  const assetPath = resolve(projectRoot, asset);
+  const assetPath = webFile(projectRoot, asset);
   const content = await readFile(assetPath);
   hash.update(asset);
   hash.update("\0");

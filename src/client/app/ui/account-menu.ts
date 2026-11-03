@@ -6,18 +6,6 @@ export function initAccountMenu() {
   const trigger = document.getElementById("headerProfileButton");
   const menu = document.getElementById("accountMenu");
   if (!trigger || !menu) return;
-  // The mobile rail is hidden; keep the same account control outside that layout.
-  const account = trigger.parentElement;
-  const sidebar = account?.closest("#workspaceSidebar");
-  if (account && sidebar) {
-    const mobile = matchMedia("(max-width: 768px)");
-    const placeAccount = () => {
-      if (mobile.matches) document.body.append(account);
-      else sidebar.insertBefore(account, sidebar.querySelector(".sidebar-resize"));
-    };
-    mobile.addEventListener("change", placeAccount);
-    placeAccount();
-  }
   const items = [...menu.querySelectorAll<HTMLElement>('[role="menuitem"]')];
   const close = (restore = false) => {
     menu.hidden = true;

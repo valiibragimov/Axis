@@ -11,5 +11,8 @@ export function getLocalDevelopmentConfig(env: NodeJS.ProcessEnv = process.env) 
       env.FIREBASE_STORAGE_BUCKET !== `${projectId}.appspot.com`) {
     throw new Error("LOCAL_EMULATOR_CONFIG: authenticated demo project and loopback Auth, Firestore and Storage are required");
   }
-  return { projectId };
+  const connectSources = [env.FIRESTORE_EMULATOR_HOST, env.FIREBASE_AUTH_EMULATOR_HOST, env.FIREBASE_STORAGE_EMULATOR_HOST]
+    .map(host => `http://${host}`);
+  connectSources.push(`ws://${env.FIRESTORE_EMULATOR_HOST}`);
+  return { projectId, connectSources };
 }

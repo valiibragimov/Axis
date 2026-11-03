@@ -4,7 +4,7 @@
 
 Run scripts through the root [package.json](../package.json). Direct invocation is useful only when diagnosing a specific build step.
 
-- `build/` assembles HTML, compiles and bundles runtime assets, generates contracts, builds the isolated demo and prepares hosting files.
+- `build/` assembles HTML, compiles and bundles runtime assets, generates contracts, builds the regular application for local emulators and prepares hosting files.
 - `checks/` runs smoke checks and validates generated hosting artifacts.
 - `dev/` provides the Express development watcher.
 

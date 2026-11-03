@@ -370,12 +370,7 @@ export function createModuleRuntime({
       group.classList.remove("is-open");
       group.querySelector<HTMLElement>(".tabs-group-trigger")?.setAttribute("aria-expanded", "false");
     });
-    const bottomMenu = document.getElementById("bottomInspectionMenu");
-    bottomMenu?.classList.remove("is-open");
-    bottomMenu?.setAttribute("aria-hidden", "true");
-    document
-      .querySelector<HTMLElement>('.bottom-nav-item[data-tab-group="inspections"]')
-      ?.setAttribute("aria-expanded", "false");
+
   };
 
   const syncDesktopTabState = (target: string | null | undefined) => {
@@ -408,83 +403,6 @@ export function createModuleRuntime({
     tabModulePromises.set(target, promise);
   };
 
-  const updateBottomNavContentWidth = (track: HTMLElement | null, items: HTMLElement[]) => {
-    if (!track || !items.length) return;
-    const lastItem = items[items.length - 1];
-    const contentWidth = Math.max(track.clientWidth, lastItem.offsetLeft + lastItem.offsetWidth + 6);
-    track.style.setProperty("--bottom-nav-content-width", `${Math.ceil(contentWidth)}px`);
-  };
-
-  const positionBottomNavCapsule = (
-    track: HTMLElement | null,
-    capsule: HTMLElement | null,
-    targetItem: HTMLElement | null,
-    animate = true,
-    scrollBehavior: ScrollBehavior = animate ? "smooth" : "auto"
-  ) => {
-    if (!track || !capsule || !targetItem) {
-      if (capsule) {
-        capsule.style.opacity = "0";
-      }
-      return;
-    }
-
-    const trackRect = track.getBoundingClientRect();
-    const itemRect = targetItem.getBoundingClientRect();
-    const width = Math.max(0, itemRect.width - 10);
-    const height = Math.max(0, itemRect.height - 6);
-    const x = itemRect.left - trackRect.left + track.scrollLeft + 5;
-
-    capsule.style.transitionDuration = animate ? "300ms" : "0ms";
-    capsule.style.width = `${width}px`;
-    capsule.style.height = `${height}px`;
-    capsule.style.transform = `translate3d(${x}px, 0, 0)`;
-    capsule.style.opacity = "1";
-
-    const nextScrollLeft = Math.max(
-      0,
-      Math.min(
-        x - (track.clientWidth - width) / 2,
-        Math.max(0, track.scrollWidth - track.clientWidth)
-      )
-    );
-
-    track.scrollTo({
-      left: nextScrollLeft,
-      behavior: scrollBehavior
-    });
-  };
-
-  const syncBottomNavState = (target: string | null | undefined, animate = true) => {
-    const bottomNav = document.getElementById("bottomNav");
-    if (!bottomNav) return;
-
-    const track = bottomNav.querySelector<HTMLElement>(".bottom-nav__track");
-    const capsule = bottomNav.querySelector<HTMLElement>(".bottom-nav__active-capsule");
-    const items = Array.from(bottomNav.querySelectorAll<HTMLElement>(".bottom-nav-item"));
-
-    if (!items.length) return;
-
-    updateBottomNavContentWidth(track, items);
-
-    let activeItem: HTMLElement | null = null;
-
-    items.forEach((item) => {
-      const isActive =
-        item.dataset.tab === target
-        || (item.dataset.tabGroup === "inspections" && INSPECTION_TARGETS.has(String(target || "")));
-      item.classList.toggle("active", isActive);
-      if (isActive) item.setAttribute("aria-current", "page");
-      else item.removeAttribute("aria-current");
-      item.tabIndex = isActive ? 0 : -1;
-      if (isActive) {
-        activeItem = item;
-      }
-    });
-
-    positionBottomNavCapsule(track, capsule, activeItem, animate);
-  };
-
   const activateTarget = (target: string | null | undefined, storageKey: string) => {
     if (!target) return;
 
@@ -493,7 +411,7 @@ export function createModuleRuntime({
     document.querySelectorAll<HTMLElement>(".section").forEach((section) => {
       section.classList.toggle("active", section.id === target);
     });
-    syncBottomNavState(target);
+
     closeNavigationGroups();
 
     localStorage.setItem(storageKey, target);
@@ -531,7 +449,7 @@ export function createModuleRuntime({
     if (document.body.dataset.navigationGroupsBound !== "true") {
       document.body.dataset.navigationGroupsBound = "true";
       document.addEventListener("click", (event) => {
-        if ((event.target as Element | null)?.closest?.(".tabs-group, #bottomNav")) return;
+        if ((event.target as Element | null)?.closest?.(".tabs-group")) return;
         closeNavigationGroups();
       });
       document.addEventListener("keydown", (event) => {
@@ -551,222 +469,6 @@ export function createModuleRuntime({
     if (sectionTargets.has(requestedTarget)) history.replaceState(history.state, "", location.pathname + location.search);
   };
 
-  const initBottomNav = (storageKey: string) => {
-    const bottomNav = document.getElementById("bottomNav");
-    if (!bottomNav) {
-      console.log("[BottomNav] Элемент не найден");
-      return;
-    }
-
-    const getBottomNavItems = () => Array.from(bottomNav.querySelectorAll<HTMLElement>(".bottom-nav-item"));
-    const getBottomNavTrack = () => bottomNav.querySelector<HTMLElement>(".bottom-nav__track");
-    const getBottomNavCapsule = () => bottomNav.querySelector<HTMLElement>(".bottom-nav__active-capsule");
-    const clearGesturePreview = () => {
-      getBottomNavItems().forEach((item) => item.classList.remove("is-gesture-target", "is-gesture-origin"));
-      bottomNav.classList.remove("is-dragging", "is-pressing");
-    };
-    const getItemFromPoint = (clientX: number, clientY: number) => {
-      const element = document.elementFromPoint(clientX, clientY);
-      return element?.closest<HTMLElement>(".bottom-nav-item") ?? null;
-    };
-    const setGesturePreview = (targetItem: HTMLElement | null, animate = true) => {
-      const items = getBottomNavItems();
-      const track = getBottomNavTrack();
-      const capsule = getBottomNavCapsule();
-
-      updateBottomNavContentWidth(track, items);
-      items.forEach((item) => item.classList.toggle("is-gesture-target", item === targetItem));
-      positionBottomNavCapsule(track, capsule, targetItem, animate);
-    };
-    const dragState = {
-      pointerId: -1,
-      pointerDown: false,
-      dragging: false,
-      suppressClick: false,
-      originItem: null as HTMLElement | null,
-      targetItem: null as HTMLElement | null,
-      startX: 0,
-      startY: 0,
-      holdTimer: 0 as number | undefined
-    };
-    const cancelHoldTimer = () => {
-      if (dragState.holdTimer) {
-        window.clearTimeout(dragState.holdTimer);
-        dragState.holdTimer = undefined;
-      }
-    };
-    const beginDragGesture = (targetItem: HTMLElement | null, animate = true) => {
-      if (!targetItem) return;
-      dragState.dragging = true;
-      dragState.targetItem = targetItem;
-      bottomNav.classList.add("is-dragging");
-      bottomNav.classList.remove("is-pressing");
-      if (dragState.originItem) {
-        dragState.originItem.classList.add("is-gesture-origin");
-      }
-      setGesturePreview(targetItem, animate);
-    };
-    const finishDragGesture = () => {
-      cancelHoldTimer();
-      const finalTarget = dragState.dragging ? dragState.targetItem?.dataset.tab : null;
-
-      if (dragState.originItem?.hasPointerCapture?.(dragState.pointerId)) {
-        dragState.originItem.releasePointerCapture(dragState.pointerId);
-      }
-
-      if (dragState.dragging) {
-        dragState.suppressClick = true;
-        if (finalTarget) {
-          activateTarget(finalTarget, storageKey);
-          if (navigator.vibrate) {
-            navigator.vibrate(8);
-          }
-        }
-      }
-
-      dragState.pointerDown = false;
-      dragState.dragging = false;
-      dragState.pointerId = -1;
-      dragState.originItem = null;
-      dragState.targetItem = null;
-      clearGesturePreview();
-
-      const currentTarget =
-        bottomNav.querySelector<HTMLElement>(".bottom-nav-item.active")?.dataset.tab ?? localStorage.getItem(storageKey);
-      syncBottomNavState(currentTarget, !dragState.dragging);
-    };
-
-    const bottomNavItems = getBottomNavItems();
-    console.log("[BottomNav] Найдено кнопок:", bottomNavItems.length);
-
-    bottomNavItems.forEach((item) => {
-      const newItem = item.cloneNode(true) as HTMLElement;
-      item.parentNode?.replaceChild(newItem, item);
-
-      newItem.addEventListener("pointerdown", (event: PointerEvent) => {
-        if (event.pointerType === "mouse" && event.button !== 0) return;
-
-        dragState.pointerId = event.pointerId;
-        dragState.pointerDown = true;
-        dragState.dragging = false;
-        dragState.originItem = newItem;
-        dragState.targetItem = newItem;
-        dragState.startX = event.clientX;
-        dragState.startY = event.clientY;
-        dragState.suppressClick = false;
-        if (typeof newItem.setPointerCapture === "function") {
-          newItem.setPointerCapture(event.pointerId);
-        }
-        bottomNav.classList.add("is-pressing");
-        newItem.classList.add("is-gesture-origin");
-        cancelHoldTimer();
-        dragState.holdTimer = window.setTimeout(() => {
-          if (dragState.pointerDown && dragState.originItem === newItem) {
-            beginDragGesture(newItem, false);
-            if (navigator.vibrate) {
-              navigator.vibrate(6);
-            }
-          }
-        }, 140);
-      });
-
-      newItem.addEventListener("pointermove", (event: PointerEvent) => {
-        if (!dragState.pointerDown || dragState.pointerId !== event.pointerId) return;
-
-        const deltaX = Math.abs(event.clientX - dragState.startX);
-        const deltaY = Math.abs(event.clientY - dragState.startY);
-
-        if (!dragState.dragging && (deltaX > 10 || deltaY > 10)) {
-          beginDragGesture(dragState.originItem, false);
-        }
-
-        if (!dragState.dragging) return;
-
-        event.preventDefault();
-        const hoveredItem = getItemFromPoint(event.clientX, event.clientY);
-        if (!hoveredItem || hoveredItem === dragState.targetItem) return;
-
-        dragState.targetItem = hoveredItem;
-        setGesturePreview(hoveredItem);
-        if (navigator.vibrate) {
-          navigator.vibrate(4);
-        }
-      });
-
-      newItem.addEventListener("pointerup", (event: PointerEvent) => {
-        if (dragState.pointerId !== event.pointerId) return;
-        finishDragGesture();
-      });
-
-      newItem.addEventListener("pointercancel", (event: PointerEvent) => {
-        if (dragState.pointerId !== event.pointerId) return;
-        finishDragGesture();
-      });
-
-      newItem.addEventListener("click", (event) => {
-        if (dragState.suppressClick) {
-          dragState.suppressClick = false;
-          event.preventDefault();
-          event.stopPropagation();
-          return;
-        }
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (newItem.dataset.tabGroup === "inspections") {
-          const menu = document.getElementById("bottomInspectionMenu");
-          const shouldOpen = !menu?.classList.contains("is-open");
-          closeNavigationGroups();
-          menu?.classList.toggle("is-open", shouldOpen);
-          menu?.setAttribute("aria-hidden", shouldOpen ? "false" : "true");
-          newItem.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
-          return;
-        }
-
-        const target = newItem.dataset.tab;
-        console.log("[BottomNav] Клик по:", target);
-        if (!target) return;
-
-        activateTarget(target, storageKey);
-
-        if (navigator.vibrate) {
-          navigator.vibrate(10);
-        }
-      });
-    });
-
-    bottomNav.querySelectorAll<HTMLElement>(".bottom-nav-group-option").forEach((option) => {
-      if (option.dataset.navigationBound === "true") return;
-      option.dataset.navigationBound = "true";
-      option.addEventListener("click", () => {
-        const target = option.dataset.tab;
-        if (!target) return;
-        activateTarget(target, storageKey);
-      });
-    });
-
-    const savedTarget = localStorage.getItem(storageKey);
-    if (savedTarget) {
-      requestAnimationFrame(() => syncBottomNavState(savedTarget, false));
-    } else {
-      const firstTarget = bottomNav.querySelector<HTMLElement>(".bottom-nav-item.active")?.dataset.tab;
-      requestAnimationFrame(() => syncBottomNavState(firstTarget, false));
-    }
-
-    if (bottomNav.dataset.resizeBound !== "true") {
-      const syncActiveBottomNav = () => {
-        const currentTarget = bottomNav.querySelector<HTMLElement>(".bottom-nav-item.active")?.dataset.tab;
-        syncBottomNavState(currentTarget, false);
-      };
-
-      window.addEventListener("resize", syncActiveBottomNav);
-      bottomNav.dataset.resizeBound = "true";
-    }
-
-    console.log("[BottomNav] Инициализация завершена");
-  };
-
   let navigationInitialized = false;
   const initNavigation = (storageKey = APP_STORAGE_KEYS.tab) => {
     if (navigationInitialized) {
@@ -778,14 +480,7 @@ export function createModuleRuntime({
     navigationInitialized = true;
     try {
       initTabsNavigation(storageKey);
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", () => {
-          try { initBottomNav(storageKey); }
-          catch (error) { navigationInitialized = false; throw error; }
-        }, { once: true });
-      } else {
-        initBottomNav(storageKey);
-      }
+
     } catch (error) {
       navigationInitialized = false;
       throw error;
@@ -796,7 +491,7 @@ export function createModuleRuntime({
     initNavigation,
     ensureTabModule,
     initTabsNavigation,
-    initBottomNav,
+
     loadJournal: () => withModule(getJournalModule, "Journal", (module) => module.loadJournal()),
     saveJournal: () => withModule(getJournalModule, "Journal", (module) => module.saveJournal()),
     renderJournal: () => withModule(getJournalModule, "Journal", (module) => module.renderJournal()),

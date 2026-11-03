@@ -33,7 +33,7 @@ See [Architecture](ARCHITECTURE.md) for module boundaries and data consistency.
 
 ## Run locally
 
-Use Node.js 22.12 or later in the Node 22 release line, npm, and Python 3 for the static server below. The pinned Node version is in [.nvmrc](.nvmrc).
+Use Node.js 22.12+ in the Node 22 release line, npm and Java 21+ for Firebase emulators. The pinned Node version is in [.nvmrc](.nvmrc).
 
 ```sh
 git clone https://github.com/valiibragimov/axis.git
@@ -43,18 +43,9 @@ npm ci --prefix server
 npm ci --prefix functions
 ```
 
-Copy [.env.example](.env.example) to `.env` and fill all six `FIREBASE_WEB_*` values from a **development** Firebase project. Configure Authentication and Firestore for that project; a client build alone does not configure those services.
+Run `npm run dev:local` and open <http://127.0.0.1:5050/login.html>. Register a local account. This runs the actual application and Express API with Firebase emulators; it needs no live credentials.
 
-```sh
-npm run build:client
-python -m http.server 8000 --bind 127.0.0.1
-```
-
-Open <http://127.0.0.1:8000/>. Rebuild the client after source changes.
-
-To explore the workspace without Firebase, follow the [isolated demo setup](docs/development.md#isolated-demo). It uses local sample data and supports IFC metadata import, but replaces charts and disables PDF export and the model viewer.
-
-The [development guide](docs/development.md) covers Firebase setup, the optional API, build outputs and test prerequisites.
+See the [development guide](docs/development.md) for Firebase setup, the optional API, build outputs and test prerequisites.
 
 ## Development and tests
 
@@ -69,7 +60,7 @@ npm run test:integration
 npm run audit:all
 ```
 
-`npm test` builds the client and demo, then runs smoke tests, core tests and Playwright browser scenarios. Windows browser tests use installed Google Chrome; Linux requires `npx playwright install --with-deps chromium`. Firestore integration tests require Java 21+ and use an isolated local emulator with synthetic data.
+`npm test` builds the application, then runs smoke tests, core tests and Playwright browser scenarios. Windows browser tests use installed Google Chrome; Linux requires `npx playwright install --with-deps chromium`. Firestore integration tests require Java 21+ and use an isolated local emulator with synthetic data.
 
 The [CI workflow](.github/workflows/ci.yml) runs these checks on pull requests to `main`. For changes to HTTP or shared BIM contracts, see [Contributing](CONTRIBUTING.md).
 

@@ -7,6 +7,7 @@ const __dirname = dirname(__filename);
 const projectRoot = resolve(__dirname, "..", "..");
 
 const targets = [
+  "build/pages",
   "dist",
   "dist-hosting",
   "server/dist",

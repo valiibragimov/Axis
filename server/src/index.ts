@@ -156,7 +156,7 @@ app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
     ...(localDevelopment ? { contentSecurityPolicy: { directives: {
-      "connect-src": ["'self'", "http://127.0.0.1:8085", "http://127.0.0.1:9099", "http://127.0.0.1:9199", "ws://127.0.0.1:8085"],
+      "connect-src": ["'self'", ...localDevelopment.connectSources],
       "frame-src": ["'self'", "blob:"], "img-src": ["'self'", "data:", "blob:"],
       "upgrade-insecure-requests": null
     } } } : {})
@@ -512,7 +512,7 @@ app.use((err, req, res, next) => {
 });
 
 if (localDevelopment) {
-  app.use(express.static(path.resolve(process.env.LOCAL_CLIENT_ROOT || "dist-local"), { dotfiles: "deny", index: "index.html" }));
+  app.use(express.static(path.resolve(process.env.LOCAL_CLIENT_ROOT || "dist-hosting"), { dotfiles: "deny", index: "index.html" }));
 }
 
 // Запуск сервера

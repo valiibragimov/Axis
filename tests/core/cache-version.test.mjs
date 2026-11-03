@@ -11,17 +11,21 @@ test("offline cache invalidates lazy modules and theme styles deterministically"
     await mkdir(join(directory, "scripts/build"), { recursive: true });
     await mkdir(join(directory, "dist"));
     await copyFile(resolve("scripts/build/stamp-service-worker-cache.mjs"), join(directory, "scripts/build/stamp-service-worker-cache.mjs"));
-    await writeFile(join(directory, "sw.js"), 'const CACHE_NAME = "tehnadzor-dev"; const STATIC_PAGES = []; const STATIC_ASSETS = [];');
-    await writeFile(join(directory, "index.html"), "<!doctype html><title>Fixture</title>");
-    await writeFile(join(directory, "theme.css"), "body{color:black}");
+    await copyFile(resolve("scripts/build/web-files.mjs"), join(directory, "scripts/build/web-files.mjs"));
+    await mkdir(join(directory, "src/client/styles"), {recursive:true});
+    await writeFile(join(directory, "src/client/styles/style.css"), "body{}");
+    await writeFile(join(directory, "dist/sw.js"), 'const CACHE_NAME = "tehnadzor-dev"; const STATIC_PAGES = []; const STATIC_ASSETS = [];');
+    await mkdir(join(directory, "build/pages"), { recursive: true });
+    await writeFile(join(directory, "build/pages/index.html"), "<!doctype html><title>Fixture</title>");
+    await writeFile(join(directory, "src/client/styles/liquid-glass.css"), "body{color:black}");
     await writeFile(join(directory, "dist/lazy.js"), "export const version=1;");
-    const stamp = async () => { execFileSync(process.execPath, [join(directory, "scripts/build/stamp-service-worker-cache.mjs")]); return readFile(join(directory, "sw.js"), "utf8"); };
+    const stamp = async () => { execFileSync(process.execPath, [join(directory, "scripts/build/stamp-service-worker-cache.mjs")]); return readFile(join(directory, "dist/sw.js"), "utf8"); };
     const initial = await stamp();
     assert.equal(await stamp(), initial);
     await writeFile(join(directory, "dist/lazy.js"), "export const version=2;");
     const next = await stamp();
     assert.notEqual(next, initial);
-    await writeFile(join(directory, "theme.css"), "body{color:white}");
+    await writeFile(join(directory, "src/client/styles/liquid-glass.css"), "body{color:white}");
     assert.notEqual(await stamp(), next);
   } finally {
     const insideTemporaryDirectory = relative(resolve(tmpdir()), resolve(directory));

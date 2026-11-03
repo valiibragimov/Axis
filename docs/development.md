@@ -10,32 +10,11 @@ npm ci --prefix server
 npm ci --prefix functions
 ```
 
-Python 3 is used only to serve static files in these examples. Another local static server is fine.
+## Main application with local emulators
 
-## Isolated demo
+Install Java 21+, run `npm run dev:local` and open <http://127.0.0.1:5050/login.html>. Register a local account and create a project. This uses the regular application build, real Firebase SDK, Firestore rules and Express API, with no replacement adapters.
 
-The demo replaces Firebase access with local sample data. It makes no requests to a live Firebase project or report API. Data is stored in the browser's local storage.
-
-The client build still requires web configuration before the demo can copy its worker assets. For a demo-only environment, create a root `.env` with these deliberately fake values:
-
-```dotenv
-FIREBASE_WEB_API_KEY=demo-api-key
-FIREBASE_WEB_AUTH_DOMAIN=demo.firebaseapp.com
-FIREBASE_WEB_PROJECT_ID=demo-project
-FIREBASE_WEB_STORAGE_BUCKET=demo.appspot.com
-FIREBASE_WEB_MESSAGING_SENDER_ID=000000000000
-FIREBASE_WEB_APP_ID=1:000000000000:web:demo
-```
-
-Do not overwrite an existing development configuration. These values cannot authenticate the regular application.
-
-```sh
-npm run build:client
-npm run build:demo
-python -m http.server 8000 --bind 127.0.0.1 --directory dist-demo
-```
-
-Open <http://127.0.0.1:8000/demo.html>. Only serve `dist-demo` for this mode. The demo supports the inspection workspace and real IFC metadata parsing; charts are placeholders, and PDF export and the model viewer are disabled. Viewer browser tests use a separate harness.
+Emulators bind to loopback: Firestore `28085`, Authentication `29099`, Storage `29199`. Ports come from `firebase.emulator.json`. Firebase’s reserved `demo-` project prefix denotes isolated tests, not a separate interface. Local startup does not import saved exports or change `.env`. Emulator data is temporary.
 
 ## Firebase application
 
@@ -50,7 +29,7 @@ python -m http.server 8000 --bind 127.0.0.1
 
 Open <http://127.0.0.1:8000/> and sign in with a development account. This mode persists data to the configured Firebase project. Use synthetic projects and models.
 
-There is no client development server or hot reload command. Run `npm run build:client` after changes. Root `index.html` is assembled from [HTML partials](../src/client/index-partials); edit those instead of the generated page.
+There is no client development server or hot reload command. Run `npm run build:client` after changes. `build/pages/index.html` is assembled from [HTML partials](../src/client/index-partials); edit those instead of the generated page.
 
 ## Optional Express API
 
@@ -75,9 +54,9 @@ The workspace currently imports IFC through its browser Worker and publishes dir
 
 Worker limits and request limits are documented in `server/.env.example`. The additional `IFC_WORKER_MAX_BYTES` setting caps worker input bytes (default 25 MiB); keep it consistent with the HTTP body limit. V8 heap limits do not bound WASM memory.
 
-The Firebase Function in [functions/src/index.ts](../functions/src/index.ts) serves the profile news feed. It is separate from the inspection API and is not needed for the isolated demo.
+The Firebase Function in [functions/src/index.ts](../functions/src/index.ts) serves the profile news feed. It is separate from the inspection API and is not started by the local emulator command.
 
-The regular client loads Chart.js and jsPDF from external CDNs when needed. Charts and PDF output therefore need network access unless those assets are already available in the browser.
+Chart.js and jsPDF are lazy-loaded from local build assets, with licenses copied alongside them. No external script CDN is required.
 
 ## Build outputs
 
@@ -86,12 +65,12 @@ The regular client loads Chart.js and jsPDF from external CDNs when needed. Char
 | Output | Purpose |
 | --- | --- |
 | `dist/` | Browser modules, workers and viewer assets |
-| `dist-demo/` | Isolated demo, built by `npm run build:demo` |
+| `build/pages/` | Generated HTML pages |
 | `dist-hosting/` | Static hosting files |
 | `server/dist/` | Compiled Express API and shared server code |
 | `functions/dist/` | Compiled Firebase Function |
 
-Root `index.html` and `sw.js` are generated too. Do not edit generated outputs by hand.
+The service worker is compiled to `dist/sw.js`. Sources belong in `src/client/pages`, `src/client/index-partials`, `src/client/styles` and `src/client/assets`; compiler profiles belong in `config/typescript`. Public URLs stay unchanged.
 
 ## Inspection write recovery
 
@@ -105,10 +84,10 @@ Inspection saves locate existing registry aliases through indexed source/documen
 
 Run the commands listed in [README](../README.md#development-and-tests) before submitting application changes.
 
-- `npm test` rebuilds the client and demo, then runs smoke, core and browser tests.
+- `npm test` rebuilds the application, then runs smoke, core and browser tests.
 - When synthetic checks use `FIREBASE_CONFIG_MODE=test` beside a complete local `.env`, `npm test` restores that local login configuration and refreshes the service worker cache after success or failure. CI without a local `.env` keeps its synthetic runtime. Refresh `login.html` after the checks finish.
 - `npm run test:core` builds the server and runs application, worker and IFC tests.
-- `npm run test:ui` runs browser tests against existing build outputs; build the client and demo first.
+- `npm run test:ui` builds the main application and starts browser tests with Authentication, Firestore and Storage emulators. Fixtures are isolated; Java 21+ is required.
 - `npm run test:integration` builds the server and starts a loopback Firestore emulator using [firebase.emulator.json](../firebase.emulator.json). It requires Java 21+ and uses a `demo-` project, not live credentials.
 - `npm run audit:all` checks all three dependency lockfiles.
 

@@ -10,7 +10,7 @@ test("first offline IFC import uses precached parser and WASM", { timeout: 60000
   const browser = await chromium.launch({ headless: true, ...(process.platform === "win32" ? { channel: "chrome" } : {}) });
   try {
     const page = await browser.newPage();
-    await page.goto(`${server.url}/dist-demo/demo.html`);
+    await page.goto(`${server.url}/login.html`);
     await page.evaluate(async () => {
       await navigator.serviceWorker.register("/sw.js", { scope: "/" });
       await navigator.serviceWorker.ready;

@@ -1,6 +1,6 @@
 import { t } from "../../shared/i18n/index.js";
 
-/** Shared by production and demo. Dialog focus, modality and Escape belong to the browser. */
+/** Dialog focus, modality and Escape belong to the browser. */
 export function initInspectionWorkspace() {
   const mobile = matchMedia("(max-width: 768px)");
   const sheets = [...document.querySelectorAll<HTMLDialogElement>("dialog.wizard-sheet")];
