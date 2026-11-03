@@ -15,14 +15,20 @@ export function initSidebar() {
   const desktop = matchMedia("(min-width: 769px)");
   const handles = [...sidebar.querySelectorAll<HTMLElement>(".sidebar-resize")];
   const drawer = document.createElement("dialog");
+  drawer.id = "mobileSidebarDrawer";
   drawer.className = "sidebar-drawer";
   drawer.setAttribute("aria-label", t("navigation"));
   document.body.append(drawer);
-  const accessLink = document.createElement("a");
-  accessLink.href = "#workspaceSidebar";
-  accessLink.className = "skip-link sidebar-access-link";
-  accessLink.textContent = t("expandSidebar");
-  document.body.prepend(accessLink);
+  const mobileToolbar = document.createElement("div");
+  mobileToolbar.className = "mobile-sidebar-toolbar";
+  const mobileToggle = document.createElement("button");
+  mobileToggle.id = "mobileSidebarToggle";
+  mobileToggle.className = "mobile-sidebar-toggle";
+  mobileToggle.type = "button";
+  mobileToggle.setAttribute("aria-controls", drawer.id);
+  mobileToggle.innerHTML = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M2 7h20M2 17h12"/></svg>';
+  mobileToolbar.append(mobileToggle);
+  document.body.prepend(mobileToolbar);
   const edge = document.createElement("div");
   edge.className = "sidebar-swipe-edge";
   edge.setAttribute("aria-hidden", "true");
@@ -30,6 +36,17 @@ export function initSidebar() {
   const scroll = sidebar.querySelector<HTMLElement>(".sidebar-scroll");
   const brand = sidebar.querySelector<HTMLElement>(".sidebar-brand");
   let mobileOpen = false;
+  let closeTimer: ReturnType<typeof setTimeout> | undefined;
+  let restoreMobileFocus = false;
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  let swipe: { x: number; y: number; open: boolean; progress: number; width: number; horizontal: boolean; paused: boolean; lastX: number; lastTime: number; velocity: number } | null = null;
+  const paintMobile = (progress: number) => drawer.style.setProperty("--sidebar-progress", String(Math.max(0, Math.min(1, progress))));
+  const visibleProgress = () => {
+    if (!drawer.open) return 0;
+    if (reducedMotion.matches) return Number(getComputedStyle(sidebar).opacity);
+    const rect = sidebar.getBoundingClientRect();
+    return Math.max(0, Math.min(1, 1 + rect.left / rect.width));
+  };
   const tooltip = document.createElement("div");
   tooltip.className = "sidebar-tooltip";
   tooltip.id = "sidebarTooltip";
@@ -57,16 +74,16 @@ export function initSidebar() {
     const current = collapsed ? COLLAPSED : width;
     document.body.style.setProperty("--sidebar-width", `${current}px`);
     sidebar.dataset.collapsed = String(desktop.matches && collapsed);
-    sidebar.dataset.mobileOpen = String(!desktop.matches && mobileOpen);
+    sidebar.dataset.mobileOpen = String(!desktop.matches && drawer.open);
     const host = desktop.matches ? document.body : drawer;
     if (sidebar.parentElement !== host) host.append(sidebar);
     if (scroll) scroll.inert = !desktop.matches && !mobileOpen;
     if (brand) brand.tabIndex = desktop.matches ? (collapsed ? -1 : 0) : (mobileOpen ? 0 : -1);
-    if (mobileOpen && !desktop.matches && !drawer.open) drawer.showModal();
-    else if ((desktop.matches || !mobileOpen) && drawer.open) drawer.close();
-    document.body.classList.toggle("sidebar-is-open", !desktop.matches && mobileOpen);
+    if (desktop.matches && drawer.open) drawer.close();
+    document.body.classList.toggle("sidebar-is-open", !desktop.matches && drawer.open);
     drawer.setAttribute("aria-label", t("navigation"));
-    accessLink.textContent = t("expandSidebar");
+    mobileToggle.setAttribute("aria-label", t("expandSidebar"));
+    mobileToggle.setAttribute("aria-expanded", String(!desktop.matches && mobileOpen));
     const expanded = desktop.matches ? !collapsed : mobileOpen;
     toggle.setAttribute("aria-expanded", String(expanded));
     toggle.setAttribute("aria-label", t(expanded ? "collapseSidebar" : "expandSidebar"));
@@ -79,25 +96,56 @@ export function initSidebar() {
   const save = () => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ width, collapsed })); } catch { /* Optional. */ }
   };
-  const closeMobile = (restore = false) => {
-    if (desktop.matches || !mobileOpen) return;
-    mobileOpen = false;
+  const finishMobileClose = () => {
+    if (mobileOpen || swipe?.horizontal) return;
+    clearTimeout(closeTimer);
+    closeTimer = undefined;
+    drawer.close();
     render();
-    if (restore) accessLink.focus();
+    if (restoreMobileFocus && !desktop.matches) mobileToggle.focus();
+    restoreMobileFocus = false;
   };
-  drawer.addEventListener("click", event => { if (event.target === drawer) closeMobile(); });
-  drawer.addEventListener("cancel", event => { event.preventDefault(); closeMobile(true); });
-  drawer.addEventListener("close", () => { if (mobileOpen) { mobileOpen = false; render(); } });
-  accessLink.addEventListener("click", event => {
+  const settleMobile = (open: boolean, restore = false) => {
     if (desktop.matches) return;
-    event.preventDefault(); mobileOpen = true; render();
-    sidebar.querySelector<HTMLElement>(".tab, a")?.focus();
+    const progress = visibleProgress();
+    clearTimeout(closeTimer);
+    closeTimer = undefined;
+    swipe = null;
+    drawer.dataset.dragging = "true";
+    paintMobile(progress);
+    if (open && !drawer.open) drawer.showModal();
+    mobileOpen = open;
+    restoreMobileFocus = restore;
+    render();
+    // Flush the current position before resuming an interruptible CSS transition.
+    void sidebar.getBoundingClientRect();
+    delete drawer.dataset.dragging;
+    drawer.dataset.state = open ? "open" : "closing";
+    paintMobile(open ? 1 : 0);
+    if (!open && drawer.open) closeTimer = setTimeout(finishMobileClose, reducedMotion.matches ? 140 : 280);
+    if (open) toggle.focus();
+  };
+  const closeMobile = (restore = false) => {
+    if (desktop.matches || !drawer.open) return;
+    if (!mobileOpen && closeTimer) { restoreMobileFocus ||= restore; return; }
+    settleMobile(false, restore);
+  };
+  sidebar.addEventListener("transitionend", event => {
+    if (event.target === sidebar && ["transform", "opacity"].includes(event.propertyName)) finishMobileClose();
   });
+  drawer.addEventListener("click", event => { if (event.target === drawer && !swipe?.horizontal) closeMobile(true); });
+  drawer.addEventListener("cancel", event => { event.preventDefault(); closeMobile(true); });
+  drawer.addEventListener("close", () => {
+    if (drawer.open) return;
+    clearTimeout(closeTimer); closeTimer = undefined; mobileOpen = false;
+    paintMobile(0); render();
+  });
+  mobileToggle.addEventListener("click", () => settleMobile(true));
   sidebar.addEventListener("click", event => {
     if (event.target instanceof Element && event.target.closest(".tab, [data-workspace-home]")) closeMobile();
   });
   const toggleSidebar = () => {
-    if (!desktop.matches) { mobileOpen = !mobileOpen; render(); return; }
+    if (!desktop.matches) { settleMobile(!mobileOpen, mobileOpen); return; }
     collapsed = !collapsed;
     hideTooltip();
     render();
@@ -150,34 +198,59 @@ export function initSidebar() {
     });
   }
   toggle.addEventListener("click", toggleSidebar);
-  // Observe only one-finger, horizontal intent; vertical scrolling and pinch zoom stay native.
-  let swipe: { x: number; y: number; open: boolean; horizontal: boolean } | null = null;
+  const cancelSwipe = () => {
+    const gesture = swipe; swipe = null;
+    if (gesture && (gesture.horizontal || gesture.paused)) settleMobile(gesture.open);
+  };
+  // Wait for horizontal intent, then track the finger in pixels without easing.
   document.addEventListener("touchstart", event => {
-    swipe = null;
+    cancelSwipe();
     if (desktop.matches || event.touches.length !== 1 || document.querySelector("dialog:modal:not(.sidebar-drawer)")) return;
-    if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable=true]")) return;
+    if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable=true], .mobile-sidebar-toggle")) return;
     const point = event.touches[0];
-    if (!point || (!mobileOpen && point.clientX > 28)) return;
-    swipe = { x: point.clientX, y: point.clientY, open: mobileOpen, horizontal: false };
+    if (!point || (!drawer.open && point.clientX > 28)) return;
+    const progress = visibleProgress();
+    const paused = drawer.open && (progress > 0 && progress < 1 || closeTimer !== undefined);
+    if (paused) {
+      clearTimeout(closeTimer); closeTimer = undefined;
+      drawer.dataset.dragging = "true"; paintMobile(progress);
+    }
+    swipe = { x: point.clientX, y: point.clientY, open: mobileOpen, progress, width: sidebar.getBoundingClientRect().width || Math.min(280, innerWidth - 48), horizontal: false, paused, lastX: point.clientX, lastTime: performance.now(), velocity: 0 };
   }, { passive: true });
   document.addEventListener("touchmove", event => {
-    if (!swipe || event.touches.length !== 1) { swipe = null; return; }
+    if (!swipe) return;
+    if (event.touches.length !== 1) { cancelSwipe(); return; }
     const point = event.touches[0];
     if (!point) return;
     const dx = point.clientX - swipe.x, dy = point.clientY - swipe.y;
-    if (!swipe.horizontal && Math.abs(dy) > 12 && Math.abs(dy) >= Math.abs(dx)) { swipe = null; return; }
-    if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.5 && (swipe.open ? dx < 0 : dx > 0)) swipe.horizontal = true;
-    if (swipe.horizontal && event.cancelable) event.preventDefault();
+    if (!swipe.horizontal && Math.abs(dy) > 12 && Math.abs(dy) >= Math.abs(dx)) { cancelSwipe(); return; }
+    if (!swipe.horizontal && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.5 && (drawer.open || dx > 0)) {
+      clearTimeout(closeTimer); closeTimer = undefined;
+      drawer.dataset.dragging = "true";
+      paintMobile(swipe.progress);
+      if (!drawer.open) drawer.showModal();
+      render();
+      swipe.horizontal = true;
+      drawer.dataset.state = "dragging";
+    }
+    if (!swipe.horizontal) return;
+    if (event.cancelable) event.preventDefault();
+    const now = performance.now();
+    swipe.velocity = (point.clientX - swipe.lastX) / Math.max(1, now - swipe.lastTime);
+    swipe.lastX = point.clientX; swipe.lastTime = now;
+    paintMobile(swipe.progress + dx / swipe.width);
   }, { passive: false });
   document.addEventListener("touchend", event => {
     const gesture = swipe; swipe = null;
     const point = event.changedTouches[0];
-    if (!gesture?.horizontal || !point || desktop.matches || gesture.open !== mobileOpen) return;
+    if (!gesture || !point || desktop.matches) return;
+    if (!gesture.horizontal) { if (gesture.paused) settleMobile(gesture.open); return; }
     const dx = point.clientX - gesture.x;
-    if (!gesture.open && dx >= 56) { mobileOpen = true; render(); }
-    else if (gesture.open && dx <= -56) closeMobile();
+    const velocity = performance.now() - gesture.lastTime < 100 ? gesture.velocity : 0;
+    const open = Math.abs(dx) >= 36 && Math.abs(velocity) > .5 ? velocity > 0 : gesture.progress + dx / gesture.width >= .5;
+    settleMobile(open);
   }, { passive: true });
-  document.addEventListener("touchcancel", () => { swipe = null; }, { passive: true });
+  document.addEventListener("touchcancel", cancelSwipe, { passive: true });
   sidebar.querySelectorAll<HTMLElement>(".tab, .sidebar-link, #sidebarToggle").forEach(control => {
     const showTooltip = () => {
       hideTooltip();
@@ -200,16 +273,25 @@ export function initSidebar() {
   tooltip.addEventListener("pointerenter", () => clearTimeout(tooltipTimer));
   tooltip.addEventListener("pointerleave", hideTooltip);
   document.addEventListener("keydown", event => {
-    if (event.key === "Escape") {
+    if (event.key === "Escape" && !event.defaultPrevented) {
       hideTooltip();
-      if (document.getElementById("accountMenu")?.hidden !== false) closeMobile(true);
+      if (!desktop.matches && drawer.open && document.getElementById("accountMenu")?.hidden !== false) {
+        event.preventDefault(); closeMobile(true);
+      }
       finishDrag(true);
     }
   });
   sidebar.querySelector(".sidebar-scroll")?.addEventListener("scroll", hideTooltip);
-  window.addEventListener("resize", hideTooltip);
+  window.addEventListener("resize", () => { hideTooltip(); cancelSwipe(); });
   window.addEventListener("blur", () => finishDrag(true));
-  desktop.addEventListener("change", () => { mobileOpen = false; finishDrag(true); hideTooltip(); render(); });
+  desktop.addEventListener("change", () => {
+    const focused = sidebar.contains(document.activeElement) || document.activeElement === mobileToggle;
+    clearTimeout(closeTimer); closeTimer = undefined; swipe = null; mobileOpen = false;
+    delete drawer.dataset.dragging; paintMobile(0);
+    if (drawer.open) drawer.close();
+    finishDrag(true); hideTooltip(); render();
+    if (focused) (desktop.matches ? toggle : mobileToggle).focus();
+  });
   document.addEventListener("app:language-changed", () => { hideTooltip(); render(); });
   document.addEventListener("app:tab-activated", () => { hideTooltip(); closeMobile(); });
   render();

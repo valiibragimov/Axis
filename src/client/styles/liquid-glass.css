@@ -541,17 +541,25 @@
 
   body:is(.home-page, [data-sidebar-page]) { --site-header-height: 0px; }
   .sidebar-brand { color: var(--text); text-decoration: none; min-width: 0; }
-  .sidebar-backdrop { position: fixed; inset: 0; width: 100%; height: 100dvh; margin: 0; padding: 0; border: 0; border-radius: 0; background: #0005; z-index: 70; }
-  .sidebar-backdrop:hover { background: #0005; }
-  .sidebar-drawer { position: fixed; inset: 0 auto 0 0; width: min(280px, calc(100vw - 48px)); max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: var(--surface-subtle); color: var(--text); overflow: visible; }
-  .sidebar-drawer::backdrop { background: #0005; }
-  .sidebar-access-link, .sidebar-swipe-edge { display: none; }
+  .sidebar-drawer { --sidebar-progress: 0; position: fixed; inset: 0; width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; border-radius: 0; background: rgb(0 0 0 / calc(var(--sidebar-progress) * .36)); color: var(--text); overflow: hidden; overscroll-behavior: contain; touch-action: pan-y pinch-zoom; }
+  .sidebar-drawer::backdrop { background: transparent; }
+  .sidebar-drawer #workspaceSidebar { inset: 0 auto 0 0; width: min(280px, calc(100% - 48px)); padding-top: calc(12px + env(safe-area-inset-top, 0px)); padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); padding-left: calc(10px + env(safe-area-inset-left, 0px)); transform: translate3d(calc((var(--sidebar-progress) - 1) * 100%), 0, 0); overscroll-behavior: contain; }
+  .sidebar-drawer #sidebarToggle { width: 44px; height: 44px; min-height: 44px; flex-basis: 44px; }
+  .mobile-sidebar-toolbar, .sidebar-swipe-edge { display: none; }
   body.sidebar-is-open { overflow: hidden; }
   @media (max-width: 768px) {
-    .sidebar-access-link { display: block; }
-    .sidebar-swipe-edge { display: block; position: fixed; inset: 0 auto 0 0; width: 20px; z-index: 60; }
+    .mobile-sidebar-toolbar { display: flex; align-items: center; position: sticky; top: 0; z-index: 70; min-height: 60px; box-sizing: border-box; padding: calc(8px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) 8px calc(16px + env(safe-area-inset-left, 0px)); background: var(--canvas); }
+    .mobile-sidebar-toolbar .mobile-sidebar-toggle { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface-hover); color: var(--text); -webkit-tap-highlight-color: transparent; }
+    .mobile-sidebar-toggle svg { pointer-events: none; }
+    html:has(.mobile-sidebar-toolbar) { scroll-padding-block-start: calc(76px + env(safe-area-inset-top, 0px)); }
+    .sidebar-swipe-edge { display: block; position: fixed; inset: 0 auto 0 0; width: 20px; z-index: 60; touch-action: pan-y pinch-zoom; }
     body.sidebar-is-open .sidebar-swipe-edge { display: none; }
-    .sidebar-drawer .tabs { inset: 0; width: 100%; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .sidebar-drawer { transition: background-color 240ms cubic-bezier(.2, 0, 0, 1); }
+    .sidebar-drawer #workspaceSidebar { transition: transform 240ms cubic-bezier(.2, 0, 0, 1); }
+    .mobile-sidebar-toggle { transition: scale 150ms ease-out; }
+    .mobile-sidebar-toggle:active:not(:disabled) { scale: .96; }
   }
   /* Persistent navigation. Icons keep their position when labels collapse. */
   :is(.home-page, [data-sidebar-page]) .tabs .tab::before,
@@ -758,7 +766,9 @@
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    .sidebar-drawer #workspaceSidebar { transform: none; opacity: var(--sidebar-progress); transition: opacity 100ms linear !important; }
   }
+  .sidebar-drawer[data-dragging="true"], .sidebar-drawer[data-dragging="true"] #workspaceSidebar { transition: none !important; }
   .theme-switching *, .theme-switching *::before, .theme-switching *::after { transition: none !important; }
   @media (forced-colors: active) {
     :focus-visible { outline-color: Highlight !important; }

@@ -111,10 +111,14 @@ export async function swipe(page, from, to, { cancel = false } = {}) {
 }
 
 export async function openSection(page, target) {
+  if (page.viewportSize().width <= 768 && await page.locator('.sidebar-drawer').getAttribute('data-state') === 'closing') {
+    await page.locator('.sidebar-drawer').waitFor({state:'hidden'});
+  }
   if (page.viewportSize().width <= 768 && !await page.locator(".sidebar-drawer").evaluate(e=>e.open)) {
     await swipe(page, {x:8,y:300}, {x:180,y:300});
     await page.locator(".sidebar-drawer[open]").waitFor();
   }
   await page.locator(`#workspaceSidebar [data-target="${target}"]`).click();
   await page.locator(`#${target}.active`).waitFor();
+  if (page.viewportSize().width <= 768) await page.locator('.sidebar-drawer').waitFor({state:'hidden'});
 }

@@ -35,6 +35,11 @@ for (const theme of ["light", "dark"]) {
           if ([1440,390].includes(width) && ["overview","geometry","summary"].includes(target)) await app.capture(`${target}-${theme}-${width}`);
         }
         if (width<=768) {
+          await page.locator('.sidebar-drawer').waitFor({state:'hidden'});
+          const opener = page.locator('#mobileSidebarToggle');
+          assert.equal(await opener.isVisible(), true);
+          const bounds = await opener.boundingBox();
+          assert.ok(bounds.width >= 44 && bounds.height >= 44 && bounds.x >= 0 && bounds.y >= 0);
           assert.equal(await page.locator("#sidebarToggle").isVisible(),false);
           assert.equal(await page.locator("#headerProfileButton").isVisible(),false);
           await swipe(page,{x:8,y:300},{x:180,y:300});
@@ -50,6 +55,8 @@ for (const theme of ["light", "dark"]) {
           await page.keyboard.press("Escape");
           // First Escape dismisses the nested account menu; it must not dismiss navigation.
           assert.equal(await drawer.evaluate(e=>e.open),true);
+          assert.equal(await drawer.getAttribute('data-state'),'open');
+          assert.equal(await opener.getAttribute('aria-expanded'),'true');
           if(width===390) await app.capture(`drawer-${theme}`);
           await swipe(page,{x:220,y:300},{x:40,y:300});
           await drawer.waitFor({state:"hidden"});
@@ -69,11 +76,11 @@ test("mobile panel respects vertical, short, cancelled and non-edge gestures", {
       [{x:8,y:300},{x:35,y:300},false],
       [{x:8,y:400},{x:12,y:200},false],
       [{x:8,y:300},{x:180,y:300},true]
-    ]) {await swipe(page,from,to,{cancel});assert.equal(await drawer.evaluate(e=>e.open),false);}
+    ]) {await swipe(page,from,to,{cancel});await drawer.waitFor({state:'hidden'});assert.equal(await drawer.evaluate(e=>e.open),false);}
     await swipe(page,{x:8,y:300},{x:180,y:300});await drawer.waitFor();
     await page.keyboard.press("Escape");await drawer.waitFor({state:"hidden"});
-    const link=page.locator(".sidebar-access-link");await link.focus();await link.press("Enter");await drawer.waitFor();
-    await page.keyboard.press("Escape");assert.equal(await link.evaluate(e=>e===document.activeElement),true);
+    const opener=page.locator("#mobileSidebarToggle");await opener.focus();await opener.press("Enter");await drawer.waitFor();
+    await page.keyboard.press("Escape");await drawer.waitFor({state:'hidden'});assert.equal(await opener.evaluate(e=>e===document.activeElement),true);
     await page.setViewportSize({width:1440,height:1000});
     await page.locator("#sidebarToggle").click();
     assert.equal(Math.round((await page.locator("#workspaceSidebar").boundingBox()).width),64);
@@ -112,7 +119,7 @@ test("profile and settings use the same mobile drawer and persist a real profile
   try {
     for(const path of ["profile","edit-profile"]){
       await page.goto(app.url+`/${path}.html`);await page.locator(".sidebar-drawer").waitFor({state:"attached"});
-      await swipe(page,{x:8,y:300},{x:180,y:300});await page.locator(".sidebar-drawer[open]").waitFor();
+      await page.locator('#mobileSidebarToggle').click();await page.locator(".sidebar-drawer[open]").waitFor();
       assert.equal(await page.locator("#workspaceSidebar #headerProfileButton").isVisible(),true);
       await page.keyboard.press("Escape");assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
       await app.capture(`${path}-mobile`);

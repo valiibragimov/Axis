@@ -26908,10 +26908,6 @@ body.home-page .tabs-group-item.active {
   transition: opacity 160ms ease;
 }
 
-.object-overview.is-loading {
-  opacity: 0.72;
-}
-
 .overview-heading,
 .overview-panel-heading,
 .overview-readiness-copy {
