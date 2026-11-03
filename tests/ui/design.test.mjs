@@ -151,6 +151,8 @@ test("public pages share responsive surfaces and auth fields retain accessible n
           await noOverflow(page);
           assert.equal(await page.locator("html").evaluate(e => e.classList.contains(`theme-${localStorage.getItem("app_theme")}`)), true);
           assert.equal(await page.locator("body").evaluate(e => getComputedStyle(e).backgroundColor), theme === "dark" ? "rgb(19, 20, 22)" : "rgb(246, 246, 247)");
+          assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor === getComputedStyle(document.body).backgroundColor), true,
+            `${route} ${theme}: root and page must share the canvas color`);
           if (["login", "register"].includes(route)) {
             assert.equal(await page.getByLabel("Email", { exact: true }).isVisible(), true);
             assert.equal(await page.getByLabel("Пароль", { exact: true }).isVisible(), true);
@@ -221,6 +223,8 @@ test("profile and account settings retain usable layouts with synthetic account 
             assert.equal(await page.locator('#accountMenu a[href="profile.html"]').count(), 1);
             assert.equal(await page.locator("header #themeToggleBtn").count(), 0);
           }
+          assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor === getComputedStyle(document.body).backgroundColor), true,
+            `${route} ${theme}: root and page must share the canvas color`);
           await noOverflow(page);
           if (width !== 820 && width !== 320) await capture(page, `${route}-${theme}-${width}`);
         }
