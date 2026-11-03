@@ -10,7 +10,7 @@
       window.__appThemeClass = className;
       document.documentElement.classList.add(className);
       document.documentElement.style.colorScheme = normalized;
-      document.documentElement.style.backgroundColor = normalized === "light" ? "#f1f5f9" : "#0f172a";
+      document.documentElement.style.backgroundColor = normalized === "light" ? "#f6f6f7" : "#131416";
 
       document.addEventListener(
         "DOMContentLoaded",
@@ -233,8 +233,8 @@
       </button>
       </div>
       <div class="sidebar-account">
-  <button id="headerProfileButton" class="account-trigger" type="button" aria-haspopup="menu" aria-controls="accountMenu" aria-expanded="false" data-i18n-aria="profile" aria-label="Профиль">
-    <span class="account-avatar"><img id="headerProfileAvatar" alt="" hidden /><svg class="header-profile-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg></span><span class="account-trigger-name" data-account-name data-i18n="profile">Профиль</span>
+  <button id="headerProfileButton" class="account-trigger" type="button" aria-haspopup="menu" aria-controls="accountMenu" aria-expanded="false" aria-labelledby="accountTriggerName" data-i18n-aria="profile" aria-label="Профиль">
+    <span class="account-avatar"><img id="headerProfileAvatar" alt="" hidden /><svg class="header-profile-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg></span><span id="accountTriggerName" class="account-trigger-name" data-account-name data-i18n="profile">Профиль</span>
   </button>
   <div id="accountMenu" class="account-menu" role="menu" aria-label="Профиль" hidden>
     <div class="account-menu-identity" role="presentation"><strong data-account-name data-i18n="profile">Профиль</strong></div>

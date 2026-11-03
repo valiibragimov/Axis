@@ -1686,12 +1686,15 @@ function renderJournal() {
     tr.className = "journal-row-clickable";
     tr.style.cursor = "pointer";
     tr.style.position = "relative";
-    tr.setAttribute("tabindex", "0");
-    tr.setAttribute("role", "button");
-    tr.setAttribute("aria-label", `Открыть проверку: ${fullEntry.module || ""} ${getEntryConstructionLabel(fullEntry)}`);
 
     const tdTime = document.createElement("td");
-    tdTime.textContent = formatJournalTimestamp(timestamp);
+    const openButton = document.createElement("button");
+    openButton.type = "button";
+    openButton.className = "journal-open-button";
+    openButton.textContent = formatJournalTimestamp(timestamp);
+    openButton.setAttribute("aria-label", `${openButton.textContent} — ${translateStatus(fullEntry.module || "")} — ${getEntryConstructionLabel(fullEntry)}`);
+    openButton.addEventListener("click", () => onJournalRowClick(fullEntry));
+    tdTime.append(openButton);
 
     const tdModule = document.createElement("td");
     tdModule.textContent = translateStatus(fullEntry.module || "");
@@ -1796,16 +1799,6 @@ function renderJournal() {
       tr.classList.add("is-navigating");
       setTimeout(() => tr.classList.remove("is-navigating"), 300);
       onJournalRowClick(fullEntry);
-    });
-
-    // Поддержка клавиатуры (Enter для активации)
-    tr.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        tr.classList.add("is-navigating");
-        setTimeout(() => tr.classList.remove("is-navigating"), 300);
-        onJournalRowClick(fullEntry);
-      }
     });
 
     tr.appendChild(tdTime);

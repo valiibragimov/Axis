@@ -2,6 +2,7 @@ import {
   getConstructionModuleBehavior,
   getConstructionProfile
 } from "../../../app/construction.js";
+import { setupNodeCardInteractions } from "../../../app/ui/node-card-interactions.js";
 
 function formatNodeValue(value, unit = "") {
   if (value === null || value === undefined || value === "") return "—";
@@ -75,42 +76,6 @@ function buildNodeDeleteIconButton(titleText = "Удалить узел", safeVa
       </svg>
     </button>
   `;
-}
-
-interface NodeCardInteractionOptions {
-  onOpen?: () => void;
-  onDelete?: (button: HTMLElement) => Promise<void> | void;
-}
-
-function setupNodeCardInteractions(row, { onOpen, onDelete }: NodeCardInteractionOptions = {}) {
-  if (!row) return;
-
-  row.classList.add("node-card-compact");
-  row.setAttribute("role", "button");
-  row.tabIndex = 0;
-
-  if (typeof onOpen === "function") {
-    row.addEventListener("click", (event) => {
-      if (event.target instanceof Element && event.target.closest('[data-act="del"]')) return;
-      onOpen();
-    });
-
-    row.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      if (event.target instanceof Element && event.target.closest('[data-act="del"]')) return;
-      event.preventDefault();
-      onOpen();
-    });
-  }
-
-  const deleteBtn = row.querySelector('[data-act="del"]');
-  if (deleteBtn instanceof HTMLElement && typeof onDelete === "function") {
-    deleteBtn.addEventListener("click", async (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      await onDelete(deleteBtn);
-    });
-  }
 }
 
 export function saveGeoNodesToStorage({ nodes, storage = localStorage, storageKey }) {

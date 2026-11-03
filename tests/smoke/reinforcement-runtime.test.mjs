@@ -81,6 +81,7 @@ function fakeElement(value = "") {
     children: [],
     options: [],
     tabIndex: 0,
+    ownerDocument: { createElement: () => fakeElement() },
     _focused: false,
     _scrolled: false,
     _deleteButton: null,
@@ -130,6 +131,16 @@ function fakeElement(value = "") {
     },
     setAttribute(name, nextValue) {
       this[name] = String(nextValue);
+    },
+    getAttribute(name) {
+      return this[name] ?? null;
+    },
+    removeAttribute(name) {
+      delete this[name];
+    },
+    prepend(child) {
+      this.children.unshift(child);
+      child.parentElement = this;
     },
     focus() {
       this._focused = true;

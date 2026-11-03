@@ -1,5 +1,6 @@
 import { t } from "../../../shared/i18n/index.js";
 import { getConstructionLabel } from "../../../app/construction.js";
+import { setupNodeCardInteractions } from "../../../app/ui/node-card-interactions.js";
 import {
   buildStrengthJournalPayload,
   buildStrengthResultSeries,
@@ -238,8 +239,6 @@ export function createStrengthActions({
       const row = dom.document.createElement("div");
       row.className = "node node-enhanced node-card-compact";
       row.dataset.id = id;
-      row.setAttribute("role", "button");
-      row.tabIndex = 0;
       row.innerHTML = `
         <div class="node-content">
           <div class="node-header">
@@ -273,18 +272,9 @@ export function createStrengthActions({
           </div>
         </div>
       `;
-      row.addEventListener("click", (event) => {
-        const target = event.target as Element | null;
-        if (target?.closest('[data-act="del"]')) {
-          void deleteCheck(id);
-          return;
-        }
-        void loadCheck(id);
-      });
-      row.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        void loadCheck(id);
+      setupNodeCardInteractions(row, {
+        onOpen: () => loadCheck(id),
+        onDelete: async () => { await deleteCheck(id); }
       });
       fragment.appendChild(row);
     });

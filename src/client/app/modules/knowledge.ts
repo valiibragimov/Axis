@@ -201,7 +201,10 @@ function renderKnowledgeConstructionCard(construction: KnowledgeConstructionCard
     icon.textContent = construction.icon;
     title.appendChild(icon);
   }
-  title.appendChild(document.createTextNode(construction.title));
+  const titleText = document.createElement("span");
+  titleText.className = "knowledge-construction-card__title";
+  titleText.textContent = construction.title;
+  title.appendChild(titleText);
   header.appendChild(title);
 
   const chevron = document.createElement("span");
@@ -639,7 +642,6 @@ function renderArticles(articles) {
     card.className = "knowledge-article-card";
     card.tabIndex = 0;
     card.setAttribute("role", "button");
-    card.setAttribute("aria-label", `Открыть статью: ${article.title || "Без названия"}`);
     card.addEventListener("click", () => openArticle(articleId));
     card.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {

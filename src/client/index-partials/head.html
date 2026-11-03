@@ -11,7 +11,7 @@
       }
       const normalizedTheme = theme === "light" ? "light" : "dark";
       const className = normalizedTheme === "light" ? "theme-light" : "theme-dark";
-      const backgroundColor = normalizedTheme === "light" ? "#f1f5f9" : "#0f172a";
+      const backgroundColor = normalizedTheme === "light" ? "#f6f6f7" : "#131416";
 
       window.__appThemeClass = className;
       document.documentElement.classList.add(className);
@@ -33,16 +33,16 @@
     })();
   </script>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Axis</title>
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
   <link rel="shortcut icon" href="favicon.ico">
   <link rel="manifest" href="manifest.json">
-  <meta id="appThemeColor" name="theme-color" content="#1e293b">
+  <meta id="appThemeColor" name="theme-color" content="#131416">
   <script>
     document.getElementById("appThemeColor").content =
-      window.__appThemeClass === "theme-light" ? "#f1f5f9" : "#0f172a";
+      window.__appThemeClass === "theme-light" ? "#f6f6f7" : "#131416";
   </script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">

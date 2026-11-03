@@ -1,8 +1,8 @@
-import { escapeHtml } from "../../utils.js";
+import { escapeHtml } from "../../shared/html.js";
 
 interface NodeCardInteractionOptions {
   onOpen?: () => Promise<void> | void;
-  onDelete?: () => Promise<void> | void;
+  onDelete?: (button: HTMLElement) => Promise<void> | void;
 }
 
 const safeValue = (value: unknown) => escapeHtml(value == null ? "" : String(value));
@@ -37,29 +37,34 @@ export function setupNodeCardInteractions(
 
   const interactiveRow = row as HTMLElement;
   interactiveRow.classList.add("node-card-compact");
-  interactiveRow.setAttribute("role", "button");
-  interactiveRow.tabIndex = 0;
+  interactiveRow.removeAttribute("role");
+  interactiveRow.removeAttribute("tabindex");
 
   if (typeof onOpen === "function") {
+    const title = interactiveRow.querySelector(".node-title");
+    const openButton = row.ownerDocument.createElement("button");
+    openButton.type = "button";
+    openButton.className = "node-open-button";
+    if (title) {
+      openButton.append(...title.childNodes);
+      title.append(openButton);
+    }
+    else {
+      openButton.textContent = interactiveRow.getAttribute("aria-label") || interactiveRow.textContent?.trim() || "—";
+      interactiveRow.prepend(openButton);
+    }
     interactiveRow.addEventListener("click", async (event) => {
       if (isDeleteActionTarget(event.target)) return;
       await onOpen();
     });
-
-    interactiveRow.addEventListener("keydown", async (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      if (isDeleteActionTarget(event.target)) return;
-      event.preventDefault();
-      await onOpen();
-    });
   }
 
-  const deleteBtn = interactiveRow.querySelector('[data-act="del"]');
+  const deleteBtn = interactiveRow.querySelector<HTMLElement>('[data-act="del"]');
   if (deleteBtn && typeof onDelete === "function") {
     deleteBtn.addEventListener("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
-      await onDelete();
+      await onDelete(deleteBtn);
     });
   }
 }

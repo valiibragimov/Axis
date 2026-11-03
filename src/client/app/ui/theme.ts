@@ -15,12 +15,19 @@ function getSavedTheme() {
 function setThemeClasses(theme) {
   const isLight = theme === "light";
 
+  document.documentElement.classList.add("theme-switching");
+
   document.documentElement.classList.toggle("theme-light", isLight);
   document.documentElement.classList.toggle("theme-dark", !isLight);
+  document.documentElement.style.colorScheme = theme;
+  document.documentElement.style.removeProperty("background-color");
 
   if (!document.body) return;
   document.body.classList.toggle("theme-light", isLight);
   document.body.classList.toggle("theme-dark", !isLight);
+  // Flush the new colors while transitions are suppressed.
+  void document.documentElement.offsetHeight;
+  requestAnimationFrame(() => requestAnimationFrame(() => document.documentElement.classList.remove("theme-switching")));
 }
 
 function syncThemeRadio(theme) {
