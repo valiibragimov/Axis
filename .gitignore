@@ -103,6 +103,6 @@ firebase-export-*/
 # dataconnect generated files
 .dataconnect
 
-build/
-output/
-tmp/
+/build/
+/output/
+/tmp/
