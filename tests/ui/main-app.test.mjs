@@ -121,11 +121,13 @@ test("profile and settings use the same mobile drawer and persist a real profile
       await page.goto(app.url+`/${path}.html`);await page.locator(".sidebar-drawer").waitFor({state:"attached"});
       await page.locator('#mobileSidebarToggle').click();await page.locator(".sidebar-drawer[open]").waitFor();
       assert.equal(await page.locator("#workspaceSidebar #headerProfileButton").isVisible(),true);
-      await page.keyboard.press("Escape");assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+      await page.keyboard.press("Escape");await page.locator('.sidebar-drawer').waitFor({state:'hidden'});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
       await app.capture(`${path}-mobile`);
     }
     await page.waitForFunction(email => document.getElementById("profileEmailInput").value === email && document.getElementById("profileNameInput").value === "Инженер", app.email);
     await page.locator("#profileNameInput").fill("Проверено");
+    assert.equal(await page.locator('#profileNameInput').inputValue(), 'Проверено');
     await page.locator("#saveProfileButton").click();
     await page.locator('#profileStatus[data-tone="success"]').waitFor();
     assert.equal((await app.user()).firstName, "Проверено", "Wait for the acknowledged Firestore write before reloading");
