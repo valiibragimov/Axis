@@ -29,7 +29,7 @@ python -m http.server 8000 --bind 127.0.0.1
 
 Open <http://127.0.0.1:8000/> and sign in with a development account. This mode persists data to the configured Firebase project. Use synthetic projects and models.
 
-There is no client development server or hot reload command. Run `npm run build:client` after changes. `build/pages/index.html` is assembled from [HTML partials](../src/client/index-partials); edit those instead of the generated page.
+There is no hot reload command. After changes, rerun `npm run dev:local` for the emulator application, or `npm run build` for the configured static application. This refreshes `dist-hosting` as well as the compiled modules. `build/pages/index.html` is assembled from [HTML partials](../src/client/index-partials); edit those instead of the generated page.
 
 ## Optional Express API
 

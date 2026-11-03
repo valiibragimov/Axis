@@ -117,8 +117,11 @@ test("profile and settings use the same mobile drawer and persist a real profile
       await page.keyboard.press("Escape");assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
       await app.capture(`${path}-mobile`);
     }
+    await page.waitForFunction(email => document.getElementById("profileEmailInput").value === email && document.getElementById("profileNameInput").value === "Инженер", app.email);
     await page.locator("#profileNameInput").fill("Проверено");
     await page.locator("#saveProfileButton").click();
+    await page.locator('#profileStatus[data-tone="success"]').waitFor();
+    assert.equal((await app.user()).firstName, "Проверено", "Wait for the acknowledged Firestore write before reloading");
     await page.reload();await page.locator("#profileNameInput").waitFor();
     await page.waitForFunction(()=>document.getElementById("profileNameInput").value==="Проверено");
   }finally{await app.close();}

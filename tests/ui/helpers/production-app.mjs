@@ -87,6 +87,7 @@ export async function startApp({ width = 1440, height = 1000, theme = "light", a
       await page.locator("#welcomeAnimation").waitFor({state:"hidden"});
     }
     return { page, browser, email, password, uid, errors, close, url: "http://127.0.0.1:5051",
+      user: () => data(async db => (await getDoc(doc(db, "users", uid))).data()),
       read: (name, id) => data(async db => (await getDoc(doc(db, "projects/project-main", name, id))).data()),
       records: name => data(async db => (await getDocs(collection(db, "projects/project-main", name))).docs.map(d => ({ id:d.id,...d.data() }))),
       seed: (path, value) => data(db => setDoc(doc(db, path), value)),
