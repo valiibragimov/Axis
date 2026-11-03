@@ -2,11 +2,11 @@ const scriptPromises = new Map();
 
 const LIBS = {
   chartjs: {
-    src: "/dist/vendor/chart.js",
+    src: new URL("../../vendor/chart.js", import.meta.url).href,
     isLoaded: () => typeof window !== "undefined" && typeof window.Chart !== "undefined"
   },
   jspdf: {
-    src: "/dist/vendor/jspdf.js",
+    src: new URL("../../vendor/jspdf.js", import.meta.url).href,
     isLoaded: () =>
       typeof window !== "undefined" &&
       typeof window.jspdf !== "undefined" &&
