@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { chromium, firefox } from "playwright";
 import { startApp, swipe, openSection } from "./helpers/production-app.mjs";
 
 const sections = ["overview", "controlPlan", "journal", "geo", "reinforcement", "geometry", "strength", "summary", "knowledge", "documents"];
@@ -151,4 +152,86 @@ test("public pages keep their stable URLs, themes and accessible login validatio
       }
     }
   }finally{await app.close();}
+});
+
+
+test("registration, empty project list and legacy inspection persistence with the service worker active", { timeout: 90000 }, async () => {
+  const browserType = process.env.AXIS_TEST_BROWSER === "firefox" ? firefox : chromium;
+  const app = await startApp({ authenticated: false, serviceWorkers: "allow", browserType });
+  const { page } = app;
+  const firestoreRequests = [];
+  await page.addInitScript(() => {
+    globalThis.cspViolations = [];
+    document.addEventListener("securitypolicyviolation", event => {
+      globalThis.cspViolations.push(event.violatedDirective);
+    });
+  });
+  page.on("response", response => {
+    if (new URL(response.url()).pathname.includes("google.firestore.v1.Firestore")) {
+      firestoreRequests.push({
+        status: response.status(),
+        fromWorker: response.fromServiceWorker(),
+        type: response.request().resourceType()
+      });
+    }
+  });
+  const email = `registered-${Date.now()}@axis.invalid`;
+  const login = async () => {
+    await page.locator("#loginEmail").fill(email);
+    await page.locator("#loginPassword").fill(app.password);
+    await page.locator("#btnLogin").click();
+    await page.waitForURL("**/index.html");
+  };
+  const logout = async () => {
+    await page.locator("#headerProfileButton").click();
+    await page.locator("#btnLogout").click();
+    await page.waitForURL("**/login.html");
+  };
+  try {
+    await page.goto(app.url + "/register.html");
+    await page.locator("#registerEmail").fill(email);
+    await page.locator("#registerPassword").fill(app.password);
+    await page.locator("#btnRegister").click();
+    await page.locator("#alertOk").click();
+    await page.waitForURL("**/login.html");
+    await login();
+    await page.locator("#projectSelector option[disabled]").waitFor({ state: "attached" });
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+    await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+    const { uid, projects } = await page.evaluate(async () => {
+      const { auth } = await import("/dist/firebase.js");
+      const { listUserProjectDocuments } = await import("/dist/app/repositories/firestore-repository.js");
+      return { uid: auth.currentUser.uid, projects: (await listUserProjectDocuments(auth.currentUser.uid)).length };
+    });
+    assert.equal(projects, 0);
+    assert.equal(await page.locator("#geometry").evaluate(section => section.inert), true);
+    await app.seed("projects/project-main", { name: "Legacy fixture", createdBy: uid, construction: "foundation_slab" });
+    await logout();
+    await login();
+    await page.locator('#projectSelector option[value="project-main"]').waitFor({ state: "attached" });
+    await page.locator("#welcomeAnimation").waitFor({ state: "hidden" });
+    await openSection(page, "geometry");
+    await page.locator("#geomChecksList .node-open-button").first().click();
+    await page.waitForFunction(() => document.getElementById("factPlateHeight").value === "514");
+    await page.locator("#factPlateHeight").fill("500");
+    await page.locator("#btnGeom").click();
+    await page.waitForFunction(() => !document.getElementById("btnGeom").disabled);
+    for (let attempt = 0; attempt < 50; attempt++) {
+      if ((await app.read("geomChecks", "saved-geometry")).factPlateHeight === 500) break;
+      await page.waitForTimeout(100);
+    }
+    assert.equal((await app.read("geomChecks", "saved-geometry")).factPlateHeight, 500);
+    await page.reload();
+    await page.locator('#projectSelector option[value="project-main"]').waitFor({ state: "attached" });
+    await openSection(page, "geometry");
+    await page.locator("#geomChecksList .node-open-button").first().click();
+    await page.waitForFunction(() => document.getElementById("factPlateHeight").value === "500");
+    assert.ok(firestoreRequests.some(request => request.status === 200));
+    assert.ok(firestoreRequests.every(request => !request.fromWorker));
+    assert.ok(firestoreRequests.some(request => request.type === "xhr"), "Firestore WebChannel uses XHR");
+    assert.deepEqual(await page.evaluate(() => globalThis.cspViolations), []);
+    assert.deepEqual(app.errors, []);
+  } finally {
+    await app.close();
+  }
 });

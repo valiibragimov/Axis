@@ -23,8 +23,8 @@ Copy [.env.example](../.env.example) to `.env` and supply all six web configurat
 Enable the sign-in providers used by your test accounts and authorise the local hostname in Firebase Authentication. Create Firestore and configure the repository's [rules](../firestore.rules) and [indexes](../firestore.indexes.json) in that development project. Do not use permissive rules as a setup shortcut.
 
 ```sh
-npm run build:client
-python -m http.server 8000 --bind 127.0.0.1
+npm run build
+python -m http.server 8000 --bind 127.0.0.1 --directory dist-hosting
 ```
 
 Open <http://127.0.0.1:8000/> and sign in with a development account. This mode persists data to the configured Firebase project. Use synthetic projects and models.
@@ -66,6 +66,7 @@ Chart.js and jsPDF are lazy-loaded from local build assets, with licenses copied
 | --- | --- |
 | `dist/` | Browser modules, workers and viewer assets |
 | `build/pages/` | Generated HTML pages |
+| `build/emulator-hosting/` | Static app wired to loopback emulators |
 | `dist-hosting/` | Static hosting files |
 | `server/dist/` | Compiled Express API and shared server code |
 | `functions/dist/` | Compiled Firebase Function |

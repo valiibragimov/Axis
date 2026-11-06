@@ -59,14 +59,10 @@ if (restoreLocal && firebaseEnvKeys.some(key => !dotenv[key] || /^(?:demo(?:-|\.
   console.log("[firebase-config] No complete local configuration to restore.");
   process.exit(0);
 }
-const missingKeys = firebaseEnvKeys.filter((key) => !(environment[key] || dotenv[key]));
-
-if (!existsSync(envPath) && !environment.FIREBASE_WEB_API_KEY) {
-  throw new Error(
-    "[firebase-config] Missing Firebase web config. Copy .env.example to .env " +
-      "and fill FIREBASE_WEB_* values from Firebase Console, or provide them as environment variables."
-  );
-}
+// Web app fields belong together. A partial environment override could
+// otherwise combine two projects and survive Hosting's project ID check.
+const webConfig = firebaseEnvKeys.some(key => key in environment) ? environment : dotenv;
+const missingKeys = firebaseEnvKeys.filter(key => !webConfig[key]);
 
 if (missingKeys.length > 0) {
   throw new Error(
@@ -78,12 +74,12 @@ if (missingKeys.length > 0) {
 // Synthetic CI configuration must never silently become a working login build.
 const emulatorConfig = environment.FIREBASE_CONFIG_MODE === "emulator";
 const testConfig = emulatorConfig || environment.FIREBASE_CONFIG_MODE === "test";
-const projectId = environment.FIREBASE_WEB_PROJECT_ID || dotenv.FIREBASE_WEB_PROJECT_ID;
+const projectId = webConfig.FIREBASE_WEB_PROJECT_ID;
 if (testConfig && !projectId.startsWith("demo-")) {
   throw new Error("[firebase-config] Test configuration requires a demo- project ID.");
 }
 const placeholderKeys = firebaseEnvKeys.filter((key) =>
-  /^(?:demo(?:-|\.)|__|your[-_]|replace[-_])/iu.test(environment[key] || dotenv[key])
+  /^(?:demo(?:-|\.)|__|your[-_]|replace[-_])/iu.test(webConfig[key])
 );
 if (!testConfig && placeholderKeys.length > 0) {
   throw new Error(
@@ -98,7 +94,7 @@ firebaseJs = firebaseJs.replace(/\n\/\/ Local emulator wiring[\s\S]*$/u, "");
 const configFields = ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"];
 for (const [index, key] of firebaseEnvKeys.entries()) {
   const placeholder = `__${key}__`;
-  const value = environment[key] || dotenv[key];
+  const value = webConfig[key];
   if (restoreLocal) {
     const field = new RegExp(`(\\b${configFields[index]}\\s*:\\s*)"(?:[^"\\\\]|\\\\.)*"`);
     firebaseJs = firebaseJs.replace(field, (_match, prefix) => prefix + JSON.stringify(value));

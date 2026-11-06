@@ -6,6 +6,7 @@
   },
   "hosting": {
     "public": "dist-hosting",
+    "predeploy": ["npm --prefix \"$PROJECT_DIR\" run check:hosting -- --production"],
     "headers": [
       {
         "source": "**",

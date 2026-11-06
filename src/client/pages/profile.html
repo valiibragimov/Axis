@@ -533,7 +533,7 @@
       getProjectCollectionDocSnapshot,
       getProjectCollectionSnapshot,
       getProjectCollectionOrderedSnapshot,
-      getProjectsByFieldSnapshot,
+      listUserProjectDocuments,
       getUserDocSnapshot,
       mergeProjectDoc,
       mergeUserDoc
@@ -1719,7 +1719,6 @@
       logoutBtn.addEventListener("click", async () => {
         try {
           await logoutUser();
-          window.location.href = "login.html";
         } catch (err) {
           console.error("Logout error:", err);
           await showAlert("Ошибка выхода. Проверь консоль.", "Ошибка");
@@ -1853,9 +1852,9 @@
       const normalizedTarget = normalizeProjectName(name);
       if (!normalizedTarget) return false;
 
-      const snap = await getProjectsByFieldSnapshot("ownerUid", ownerUid);
+      const projects = await listUserProjectDocuments(ownerUid);
 
-      return snap.docs.some((docSnap) => {
+      return projects.some((docSnap) => {
         if (excludeProjectId && docSnap.id === excludeProjectId) {
           return false;
         }
@@ -1944,11 +1943,7 @@
             stopEditing({ restoreValue: false });
             return;
           }
-          await mergeProjectDoc(projectId, {
-            name: trimmed,
-            ownerUid: currentUserId,
-            createdBy: currentUserId
-          });
+          await mergeProjectDoc(projectId, { name: trimmed });
           currentName = trimmed;
           setProjectCardName(card, trigger, input, currentName);
           stopEditing({ restoreValue: false, focusTrigger: true });
@@ -2248,9 +2243,9 @@
       setCaption(projectsContainer, "Загрузка объектов…");
 
       try {
-        const snap = await getProjectsByFieldSnapshot("ownerUid", currentUserId);
+        const projects = await listUserProjectDocuments(currentUserId);
 
-        if (snap.size === 0) {
+        if (projects.length === 0) {
           updateProjectsCount(0);
           setCaption(projectsContainer, "Пока нет ни одного объекта. Создайте новый выше.");
           return;
@@ -2258,7 +2253,7 @@
 
         clearNodeChildren(projectsContainer);
 
-        const cards = await Promise.all(snap.docs.map(async (docSnap, cardIndex) => {
+        const cards = await Promise.all(projects.map(async (docSnap, cardIndex) => {
           const data = docSnap.data();
           const projectId = docSnap.id;
           const archived = !!data.archived;
@@ -2383,11 +2378,7 @@
             event.stopPropagation();
             const makeArchived = !archived;
             try {
-              await mergeProjectDoc(projectId, {
-                archived: makeArchived,
-                ownerUid: currentUserId,
-                createdBy: currentUserId
-              });
+              await mergeProjectDoc(projectId, { archived: makeArchived });
               loadProjects();
             } catch (e) {
               console.error("Ошибка изменения статуса архива:", e);

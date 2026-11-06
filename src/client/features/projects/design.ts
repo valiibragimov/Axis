@@ -237,6 +237,7 @@ export async function loadProjectDataIntoForm(projectId, deps) {
 
   const {
     getProjectDocSnapshot,
+    isCurrentSelection,
     dateInput,
     construction,
     setConstructionAndTrigger,
@@ -254,33 +255,29 @@ export async function loadProjectDataIntoForm(projectId, deps) {
     mark
   } = deps;
 
-  try {
-    const snap = await getProjectDocSnapshot(normalizedProjectId);
-    if (!snap.exists()) return;
+  const snap = await getProjectDocSnapshot(normalizedProjectId);
+  if (isCurrentSelection && !isCurrentSelection()) return;
+  if (!snap.exists()) throw new Error("Project is no longer available.");
 
-    const data = snap.data();
-    applyProjectDataToForm(data, {
-      dateInput,
-      construction,
-      setConstructionAndTrigger,
-      preserveConstruction,
-      getCurrentConstructionPreference,
-      projX,
-      projY,
-      projH,
-      projDia,
-      projStep,
-      projCover,
-      projThick,
-      tolThick,
-      tolVert,
-      mark
-    });
+  const data = snap.data();
+  applyProjectDataToForm(data, {
+    dateInput,
+    construction,
+    setConstructionAndTrigger,
+    preserveConstruction,
+    getCurrentConstructionPreference,
+    projX,
+    projY,
+    projH,
+    projDia,
+    projStep,
+    projCover,
+    projThick,
+    tolThick,
+    tolVert,
+    mark
+  });
 
-    console.log("Проектные данные загружены", data);
-  } catch (err) {
-    console.error("Ошибка загрузки проекта:", err);
-  }
 }
 
 export function createProjectDesignAutosave({

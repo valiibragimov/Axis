@@ -14,7 +14,7 @@ export const emulatorEnvironment = {
   FIREBASE_STORAGE_EMULATOR_HOST: `127.0.0.1:${config.emulators.storage.port}`
 };
 
-export async function startApp({ width = 1440, height = 1000, theme = "light", authenticated = true, touch = width <= 768 } = {}) {
+export async function startApp({ width = 1440, height = 1000, theme = "light", authenticated = true, touch = width <= 768, serviceWorkers = "block", browserType = chromium } = {}) {
   if (process.env.FIRESTORE_EMULATOR_HOST !== emulatorEnvironment.FIRESTORE_EMULATOR_HOST) throw new Error("Run UI checks through npm run test:ui; a loopback emulator is required.");
   const environment = await initializeTestEnvironment({ projectId: project, firestore: {
     host: "127.0.0.1", port: config.emulators.firestore.port, rules: await readFile("firestore.rules", "utf8")
@@ -54,13 +54,13 @@ export async function startApp({ width = 1440, height = 1000, theme = "light", a
   const server = spawn(process.execPath, ["server/dist/server/src/index.js"], { windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: {
     ...process.env, ...emulatorEnvironment, FIREBASE_PROJECT_ID: project, GCLOUD_PROJECT: project,
     FIREBASE_STORAGE_BUCKET: `${project}.appspot.com`, LOCAL_FIREBASE_EMULATORS: "true", AUTH_REQUIRED: "true",
-    LOCAL_CLIENT_ROOT: resolve("dist-hosting"), PORT: "5051", ALLOWED_ORIGINS: "http://127.0.0.1:5051"
+    LOCAL_CLIENT_ROOT: resolve("build/emulator-hosting"), PORT: "5051", ALLOWED_ORIGINS: "http://127.0.0.1:5051"
   } });
   let serverOutput = "";
   server.stdout.on("data", chunk => { serverOutput += chunk; });
   server.stderr.on("data", chunk => { serverOutput += chunk; });
-  const browser = await chromium.launch({ headless: true, ...(process.platform === "win32" ? { channel: "chrome" } : {}) });
-  const page = await browser.newPage({ viewport: { width, height }, hasTouch: touch, isMobile: touch, reducedMotion: "reduce", serviceWorkers: "block" });
+  const browser = await browserType.launch({ headless: true, ...(browserType === chromium && process.platform === "win32" ? { channel: "chrome" } : {}) });
+  const page = await browser.newPage({ viewport: { width, height }, hasTouch: touch, isMobile: touch, reducedMotion: "reduce", serviceWorkers });
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   const close = async () => {

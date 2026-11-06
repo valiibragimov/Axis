@@ -6,7 +6,7 @@ import { pageNames, styleNames, assetNames, webFile } from "./web-files.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = resolve(__dirname, "..", "..");
-const publicRoot = resolve(projectRoot, "dist-hosting");
+const publicRoot = resolve(projectRoot, process.env.FIREBASE_CONFIG_MODE === "emulator" ? "build/emulator-hosting" : "dist-hosting");
 
 const runtimeEntries = [...pageNames.map(name => name + ".html"), ...styleNames, ...assetNames, "sw.js", "dist"];
 

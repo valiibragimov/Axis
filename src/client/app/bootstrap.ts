@@ -13,6 +13,7 @@ interface AuthBootstrapOptions {
   loadCurrentUserEngineerName: (uid: string) => Promise<unknown>;
   clearCurrentUserContext: () => void;
   loadProjects: () => Promise<unknown> | unknown;
+  onProjectLoadError: (error: unknown) => void;
   setCurrentProjectId: (projectId: string | null) => unknown;
   setModulesEnabled: (enabled: boolean) => void;
 }
@@ -53,26 +54,31 @@ export function initAuthBootstrap({
   loadCurrentUserEngineerName,
   clearCurrentUserContext,
   loadProjects,
+  onProjectLoadError,
   setCurrentProjectId,
   setModulesEnabled
 }: AuthBootstrapOptions) {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       setCurrentUserId(user.uid);
-      console.log("Пользователь авторизован:", user.uid);
-      await loadCurrentUserEngineerName(user.uid);
+      try {
+        await loadCurrentUserEngineerName(user.uid);
+        if (auth.currentUser?.uid !== user.uid) return;
 
-      const justLoggedIn = sessionStorage.getItem("just_logged_in") === "true";
-      const pendingWelcome = localStorage.getItem(pendingWelcomeKey);
-      if (justLoggedIn || pendingWelcome === pendingWelcomeNewUser) {
-        const welcomeTitle =
-          pendingWelcome === pendingWelcomeNewUser ? "Добро пожаловать!" : "С возвращением!";
-        showWelcomeAnimation(welcomeTitle);
-        sessionStorage.removeItem("just_logged_in");
-        localStorage.removeItem(pendingWelcomeKey);
+        const justLoggedIn = sessionStorage.getItem("just_logged_in") === "true";
+        const pendingWelcome = localStorage.getItem(pendingWelcomeKey);
+        if (justLoggedIn || pendingWelcome === pendingWelcomeNewUser) {
+          const welcomeTitle =
+            pendingWelcome === pendingWelcomeNewUser ? "Добро пожаловать!" : "С возвращением!";
+          showWelcomeAnimation(welcomeTitle);
+          sessionStorage.removeItem("just_logged_in");
+          localStorage.removeItem(pendingWelcomeKey);
+        }
+
+        await loadProjects();
+      } catch (error) {
+        if (auth.currentUser?.uid === user.uid) onProjectLoadError(error);
       }
-
-      await loadProjects();
       return;
     }
 
@@ -81,13 +87,7 @@ export function initAuthBootstrap({
     clearCurrentUserContext();
     setModulesEnabled(false);
 
-    if (
-      window.location.pathname.endsWith("index.html") ||
-      window.location.pathname === "/" ||
-      window.location.pathname === ""
-    ) {
-      window.location.href = "login.html";
-    }
+    window.location.replace("login.html");
   });
 }
 
@@ -117,7 +117,6 @@ export function initStaticBootstrap({ regulatoryDocs, showNotification }: Static
     logoutBtn.addEventListener("click", async () => {
       try {
         await logoutUser();
-        window.location.href = "login.html";
       } catch (error) {
         console.error("Logout error:", error);
         showNotification("Ошибка выхода. Проверь консоль.", "error");

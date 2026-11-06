@@ -1,4 +1,4 @@
-import { access, readdir } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
@@ -6,7 +6,7 @@ import { dirname } from "node:path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = resolve(__dirname, "..", "..");
-const publicRoot = resolve(projectRoot, "dist-hosting");
+const publicRoot = resolve(projectRoot, process.env.FIREBASE_CONFIG_MODE === "emulator" ? "build/emulator-hosting" : "dist-hosting");
 
 const requiredFiles = [
   "index.html",
@@ -98,6 +98,29 @@ if (violations.length > 0) {
     .map((filePath) => `- ${relative(publicRoot, filePath)}`)
     .join("\n");
   throw new Error(`Forbidden files found in Firebase Hosting output:\n${formatted}`);
+}
+
+if (process.argv.includes("--production")) {
+  if (["test", "emulator"].includes(process.env.FIREBASE_CONFIG_MODE)) {
+    throw new Error("Firebase Hosting requires a real Firebase web configuration.");
+  }
+  const source = await readFile(resolve(publicRoot, "dist/firebase.js"), "utf8");
+  const config = source.match(/const firebaseConfig = \{([\s\S]*?)\};/u)?.[1] || "";
+  const values = {};
+  for (const field of ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"]) {
+    const literal = config.match(new RegExp(`\\b${field}\\s*:\\s*("(?:[^"\\\\]|\\\\.)*")`))?.[1];
+    const value = literal ? JSON.parse(literal) : "";
+    if (!value.trim() || /^(?:demo(?:-|\.)|__|your[-_]|replace[-_])/iu.test(value)) {
+      throw new Error(`Firebase Hosting configuration is missing or contains a placeholder: ${field}.`);
+    }
+    values[field] = value;
+  }
+  const aliases = JSON.parse(await readFile(resolve(projectRoot, ".firebaserc"), "utf8"));
+  // Firebase CLI supplies GCLOUD_PROJECT to predeploy hooks for explicit --project targets.
+  const targetProject = process.env.GCLOUD_PROJECT || aliases.projects.default;
+  if (!targetProject || values.projectId !== targetProject) {
+    throw new Error("Firebase Hosting configuration does not match the deployment project.");
+  }
 }
 
 console.log(`Firebase Hosting output verified: ${files.length} files`);

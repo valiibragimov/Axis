@@ -1,5 +1,5 @@
 import {
-  getProjectsByFieldSnapshot,
+  listUserProjectDocuments,
   getProjectDocSnapshot
 } from "../../app/repositories/firestore-repository.js";
 import {
@@ -13,6 +13,7 @@ import { loadProjectDataIntoForm } from "./design.js";
 
 interface GeoProjectDataLoadOptions {
   preserveConstruction?: boolean;
+  isCurrentSelection?: () => boolean;
 }
 
 interface ProjectRuntimeOptions {
@@ -68,6 +69,7 @@ export function createProjectRuntime(options: ProjectRuntimeOptions) {
       construction: options.construction,
       setConstructionAndTrigger: options.setConstructionAndTrigger,
       preserveConstruction: !!loadOptions.preserveConstruction,
+      isCurrentSelection: loadOptions.isCurrentSelection,
       getCurrentConstructionPreference: () => localStorage.getItem("selected_construction"),
       projX: options.projX,
       projY: options.projY,
@@ -79,47 +81,60 @@ export function createProjectRuntime(options: ProjectRuntimeOptions) {
       mark: options.mark
     });
 
-  const selectProject = (projectId: string) =>
-    selectProjectFromService(projectId, {
-      setCurrentProjectId: options.setCurrentProjectId,
-      setModulesEnabled,
-      resetFormForNewProject: options.resetFormForNewProject,
-      loadProjectData,
-      loadGeoNodesForProject: options.loadGeoNodesForProject as any,
-      loadProjectBimElements: options.loadProjectBimElements as any,
-      loadJournal: options.loadJournal as any,
-      renderJournal: options.renderJournal as any,
-      loadJournalSessionsForProject: options.loadJournalSessionsForProject as any,
-      loadReinfChecks: options.loadReinfChecks as any,
-      renderReinfChecks: options.renderReinfChecks as any,
-      loadGeomChecks: options.loadGeomChecks as any,
-      renderGeomChecks: options.renderGeomChecks as any,
-      loadStrengthChecks: options.loadStrengthChecks as any,
-      renderStrengthChecks: options.renderStrengthChecks as any,
-      nodes: options.nodes as any,
-      reinfChecks: options.reinfChecks as any,
-      geomChecks: options.geomChecks as any,
-      strengthChecks: options.strengthChecks as any,
-      state: options.state,
-      checked: options.checked,
-      restoreSelectedProjectState: () =>
-        restoreSelectedProjectStateFromService({
-          construction: options.construction,
-          setConstructionAndTrigger: options.setConstructionAndTrigger,
-          updateReinfLocationFieldsVisibility: options.updateReinfLocationFieldsVisibility,
-          updateGeoFieldsVisibility: options.updateGeoFieldsVisibility,
-          updateGeomFieldsVisibility: options.updateGeomFieldsVisibility,
-          updateStrengthFieldsVisibility: options.updateStrengthFieldsVisibility
-        }),
-      updateSummaryTab: options.updateSummaryTab
-    });
+  // Only one selection may load the shared inspection maps at a time.
+  let selection = Promise.resolve<unknown>(undefined);
+  let selectionRevision = 0;
+  const selectProject = (projectId: string) => {
+    const revision = ++selectionRevision;
+    const uid = options.getCurrentUserId();
+    const isLatest = () => revision === selectionRevision && uid === options.getCurrentUserId();
+    const load = () => {
+      if (!isLatest()) return;
+      return selectProjectFromService(projectId, {
+        isCurrentSelection: () => isLatest() && options.getCurrentProjectId() === projectId,
+        setCurrentProjectId: options.setCurrentProjectId,
+        setModulesEnabled,
+        resetFormForNewProject: options.resetFormForNewProject,
+        loadProjectData,
+        loadGeoNodesForProject: options.loadGeoNodesForProject as any,
+        loadProjectBimElements: options.loadProjectBimElements as any,
+        loadJournal: options.loadJournal as any,
+        renderJournal: options.renderJournal as any,
+        loadJournalSessionsForProject: options.loadJournalSessionsForProject as any,
+        loadReinfChecks: options.loadReinfChecks as any,
+        renderReinfChecks: options.renderReinfChecks as any,
+        loadGeomChecks: options.loadGeomChecks as any,
+        renderGeomChecks: options.renderGeomChecks as any,
+        loadStrengthChecks: options.loadStrengthChecks as any,
+        renderStrengthChecks: options.renderStrengthChecks as any,
+        nodes: options.nodes as any,
+        reinfChecks: options.reinfChecks as any,
+        geomChecks: options.geomChecks as any,
+        strengthChecks: options.strengthChecks as any,
+        state: options.state,
+        checked: options.checked,
+        restoreSelectedProjectState: () =>
+          restoreSelectedProjectStateFromService({
+            construction: options.construction,
+            setConstructionAndTrigger: options.setConstructionAndTrigger,
+            updateReinfLocationFieldsVisibility: options.updateReinfLocationFieldsVisibility,
+            updateGeoFieldsVisibility: options.updateGeoFieldsVisibility,
+            updateGeomFieldsVisibility: options.updateGeomFieldsVisibility,
+            updateStrengthFieldsVisibility: options.updateStrengthFieldsVisibility
+          }),
+        updateSummaryTab: options.updateSummaryTab
+      });
+    };
+    selection = selection.then(load, load);
+    return selection;
+  };
 
   const loadProjects = () =>
     loadProjectsFromService({
-      currentUserId: options.getCurrentUserId(),
+      getCurrentUserId: options.getCurrentUserId,
       getCurrentProjectId: options.getCurrentProjectId,
       setCurrentProjectId: options.setCurrentProjectId,
-      getProjectsByFieldSnapshot,
+      listUserProjectDocuments,
       projectSelector: options.projectSelector as HTMLSelectElement,
       resetFormForNewProject: options.resetFormForNewProject,
       setModulesEnabled,

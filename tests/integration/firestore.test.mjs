@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { initializeTestEnvironment, assertFails } from "@firebase/rules-unit-testing";
 import * as clientFirestore from "firebase/firestore";
-import { doc, getDoc, setDoc, writeBatch, runTransaction, serverTimestamp } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, setDoc, where, writeBatch, runTransaction, serverTimestamp } from "firebase/firestore";
 const require = createRequire(import.meta.url);
 const serverRequire = createRequire(new URL("../../server/package.json", import.meta.url));
 const { initializeApp, deleteApp } = serverRequire("firebase-admin/app");
@@ -25,6 +25,34 @@ test("Firestore publication is atomic, conflict-safe, owner-scoped and backward-
     await environment.clearFirestore();
     await getFirestore().doc("projects/project").set({ ownerUid: "alice", createdBy: "alice" });
     await getFirestore().doc("projects/project/elements/model_0").set(elements(1, "legacy")[0]);
+    await t.test("only matching modern and legacy identities can query or read projects", async () => {
+      const alice = environment.authenticatedContext("alice").firestore();
+      const bob = environment.authenticatedContext("bob").firestore();
+      await environment.withSecurityRulesDisabled(async context => {
+        const db = context.firestore();
+        await Promise.all([
+          setDoc(doc(db, "projects/creator-only"), { createdBy: "alice" }),
+          setDoc(doc(db, "projects/creator-only/geomChecks/check"), { height: 500 }),
+          setDoc(doc(db, "projects/owner-only"), { ownerUid: "alice" }),
+          setDoc(doc(db, "projects/foreign"), { ownerUid: "bob" }),
+          setDoc(doc(db, "projects/unowned"), { name: "No owner" })
+        ]);
+      });
+      const matchingIds = async (db, field, uid) =>
+        (await getDocs(query(collection(db, "projects"), where(field, "==", uid)))).docs.map(project => project.id);
+      assert.deepEqual(await matchingIds(alice, "createdBy", "alice"), ["creator-only", "project"]);
+      assert.deepEqual(await matchingIds(alice, "ownerUid", "alice"), ["owner-only", "project"]);
+      assert.deepEqual(await matchingIds(bob, "createdBy", "bob"), []);
+      assert.equal((await getDoc(doc(alice, "projects/creator-only"))).exists(), true);
+      assert.equal((await getDoc(doc(alice, "projects/creator-only/geomChecks/check"))).data().height, 500);
+      await setDoc(doc(alice, "projects/creator-only/geomChecks/check"), { height: 501 });
+      await assertFails(getDocs(collection(alice, "projects")));
+      await assertFails(getDoc(doc(bob, "projects/creator-only")));
+      await assertFails(getDoc(doc(alice, "projects/unowned")));
+      await assertFails(getDoc(doc(bob, "projects/creator-only/geomChecks/check")));
+      await assertFails(setDoc(doc(bob, "projects/creator-only/geomChecks/check"), { height: 0 }));
+      await assertFails(setDoc(doc(alice, "projects/invalid-create"), { createdBy: "alice" }));
+    });
     await t.test("legacy data is read until a complete generation is published", async () => {
       assert.equal((await loadPublishedBimElements(store))[0].data.name, "legacy");
       const result = await publishBimModel(store, "model", elements(450, "complete"));

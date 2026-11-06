@@ -25,7 +25,6 @@ export async function initProfileNavigation() {
   if (settings) document.getElementById("btnLogout")?.addEventListener("click", async () => {
     try {
       await logoutUser();
-      location.href = "login.html";
     } catch {
       await showAlert("Не удалось выйти. Попробуйте ещё раз.", "Ошибка");
     }

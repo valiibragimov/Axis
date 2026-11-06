@@ -2,15 +2,7 @@ import { normalizeConstructionKey } from "../../app/construction.js";
 
 export const PROJECT_ID_STORAGE_KEY = "current_project_id";
 
-export const MODULE_SECTIONS = [
-  "sectionGeo",
-  "sectionReinf",
-  "sectionGeom",
-  "sectionStrength",
-  "sectionSummary",
-  "sectionJournal",
-  "sectionKnowledge"
-];
+export const MODULE_SECTIONS = ["geo", "reinforcement", "geometry", "strength", "summary", "journal", "documents"];
 
 interface ProjectContextDeps {
   construction?: HTMLSelectElement | null;
@@ -22,6 +14,7 @@ interface ProjectContextDeps {
 }
 
 interface SelectProjectDeps {
+  isCurrentSelection: () => boolean;
   setCurrentProjectId: (projectId: string | null) => void;
   setModulesEnabled: (enabled: boolean) => void;
   resetFormForNewProject: () => void;
@@ -48,10 +41,10 @@ interface SelectProjectDeps {
 }
 
 interface LoadProjectsDeps {
-  currentUserId: string | null;
+  getCurrentUserId: () => string | null;
   getCurrentProjectId: () => string | null;
   setCurrentProjectId: (projectId: string | null) => void;
-  getProjectsByFieldSnapshot: (field: string, value: string) => Promise<{ size: number; forEach: (cb: (docSnap: { id: string; data: () => Record<string, unknown> }) => void) => void }>;
+  listUserProjectDocuments: (uid: string) => Promise<Array<{ id: string; data: () => Record<string, unknown> }>>;
   projectSelector: HTMLSelectElement;
   resetFormForNewProject: () => void;
   setModulesEnabled: (enabled: boolean) => void;
@@ -83,15 +76,11 @@ export function clearStoredProjectId(storage = globalThis.localStorage) {
   storage?.removeItem(PROJECT_ID_STORAGE_KEY);
 }
 
-export function setModulesEnabled(enabled, sectionIds = MODULE_SECTIONS) {
-  sectionIds.forEach((id) => {
-    const root = document.getElementById(id);
-    if (!root) return;
-    root.querySelectorAll("input, select, button, textarea").forEach((el) => {
-      if (el.dataset && el.dataset.ignoreLock === "1") return;
-      el.disabled = !enabled;
-    });
-  });
+export function setModulesEnabled(enabled: boolean, sectionIds = MODULE_SECTIONS) {
+  for (const id of sectionIds) {
+    const section = document.getElementById(id);
+    if (section) section.inert = !enabled;
+  }
 }
 
 export function restoreSelectedProjectState({
@@ -130,6 +119,7 @@ export function restoreSelectedProjectState({
 export async function selectProject(projectId, deps: SelectProjectDeps) {
   const normalizedProjectId = normalizeProjectId(projectId);
   const {
+    isCurrentSelection,
     setCurrentProjectId,
     setModulesEnabled: setModulesEnabledFn,
     resetFormForNewProject,
@@ -165,28 +155,35 @@ export async function selectProject(projectId, deps: SelectProjectDeps) {
   setCurrentProjectId(normalizedProjectId);
   console.log("Текущий объект:", normalizedProjectId);
 
-  setModulesEnabledFn(true);
+  setModulesEnabledFn(false);
   const restoredState = restoreSelectedProjectStateFn?.() || { construction: null, source: "none" };
-  const projectDataPromise = loadProjectDataFn(normalizedProjectId, {
-    preserveConstruction: restoredState.source === "storage"
+  await loadProjectDataFn(normalizedProjectId, {
+    preserveConstruction: restoredState.source === "storage",
+    isCurrentSelection
   });
+  if (!isCurrentSelection()) return;
 
   await loadGeoNodesForProject(normalizedProjectId);
+  if (!isCurrentSelection()) return;
   if (typeof loadProjectBimElements === "function") {
     await loadProjectBimElements(normalizedProjectId);
+    if (!isCurrentSelection()) return;
   }
 
   loadJournal();
   renderJournal();
   await loadJournalSessionsForProject(normalizedProjectId);
+  if (!isCurrentSelection()) return;
 
   await loadReinfChecks();
+  if (!isCurrentSelection()) return;
   renderReinfChecks();
   await loadGeomChecks();
+  if (!isCurrentSelection()) return;
   renderGeomChecks();
   await loadStrengthChecks();
+  if (!isCurrentSelection()) return;
   renderStrengthChecks();
-  await projectDataPromise;
 
   console.log("[selectProject] Все данные загружены:", {
     geoNodes: nodes.size,
@@ -205,6 +202,7 @@ export async function selectProject(projectId, deps: SelectProjectDeps) {
   checked.geometry = false;
   checked.strength = false;
 
+  setModulesEnabledFn(true);
   updateSummaryTab();
   document.dispatchEvent(new CustomEvent("app:project-context-updated", {
     detail: { projectId: normalizedProjectId }
@@ -213,22 +211,24 @@ export async function selectProject(projectId, deps: SelectProjectDeps) {
 
 export async function loadProjects(deps: LoadProjectsDeps) {
   const {
-    currentUserId,
+    getCurrentUserId,
     getCurrentProjectId,
     setCurrentProjectId,
-    getProjectsByFieldSnapshot,
+    listUserProjectDocuments,
     projectSelector,
     resetFormForNewProject,
     setModulesEnabled: setModulesEnabledFn,
     selectProject: selectProjectFn
   } = deps;
 
+  const currentUserId = getCurrentUserId();
   if (!currentUserId) return;
 
-  const querySnapshot = await getProjectsByFieldSnapshot("ownerUid", currentUserId);
+  const projects = await listUserProjectDocuments(currentUserId);
+  if (getCurrentUserId() !== currentUserId) return;
   projectSelector.innerHTML = "";
 
-  if (querySnapshot.size === 0) {
+  if (projects.length === 0) {
     const opt = document.createElement("option");
     opt.disabled = true;
     opt.textContent = "Нет объектов";
@@ -240,7 +240,7 @@ export async function loadProjects(deps: LoadProjectsDeps) {
     return;
   }
 
-  querySnapshot.forEach((docSnap) => {
+  projects.forEach((docSnap) => {
     const option = document.createElement("option");
     option.value = docSnap.id;
     const projectData = docSnap.data();
@@ -266,7 +266,6 @@ export async function loadProjects(deps: LoadProjectsDeps) {
     projectSelector.selectedIndex = 0;
     const firstProjectId = normalizeProjectId(projectSelector.value);
     if (firstProjectId) {
-      setCurrentProjectId(firstProjectId);
       await selectProjectFn(firstProjectId);
     } else {
       setCurrentProjectId(null);

@@ -1,7 +1,6 @@
 import { initializeApp } from "./infrastructure/firebase/app.js";
 import { getAuth } from "./infrastructure/firebase/auth.js";
 import {
-  getFirestore,
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager
@@ -18,15 +17,10 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export let db;
-
-try {
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
-    })
-  });
-} catch (err) {
-  console.warn("[Firestore] IndexedDB persistence error:", err);
-  db = getFirestore(app);
-}
+// SDK 12 uses Fetch streams for WebChannel by default. Use its XHR transport
+// so closing a channel does not abort a Fetch stream in the browser.
+const firestoreSettings = {
+  useFetchStreams: false,
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+};
+export const db = initializeFirestore(app, firestoreSettings);

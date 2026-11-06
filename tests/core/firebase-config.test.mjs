@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
-async function inject(mode, { local = false, reinject = false } = {}) {
+async function inject(mode, { local = false, reinject = false, partialOverride = false } = {}) {
   const root = await mkdtemp(resolve(tmpdir(), "firebase-config-"));
   try {
     await mkdir(resolve(root, "scripts/build"), { recursive: true });
@@ -23,6 +23,7 @@ async function inject(mode, { local = false, reinject = false } = {}) {
       FIREBASE_WEB_MESSAGING_SENDER_ID: "000000000000", FIREBASE_WEB_APP_ID: "1:000000000000:web:demo"
     });
     if (mode) env.FIREBASE_CONFIG_MODE = mode;
+    if (partialOverride) delete env.FIREBASE_WEB_AUTH_DOMAIN;
     if (local) await writeFile(resolve(root, ".env"), Object.entries({
       FIREBASE_WEB_API_KEY: "synthetic-local-key", FIREBASE_WEB_PROJECT_ID: "synthetic-local-project",
       FIREBASE_WEB_AUTH_DOMAIN: "synthetic-local.firebaseapp.com", FIREBASE_WEB_STORAGE_BUCKET: "synthetic-local.appspot.com",
@@ -64,4 +65,11 @@ test("CI without a local configuration retains its isolated synthetic runtime", 
   const result = await inject("test", { reinject: true });
   assert.equal(result.status, 0);
   assert.match(result.output, /demo-api-key/);
+});
+
+test("build rejects a partial Firebase environment override even with a complete local config", async () => {
+  const result = await inject("test", { local: true, partialOverride: true });
+  assert.notEqual(result.status, 0);
+  assert.match(result.error, /Missing required Firebase web config: FIREBASE_WEB_AUTH_DOMAIN/);
+  assert.match(result.output, /__FIREBASE_WEB_API_KEY__/);
 });

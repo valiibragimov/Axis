@@ -503,12 +503,14 @@ export async function setProjectCollectionDocs(
   return written;
 }
 
-export async function getProjectsByFieldSnapshot(field, value) {
-  return getDocs(query(collection(db, "projects"), where(field, "==", value)));
-}
-
-export async function getProjectsSnapshot() {
-  return getDocs(collection(db, "projects"));
+export async function listUserProjectDocuments(uid: string) {
+  const projects = collection(db, "projects");
+  const snapshots = await Promise.all([
+    getDocs(query(projects, where("ownerUid", "==", uid))),
+    getDocs(query(projects, where("createdBy", "==", uid)))
+  ]);
+  const byId = new Map(snapshots.flatMap(snapshot => snapshot.docs.map(document => [document.id, document] as const)));
+  return [...byId.values()];
 }
 
 export async function createProjectDoc(data: FirestoreRecord) {

@@ -159,26 +159,22 @@ self.addEventListener("install", (event) => {
           console.warn("[SW] Не удалось закешировать:", urls[idx], result.reason);
         }
       });
+      await self.skipWaiting();
     })()
   );
-  self.skipWaiting();
 });
 
 // Активация - очистка старых кешей
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => {
-            console.log("[SW] Удаление старого кеша:", name);
-            return caches.delete(name);
-          })
-      );
-    })
+    (async () => {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames
+        .filter(name => name.startsWith("tehnadzor-") && name !== CACHE_NAME)
+        .map(name => caches.delete(name)));
+      await self.clients.claim();
+    })()
   );
-  self.clients.claim();
 });
 
 // Стратегия: Network First, fallback to Cache
@@ -186,68 +182,42 @@ self.addEventListener("fetch", (event) => {
   // Пропускаем не-GET запросы
   if (event.request.method !== "GET") return;
   
-  // Пропускаем запросы с не http/https протоколами (chrome-extension, file:, data: и т.д.)
   const url = new URL(event.request.url);
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    return;
-  }
-  
-  // Private API responses must never enter CacheStorage or its offline fallback.
-  if (event.request.headers.has("Authorization") || url.pathname.includes("/documents/")) return;
+  const scope = new URL(self.registration.scope);
+  if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return;
 
-  // Пропускаем Firebase и Google API
-  if (event.request.url.includes("firebase") || 
-      event.request.url.includes("googleapis") ||
-      event.request.url.includes("gstatic")) {
-    return;
-  }
+  const path = url.pathname.slice(scope.pathname.length);
+  // Firebase Hosting auth handlers and private API traffic bypass the cache.
+  if (path.startsWith("__/") || url.pathname.includes("/documents/") ||
+      event.request.headers.has("Authorization")) return;
 
-  const shouldBypassCache = () => {
-    if (url.origin !== self.location.origin) {
-      return false;
-    }
-    if (event.request.mode === "navigate") {
-      return true;
-    }
-    return BYPASS_CACHE_EXTENSIONS.some((ext) => url.pathname.endsWith(ext));
-  };
-
-  const request = shouldBypassCache()
-    ? new Request(event.request, { cache: 'no-store' })
+  const shouldBypassCache = event.request.mode === "navigate" ||
+    BYPASS_CACHE_EXTENSIONS.some(ext => url.pathname.endsWith(ext));
+  const request = shouldBypassCache
+    ? new Request(event.request, { cache: "no-store" })
     : event.request;
 
-  event.respondWith(
-    fetch(request)
-      .then((response) => {
-        // Кешируем только успешные ответы и только http/https
-        if (response.status === 200 && response.type === "basic" && !/private|no-store/i.test(response.headers.get("Cache-Control") || "")) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            try {
-              cache.put(event.request, responseClone);
-            } catch (error) {
-              // Игнорируем ошибки кеширования (например, для chrome-extension)
-              console.warn("[SW] Не удалось кешировать:", event.request.url, error);
-            }
-          });
-        }
-        return response;
-      })
-      .catch(() => {
-        // Офлайн - берём из кеша
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          // Для навигации возвращаем главную страницу
-          if (event.request.mode === "navigate") {
-            const offlineUrl = new URL(OFFLINE_URL, self.registration.scope).toString();
-            return caches.match(offlineUrl);
-          }
-          return new Response("Offline", { status: 503 });
-        });
-      })
-  );
+  const networkResponse = fetch(request);
+  event.waitUntil(networkResponse.then(async response => {
+    if (response.status === 200 && response.type === "basic" &&
+        !/private|no-store/i.test(response.headers.get("Cache-Control") || "")) {
+      const copy = response.clone();
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(event.request, copy);
+    }
+  }, () => {}).catch(error => {
+    console.warn("[SW] Could not cache resource:", url.pathname, error);
+  }));
+  event.respondWith(networkResponse.catch(async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const cachedResponse = await cache.match(event.request);
+    if (cachedResponse) return cachedResponse;
+    if (event.request.mode === "navigate") {
+      const offlineResponse = await cache.match(new URL(OFFLINE_URL, scope).toString());
+      if (offlineResponse) return offlineResponse;
+    }
+    return new Response("Offline", { status: 503 });
+  }));
 });
 
 // Уведомления о новой версии

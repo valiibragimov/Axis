@@ -512,7 +512,7 @@ app.use((err, req, res, next) => {
 });
 
 if (localDevelopment) {
-  app.use(express.static(path.resolve(process.env.LOCAL_CLIENT_ROOT || "dist-hosting"), { dotfiles: "deny", index: "index.html" }));
+  app.use(express.static(path.resolve(process.env.LOCAL_CLIENT_ROOT || "build/emulator-hosting"), { dotfiles: "deny", index: "index.html" }));
 }
 
 // Запуск сервера

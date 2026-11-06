@@ -23,8 +23,8 @@ npm ci --prefix functions
 Включите провайдеров входа для тестовых аккаунтов и разрешите локальное имя хоста в Firebase Authentication. Создайте Firestore и настройте [правила](../firestore.rules) и [индексы](../firestore.indexes.json) из репозитория в тестовом проекте. Не заменяйте настройку правилами, разрешающими доступ всем.
 
 ```sh
-npm run build:client
-python -m http.server 8000 --bind 127.0.0.1
+npm run build
+python -m http.server 8000 --bind 127.0.0.1 --directory dist-hosting
 ```
 
 Откройте <http://127.0.0.1:8000/> и войдите тестовым аккаунтом. В этом режиме данные сохраняются в настроенный Firebase-проект. Используйте синтетические проекты и модели.
@@ -66,6 +66,7 @@ Chart.js и jsPDF загружаются по необходимости из л
 | --- | --- |
 | `dist/` | Браузерные модули, workers и ресурсы просмотрщика |
 | `build/pages/` | Сгенерированные HTML-страницы |
+| `build/emulator-hosting/` | Сборка с локальными эмуляторами |
 | `dist-hosting/` | Статические файлы для хостинга |
 | `server/dist/` | Скомпилированный Express API и общий серверный код |
 | `functions/dist/` | Скомпилированная Firebase Function |

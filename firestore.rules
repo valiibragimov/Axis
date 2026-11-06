@@ -6,15 +6,17 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function ownsProject(data) {
+      return data.get("ownerUid", null) == request.auth.uid ||
+        data.get("createdBy", null) == request.auth.uid;
+    }
+
     function isProjectOwner(projectId) {
       let projectPath = /databases/$(database)/documents/projects/$(projectId);
       let project = get(projectPath);
       return signedIn()
         && exists(projectPath)
-        && (
-          project.data.ownerUid == request.auth.uid ||
-          project.data.createdBy == request.auth.uid
-        );
+        && ownsProject(project.data);
     }
 
     match /users/{userId} {
@@ -22,8 +24,11 @@ service cloud.firestore {
     }
 
     match /projects/{projectId} {
-      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
-      allow read: if signedIn() && (resource.data.ownerUid == request.auth.uid || resource.data.createdBy == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.get("ownerUid", null) == request.auth.uid;
+      allow get: if signedIn() && ownsProject(resource.data);
+      // List queries must constrain one of these fields to the authenticated UID.
+      allow list: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow list: if signedIn() && resource.data.createdBy == request.auth.uid;
       allow update, delete: if isProjectOwner(projectId);
 
       function stateRevision() {

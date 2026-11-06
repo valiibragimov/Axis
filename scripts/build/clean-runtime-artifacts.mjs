@@ -9,7 +9,7 @@ const projectRoot = resolve(__dirname, "..", "..");
 const targets = [
   "build/pages",
   "dist",
-  "dist-hosting",
+  process.env.FIREBASE_CONFIG_MODE === "emulator" ? "build/emulator-hosting" : "dist-hosting",
   "server/dist",
   "functions/dist",
   "app",

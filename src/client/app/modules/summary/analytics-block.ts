@@ -12,8 +12,7 @@ import { ensurePdfFontLoaded, registerPdfFont } from "../../pdf/pdf-font.js";
 import {
   getProjectCollectionDocSnapshot,
   getProjectCollectionSnapshot,
-  getProjectsByFieldSnapshot,
-  getProjectsSnapshot,
+  listUserProjectDocuments,
   mergeProjectDoc
 } from "../../repositories/firestore-repository.js";
 import {
@@ -1840,49 +1839,8 @@ async function getProjectsForUser(userId) {
     return cachedProjects;
   }
 
-  const uniqueProjects = new Map();
-
-  const addDocs = (snapshot) => {
-    snapshot.forEach((docRef) => {
-      uniqueProjects.set(docRef.id, docRef);
-    });
-  };
-
-  const [byOwnerResult, byCreatorResult] = await Promise.allSettled([
-    getProjectsByFieldSnapshot("ownerUid", userId),
-    getProjectsByFieldSnapshot("createdBy", userId)
-  ]);
-
-  if (byOwnerResult.status === "fulfilled") {
-    addDocs(byOwnerResult.value);
-  } else {
-    console.warn("[Analytics] ownerUid query failed", byOwnerResult.reason);
-  }
-
-  if (byCreatorResult.status === "fulfilled") {
-    addDocs(byCreatorResult.value);
-  } else {
-    console.warn("[Analytics] createdBy query failed", byCreatorResult.reason);
-  }
-
-  if (uniqueProjects.size > 0) {
-    return setFreshAnalyticsCache(
-      analyticsProjectsCache,
-      userId,
-      [...uniqueProjects.values()]
-    );
-  }
-
-  // fallback на случай нестандартной структуры данных или прав доступа
-  const allProjectsSnap = await getProjectsSnapshot();
-  return setFreshAnalyticsCache(
-    analyticsProjectsCache,
-    userId,
-    allProjectsSnap.docs.filter((docRef) => {
-      const data = docRef.data();
-      return data?.ownerUid === userId || data?.createdBy === userId;
-    })
-  );
+  const projects = await listUserProjectDocuments(userId);
+  return setFreshAnalyticsCache(analyticsProjectsCache, userId, projects);
 }
 
 function updateProjectContractorInAnalyticsState(projectId, nextState: ContractorStatePatch = {}) {

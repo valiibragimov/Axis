@@ -4,6 +4,7 @@ interface ProjectSelectorBindingOptions {
   setModulesEnabled: (enabled: boolean) => void;
   resetFormForNewProject: () => void | Promise<void>;
   selectProject: (projectId: string) => Promise<unknown> | unknown;
+  onProjectLoadError: (error: unknown) => void;
 }
 
 interface IfcBindingsOptions {
@@ -30,7 +31,8 @@ export function initProjectSelectorBinding({
   setCurrentProjectId,
   setModulesEnabled,
   resetFormForNewProject,
-  selectProject
+  selectProject,
+  onProjectLoadError
 }: ProjectSelectorBindingOptions) {
   if (!projectSelector) return;
 
@@ -44,7 +46,11 @@ export function initProjectSelectorBinding({
       return;
     }
 
-    await selectProject(projectId);
+    try {
+      await selectProject(projectId);
+    } catch (error) {
+      if (projectSelector.value === projectId) onProjectLoadError(error);
+    }
   });
 }
 

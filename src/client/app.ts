@@ -929,7 +929,12 @@ const projectRuntime = createProjectRuntime({
 });
 
 setModulesEnabled = projectRuntime.setModulesEnabled;
-setModulesEnabled(!!currentProjectId);
+setModulesEnabled(false);
+
+function showProjectLoadError(error: unknown) {
+  console.error("[Projects] Could not load projects", error);
+  showNotification("Не удалось загрузить объекты. Повторите попытку.", "error");
+}
 
 initAuthBootstrap({
   auth,
@@ -941,6 +946,7 @@ initAuthBootstrap({
   loadCurrentUserEngineerName,
   clearCurrentUserContext: profileRuntime.clearCurrentUserContext,
   loadProjects,
+  onProjectLoadError: showProjectLoadError,
   setCurrentProjectId: setCurrentProjectIdState,
   setModulesEnabled
 });
@@ -950,7 +956,8 @@ initProjectSelectorBinding({
   setCurrentProjectId: setCurrentProjectIdState,
   setModulesEnabled,
   resetFormForNewProject,
-  selectProject
+  selectProject,
+  onProjectLoadError: showProjectLoadError
 });
 
 ifcImportRuntime = createIfcImportRuntime({
