@@ -825,7 +825,7 @@ export function createGeodesyBimSelectionRuntime(
   ) {
     const row = createRow();
     const points = createGeoLinearPrefillPoints(prefill);
-    if (!points) return row;
+    if (!points) return previousRow ? { ...previousRow } : row;
 
     const nextBindingType =
       bindingHint?.bindingType ||
@@ -992,6 +992,7 @@ export function createGeodesyBimSelectionRuntime(
 
     const element = resolution.element;
     const form = getForm();
+    const sameElement = state.selectedBimElementId === resolution.selectedId;
     state.selectedBimElementId = resolution.selectedId;
     syncFieldsFromState();
 
@@ -1046,7 +1047,7 @@ export function createGeodesyBimSelectionRuntime(
     }
 
     if (flags.isWall) {
-      const previousWall = preserveManualFacts
+      const previousWall = preserveManualFacts && sameElement
         ? state.walls[0] || null
         : null;
       replaceGeodesyItems(state.walls, [
@@ -1061,7 +1062,7 @@ export function createGeodesyBimSelectionRuntime(
     }
 
     if (flags.isBeam) {
-      const previousBeam = preserveManualFacts
+      const previousBeam = preserveManualFacts && sameElement
         ? state.beams[0] || null
         : null;
       replaceGeodesyItems(state.beams, [
@@ -1080,11 +1081,15 @@ export function createGeodesyBimSelectionRuntime(
     updateControls();
 
     if (flags.isWall || flags.isBeam) {
-      const resolvedAxes = getBimAxesValue(element);
-      setStatus(
-        `${getCurrentConstructionLabel()}${element.mark ? ` ${element.mark}` : ""}: подставлены две проектные точки${resolvedAxes ? ` и оси ${resolvedAxes}` : ""}.`,
-        "success"
-      );
+      if (createGeoLinearPrefillPoints(prefill)) {
+        const resolvedAxes = getBimAxesValue(element);
+        setStatus(
+          `${getCurrentConstructionLabel()}${element.mark ? ` ${element.mark}` : ""}: подставлены две проектные точки${resolvedAxes ? ` и оси ${resolvedAxes}` : ""}.`,
+          "success"
+        );
+      } else {
+        setStatus("В IFC нет двух подтверждённых точек оси. Укажите проектные точки вручную.", "warning");
+      }
     }
     return true;
   }

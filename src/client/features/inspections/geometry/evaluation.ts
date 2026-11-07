@@ -1,3 +1,4 @@
+import { RULESET, resolveNormativeCriteria, sectionTolerance } from "../normative-rules.js";
 import { compareMeasurement, comparePhysicalMeasurement, measurementNumber, summarizeMeasurements } from "../acceptance.js";
 import { getConstructionProfile, getConstructionModuleBehavior, normalizeConstructionKey } from "../../../app/construction.js";
 import { getInspectionStatus } from "../../../app/inspection-registry.js";
@@ -8,20 +9,27 @@ export function evaluateGeometryCheck(check: GeometryCheckRecord) {
   const construction = normalizeConstructionKey(check.construction || check.constructionType, "");
   const applicable = getInspectionStatus(construction, "geometry", check.constructionSubtype || "", check.constructionPileElement || "");
   if (applicable !== "object") return summarizeMeasurements([]);
-  const criteria = check.acceptanceCriteria;
+  const savedCriteria = check.acceptanceCriteria;
+  const criteria = savedCriteria?.normativeRule === `${RULESET}/monolithic`
+    ? resolveNormativeCriteria("geometry", construction, "monolithic")
+    : savedCriteria;
   const results: Array<ReturnType<typeof compareMeasurement>> = [];
   const pair = (row: Record<string, unknown>, project: string, actual: string, key: string, optional = false) => {
     if (optional && row[project] == null && row[actual] == null) return;
     const p = measurementNumber(row[project]);
     const a = measurementNumber(row[actual]);
-    results.push(comparePhysicalMeasurement(p, a, key, criteria));
+    const automaticSection = criteria?.normativeRule === `${RULESET}/monolithic` && (key === "section" || key === "thickness");
+    const section = automaticSection ? sectionTolerance(p) : null;
+    const basis = section && criteria ? { ...criteria, limits: { [key]: section } } : criteria;
+    results.push(comparePhysicalMeasurement(p, a, key, basis));
   };
   const dimensions = (row: Record<string, unknown>, keys: string[]) => {
     const values = row.physicalDimensions as PhysicalDimensions | undefined;
     for (const key of keys) {
       const value = values?.[key];
       if (construction === "excavation" && (!value || (measurementNumber(value.project) === null && measurementNumber(value.actual) === null))) continue;
-      pair(value || {}, "project", "actual", "dimensions");
+      const automaticSpan = criteria?.normativeRule === `${RULESET}/monolithic` && ["length", "clearLength", "clearWidth"].includes(key);
+      pair(value || {}, "project", "actual", automaticSpan ? "clearSpan" : "dimensions");
     }
   };
   dimensions(check, commonDimensionKeys(construction, String(check.constructionPileElement || "")));

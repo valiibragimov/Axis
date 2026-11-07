@@ -81,9 +81,9 @@ function invalidateProject(projectId: string) {
   requestSequence++;
   for (const [key, entry] of pending) if (entry.projectId === projectId) pending.delete(key);
 }
-export async function publishProjectBimModel(projectId: string, sourceModelId: string, elements: BimElementRecord[]) {
+export async function publishProjectBimModel(projectId: string, sourceModelId: string, elements: BimElementRecord[], partial = false) {
   invalidateProject(projectId);
-  try { return await publishBimModel(createBrowserBimStore(projectId), sourceModelId, elements); }
+  try { return await publishBimModel(createBrowserBimStore(projectId), sourceModelId, elements, { partial }); }
   finally { invalidateProject(projectId); }
 }
 export async function hideProjectBimModels(projectId: string, sourceModelId?: string) {

@@ -29,7 +29,8 @@ test("first offline IFC import uses precached parser and WASM", { timeout: 60000
           if (data.type === "error") reject(new Error(data.error)); else resolve(data.result);
         }
       };
-      worker.postMessage({ type: "parse-ifc", file: new File([new Uint8Array(bytes)], "fixture.ifc"), options: { sourceModelId: "browser" } });
+      const source = new TextDecoder().decode(new Uint8Array(bytes)).replace("DATA;", "DATA;\n/*" + "x".repeat(270000) + "*/");
+      worker.postMessage({ type: "parse-ifc", file: new File([source], "fixture.ifc"), options: { sourceModelId: "browser" } });
     }), { bytes: [...modelFixture()], url: `${server.url}/dist/app/services/ifc-import-worker.js` });
     assert.equal(result.importedCount, 1);
     const element = result.elements[0];

@@ -1,6 +1,7 @@
 export interface AcceptanceCriteria {
   reference: string;
   confirmed: boolean;
+  normativeRule?: string;
   limits: Record<string, { min: number | null; max: number | null }>;
 }
 
@@ -31,5 +32,6 @@ export function comparePhysicalMeasurement(project: unknown, actual: unknown, ke
 export function summarizeMeasurements(results: Array<ReturnType<typeof compareMeasurement>>) {
   const status = results.includes("exceeded") ? "exceeded" : results.length > 0 && results.every(result => result === "ok") ? "ok" : "empty";
   const hasIncompleteMeasurements = results.length === 0 || results.some(result => result === "incomplete" || result === "unverified");
-  return { status, hasIncompleteMeasurements, summaryText: status === "ok" ? "в норме" : status === "exceeded" ? hasIncompleteMeasurements ? "превышено; проверка неполна или не подтверждена" : "превышено" : "Требует проверки" } as const;
+  const hasUnverifiedMeasurements = results.includes("unverified");
+  return { status, hasIncompleteMeasurements, hasUnverifiedMeasurements, summaryText: status === "ok" ? "в норме" : status === "exceeded" ? hasIncompleteMeasurements ? "превышено; проверка неполна или не подтверждена" : "превышено" : hasUnverifiedMeasurements ? "Нет применимого допуска" : "Недостаточно измерений" } as const;
 }

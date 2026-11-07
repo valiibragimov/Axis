@@ -4,6 +4,7 @@ import { build } from "esbuild";
 
 const bundle = await build({ stdin: { resolveDir: process.cwd(), contents: `
   export * from './src/client/features/inspections/acceptance.ts';
+  export * from './src/client/features/inspections/normative-rules.ts';
   export * from './src/client/features/inspections/geodesy/evaluation.ts';
   export { evaluateReinforcementCheck } from './src/client/features/inspections/reinforcement/evaluation.ts';
   export { evaluateGeometryCheck } from './src/client/features/inspections/geometry/evaluation.ts';
@@ -99,4 +100,30 @@ test("pile subtypes and reinforcement legacy API keep one engineering evaluator"
   assert.equal(api.evaluateReinforcementCheck({ ...check, constructionSubtype: "bored_piles" }).status, "ok");
   assert.equal(api.evaluateReinforcementCheck({ ...check, constructionSubtype: "bored_piles", factCover: null }).status, "empty");
   assert.equal(api.evaluateGeometryCheck({ construction: "beam", beams: [{ projBeamWidth: 300, factBeamWidth: 300 }], acceptanceCriteria }).status, "empty");
+});
+
+test("versioned criteria distinguish precast lower marks and monolithic bearing levels", () => {
+  const plan = api.resolveNormativeCriteria("geo", "column", "precast-base");
+  const level = api.resolveNormativeCriteria("geo", "foundation_slab", "bearing-level");
+  assert.equal(api.resolveNormativeCriteria("geo", "excavation", "bearing-level"), null);
+  assert.equal(api.resolveNormativeCriteria("geo", "floor_slab", "precast-base"), null);
+  assert.match(plan.reference, /6\.1.*поз\. 3/u);
+  assert.deepEqual(plan.limits.geoPlan, { min: -8, max: 8 });
+  const limit = api.getConfirmedGeoTolerance(level, "geoHeight");
+  const draft = { measurementScope: "height", projH: 10, factH: 9.995 };
+  assert.equal(api.evaluateGeoNode(draft, NaN, limit).status, "ok");
+  assert.equal(api.evaluateGeoNode({ ...draft, factH: 10.001 }, NaN, limit).status, "bad");
+});
+
+test("section limits are asymmetric and use the dimension of each measurement", () => {
+  const criteria = api.resolveNormativeCriteria("geometry", "beam", "monolithic");
+  assert.deepEqual(api.sectionTolerance(150), { min: -3, max: 6 });
+  assert.deepEqual(api.sectionTolerance(300), { min: -6, max: 8.5 });
+  assert.deepEqual(api.sectionTolerance(400), { min: -9, max: 11 });
+  const draft = { construction: "beam", acceptanceCriteria: criteria, beams: [
+    { projBeamWidth: 300, factBeamWidth: 308, projBeamHeight: 400, factBeamHeight: 391, physicalDimensions: { length: { project: 6000, actual: 6020 } } }
+  ] };
+  assert.equal(api.evaluateGeometryCheck(draft).status, "ok");
+  draft.beams[0].factBeamWidth = 309;
+  assert.equal(api.evaluateGeometryCheck(draft).status, "exceeded");
 });

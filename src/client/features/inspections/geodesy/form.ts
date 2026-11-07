@@ -1,3 +1,4 @@
+import { isNormativeBearingLevel } from "../normative-rules.js";
 import { t } from "../../../shared/i18n/index.js";
 import { compareMeasurement, measurementNumber } from "../acceptance.js";
 import { readAcceptanceCriteria, restoreAcceptanceCriteria } from "../../../app/ui/acceptance-criteria.js";
@@ -180,12 +181,18 @@ export function createGeodesyForm({
 
   function renderGeoToleranceFields() {
     const criteria = readAcceptanceCriteria(document.getElementById("geo"));
-    const input = document.getElementById("tolHField") as HTMLInputElement | null;
-    const limits = criteria.limits.geoHeight;
-    if (input) input.value = criteria.confirmed && criteria.reference && limits?.min != null && limits.max != null && limits.min <= limits.max ? `${limits.min} … ${limits.max} ${t("form_mm")}` : t("assessment_pending");
+    for (const [id, key] of [["tolXYField", "geoPlan"], ["tolHField", "geoHeight"]]) {
+      const input = document.getElementById(id) as HTMLInputElement | null;
+      const limits = criteria.limits[key];
+      if (input) input.value = criteria.confirmed && criteria.reference && limits?.min != null && limits.max != null && limits.min <= limits.max
+        ? `${limits.min} … ${limits.max} ${t("form_mm")}` : t("assessment_no_applicable_limit");
+    }
   }
   document.getElementById("geo")?.addEventListener("input", renderGeoToleranceFields);
   document.getElementById("geo")?.addEventListener("change", renderGeoToleranceFields);
+  document.getElementById("geo")?.addEventListener("change", event => {
+    if ((event.target as HTMLElement).matches("[data-normative-context]")) updateGeoFieldsVisibility();
+  });
   function updateGeoFieldsVisibility() {
     renderGeoToleranceFields();
     const {
@@ -198,12 +205,13 @@ export function createGeodesyForm({
       isStripFoundation,
       isUnsupported
     } = getGeoConstructionFlags();
+    const heightOnly = behavior.geodesyHeightOnly || isNormativeBearingLevel(readAcceptanceCriteria(document.getElementById("geo")));
     const showElementsSheet = behavior.elementSheetMode === "columns" || behavior.elementSheetMode === "walls" || behavior.elementSheetMode === "beams";
-    const showCoordinatesSheet = !isUnsupported && (isRangeLocation || isSingleAxis || behavior.geodesyHeightOnly);
+    const showCoordinatesSheet = !isUnsupported && (isRangeLocation || isSingleAxis || heightOnly);
     const pointField = document.getElementById("geoPointLabelField");
-    if (pointField) pointField.hidden = !behavior.geodesyHeightOnly;
+    if (pointField) pointField.hidden = !heightOnly;
     for (const field of Array.from(coordinatesBlock.children) as HTMLElement[]) {
-      if (!["projHField", "factHField", "tolHFieldWrap"].includes(field.id)) field.style.display = behavior.geodesyHeightOnly ? "none" : "";
+      if (!["projHField", "factHField", "tolHFieldWrap"].includes(field.id)) field.style.display = heightOnly ? "none" : "";
     }
 
     if (geoBehaviorMessage) {
@@ -222,20 +230,20 @@ export function createGeodesyForm({
       geoStairNameField.style.display = behavior.showStairName ? "block" : "none";
     }
 
-    const showAxisFields = !isUnsupported && (isRangeLocation || isSingleAxis || behavior.geodesyHeightOnly);
-    axisFields.style.display = showAxisFields ? "grid" : "none";
+    const showAxisFields = !isUnsupported && !heightOnly && (isRangeLocation || isSingleAxis);
+    axisFields.style.display = showAxisFields || (!isUnsupported && heightOnly) ? "grid" : "none";
     if (axisFields) {
       axisFields.classList.toggle("grid-3", !isRangeLocation);
       axisFields.classList.toggle("grid-4", isRangeLocation);
     }
     const stripMode = geoStripAxisModeEl?.value || "letter_numbers";
-    if (geoStripAxisModeField) geoStripAxisModeField.style.display = isRangeLocation && behavior.locationMode === "strip_foundation" ? "" : "none";
-    if (axisLetterSingleField) axisLetterSingleField.style.display = isSingleAxis ? "" : "none";
-    if (axisNumberSingleField) axisNumberSingleField.style.display = isSingleAxis ? "" : "none";
-    if (axisLetterFromField) axisLetterFromField.style.display = isRangeLocation ? "" : "none";
-    if (axisLetterToField) axisLetterToField.style.display = isRangeLocation && (!isStripFoundation || stripMode === "letter_numbers") ? "" : "none";
-    if (axisNumberFromField) axisNumberFromField.style.display = isRangeLocation ? "" : "none";
-    if (axisNumberToField) axisNumberToField.style.display = isRangeLocation && (!isStripFoundation || stripMode === "number_letters") ? "" : "none";
+    if (geoStripAxisModeField) geoStripAxisModeField.style.display = showAxisFields && isRangeLocation && behavior.locationMode === "strip_foundation" ? "" : "none";
+    if (axisLetterSingleField) axisLetterSingleField.style.display = showAxisFields && isSingleAxis ? "" : "none";
+    if (axisNumberSingleField) axisNumberSingleField.style.display = showAxisFields && isSingleAxis ? "" : "none";
+    if (axisLetterFromField) axisLetterFromField.style.display = showAxisFields && isRangeLocation ? "" : "none";
+    if (axisLetterToField) axisLetterToField.style.display = showAxisFields && isRangeLocation && (!isStripFoundation || stripMode === "letter_numbers") ? "" : "none";
+    if (axisNumberFromField) axisNumberFromField.style.display = showAxisFields && isRangeLocation ? "" : "none";
+    if (axisNumberToField) axisNumberToField.style.display = showAxisFields && isRangeLocation && (!isStripFoundation || stripMode === "number_letters") ? "" : "none";
     if (nodeIdField) nodeIdField.classList.toggle("grid-full-span", isRangeLocation);
 
     coordinatesBlock.style.display = showCoordinatesSheet ? "grid" : "none";
@@ -250,13 +258,13 @@ export function createGeodesyForm({
     }
     beamsBlock.style.display = behavior.elementSheetMode === "beams" ? "block" : "none";
     if (geoPlateOpeningPointsField) {
-      geoPlateOpeningPointsField.style.display = behavior.showOpeningPoints ? "block" : "none";
+      geoPlateOpeningPointsField.style.display = !heightOnly && behavior.showOpeningPoints ? "block" : "none";
     }
     if (geoPlateFlatnessField) {
-      geoPlateFlatnessField.style.display = behavior.showGeoFlatnessCheck ? "block" : "none";
+      geoPlateFlatnessField.style.display = !heightOnly && behavior.showGeoFlatnessCheck ? "block" : "none";
     }
     if (floorEl?.parentElement) {
-      floorEl.parentElement.style.display = behavior.floorVisible === false ? "none" : "block";
+      floorEl.parentElement.style.display = heightOnly || behavior.floorVisible === false ? "none" : "block";
     }
 
     if (isUnsupported) {
@@ -264,8 +272,8 @@ export function createGeodesyForm({
     }
 
     if (geoPlateOpeningPointsField) {
-      geoPlateOpeningPointsField.style.display = behavior.showOpeningPoints ? "block" : "none";
-      if (behavior.showOpeningPoints) {
+      geoPlateOpeningPointsField.style.display = !heightOnly && behavior.showOpeningPoints ? "block" : "none";
+      if (!heightOnly && behavior.showOpeningPoints) {
         normalizeGeoPlateAxisDefaults();
         renderGeoPlateOpeningPoints();
       }
@@ -323,7 +331,7 @@ export function createGeodesyForm({
     if (!behavior.showGeoFlatnessCheck && geoPlateFlatnessCheckedEl) {
       geoPlateFlatnessCheckedEl.checked = false;
     }
-    if (!behavior.showGeoFlatnessCheck) {
+    if (heightOnly || !behavior.showGeoFlatnessCheck) {
       if (geoPlateFlatnessActualEl) geoPlateFlatnessActualEl.value = "";
       if (geoPlateFlatnessBaseEl) geoPlateFlatnessBaseEl.value = "2";
       if (geoPlateFlatnessClassEl) geoPlateFlatnessClassEl.value = "project";
@@ -1773,7 +1781,7 @@ export function createGeodesyForm({
     const floor = getGeoConstructionFlags().floorVisible ? floorEl.value.trim() : "";
     const floorPart = floor ? `${floor}, ` : "";
     const axisState = getGeoAxisState();
-    nodeIdEl.value = getGeoConstructionFlags().behavior.geodesyHeightOnly ? (document.getElementById("geoPointLabel") as HTMLInputElement)?.value || "" : axisState.nodeLabel ? `${floorPart}${axisState.nodeLabel}` : floorPart.replace(/, $/, "");
+    nodeIdEl.value = (getGeoConstructionFlags().behavior.geodesyHeightOnly || isNormativeBearingLevel(readAcceptanceCriteria(document.getElementById("geo")))) ? (document.getElementById("geoPointLabel") as HTMLInputElement)?.value || "" : axisState.nodeLabel ? `${floorPart}${axisState.nodeLabel}` : floorPart.replace(/, $/, "");
   }
   document.getElementById("geoPointLabel")?.addEventListener("input", updateNodeId);
   floorEl.addEventListener("input", () => {

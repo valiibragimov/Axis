@@ -13,6 +13,9 @@ export async function parseIfcElements(source: Uint8Array | string, options: { f
   return { ...result, elements,
     countsByLabel: Object.fromEntries(Object.entries(result.countsByType).map(([type, count]) => [getBimTypeLabel(type) || type, count])),
     diagnosticSummary: analyzeIfcModelDiagnostics(header, elements),
-    requirementSummary: analyzeIfcRequirements(header, elements)
+    requirementSummary: analyzeIfcRequirements(header, elements, {
+      schema: result.schema,
+      placementIssues: result.placementIssues
+    })
   };
 }

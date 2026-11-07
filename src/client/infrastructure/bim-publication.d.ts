@@ -41,7 +41,9 @@ export interface PublicationResult {
     removedCount: number;
 }
 /** Every staging chunk is fenced against cleanup and delayed writers. */
-export declare function publishBimModel(store: BimStore, sourceModelId: string, elements: BimElementRecord[]): Promise<PublicationResult>;
+export declare function publishBimModel(store: BimStore, sourceModelId: string, elements: BimElementRecord[], options?: {
+    partial?: boolean;
+}): Promise<PublicationResult>;
 /** Pins one catalog version across publication/deletion. Discard partial pages if iteration fails. */
 export declare function readPublishedBimPages(store: BimStore, pageSize?: number): AsyncGenerator<BimDocument[]>;
 export declare function loadPublishedBimElements(store: BimStore): Promise<BimDocument[]>;

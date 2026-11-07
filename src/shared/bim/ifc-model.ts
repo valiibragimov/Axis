@@ -14,6 +14,8 @@ export class InvalidIfcModelError extends Error {
   constructor(message: string) { super(message); this.name = "InvalidIfcModelError"; }
 }
 
+class InvalidIfcPlacementError extends InvalidIfcModelError {}
+
 type Vector = [number, number, number];
 interface Transform { origin: Vector; x: Vector; y: Vector; z: Vector }
 const identity = (): Transform => ({ origin: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] });
@@ -24,14 +26,63 @@ const text = (field: any): string | null => {
 };
 const key = (field: any) => (text(field) || "").toLowerCase().replace(/[\s_.:/\\-]+/g, "");
 const cross = (a: Vector, b: Vector): Vector => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
-const unit = (v: Vector): Vector => { const length = Math.hypot(...v); if (!length) throw new InvalidIfcModelError("Invalid IFC placement direction"); return v.map(n => n / length) as Vector; };
+const unit = (v: Vector): Vector => { const length = Math.hypot(...v); if (!Number.isFinite(length) || !length) throw new InvalidIfcPlacementError("Invalid IFC placement direction"); return v.map(n => n / length) as Vector; };
 const rotate = (t: Transform, v: Vector): Vector => [0, 1, 2].map(i => t.x[i]*v[0]+t.y[i]*v[1]+t.z[i]*v[2]) as Vector;
 const round = (n: number) => Math.round(n * 1000) / 1000;
+
+// WebIFC may open a truncated exchange. Validate only the closing boundary;
+// the parser owns STEP entities and grammar. Walk backwards over trailing comments
+// and whitespace so neither file size nor comment length affects the decision.
+function hasCompleteExchange(bytes: Uint8Array) {
+  let end = bytes.length;
+  const skipTrivia = () => {
+    for (;;) {
+      while (end > 0 && [9, 10, 13, 32].includes(bytes[end - 1])) end--;
+      if (bytes[end - 2] !== 42 || bytes[end - 1] !== 47) return;
+      end -= 2;
+      while (end >= 2 && (bytes[end - 2] !== 47 || bytes[end - 1] !== 42)) end--;
+      if (end < 2) { end = 0; return; }
+      end -= 2;
+    }
+  };
+  const consume = (token: string) => {
+    skipTrivia();
+    if (bytes[end - 1] !== 59) return false;
+    end--;
+    skipTrivia();
+    const start = end - token.length;
+    if (start < 0 || new TextDecoder().decode(bytes.subarray(start, end)).toUpperCase() !== token) return false;
+    end = start;
+    return end === 0 || [9, 10, 13, 32, 59, 47].includes(bytes[end - 1]);
+  };
+  if (!consume("END-ISO-10303-21") || !consume("ENDSEC")) return false;
+
+  // Both closing tokens must be outside a comment or a quoted STEP value.
+  let quote = 0;
+  let comment = false;
+  for (let index = 0; index < end; index++) {
+    const byte = bytes[index], next = bytes[index + 1];
+    if (comment) {
+      if (byte === 42 && next === 47) { comment = false; index++; }
+    } else if (quote) {
+      if (byte === quote) {
+        if (next === quote) index++;
+        else quote = 0;
+      }
+    } else if (byte === 47 && next === 42) {
+      comment = true; index++;
+    } else if (byte === 39 || byte === 34) {
+      quote = byte;
+    }
+  }
+  return !comment && !quote;
+}
 
 /** One WebIFC adapter for browser workers and Node workers. No STEP grammar is implemented here. */
 export async function readIfcModel(bytes: Uint8Array, options: IfcModelOptions = {}): Promise<IfcModelData> {
   const maxElements = options.maxElements ?? 100_000;
   if (!Number.isSafeInteger(maxElements) || maxElements < 1 || maxElements > 100_000) throw new InvalidIfcModelError("Invalid IFC element limit");
+  if (!hasCompleteExchange(bytes)) throw new InvalidIfcModelError("Incomplete or unsupported IFC STEP exchange ending");
   const api = new WebIFC.IfcAPI();
   if (options.wasmPath) api.SetWasmPath(options.wasmPath, true);
   let model: number | undefined;
@@ -71,36 +122,39 @@ export async function readIfcModel(bytes: Uint8Array, options: IfcModelOptions =
       const raw = value(field);
       return typeof raw === "number" && Number.isFinite(raw) ? round(raw * scale) : null;
     };
-    const vector = (ref: any, field: string, fallback: Vector): Vector => {
-      const values = read(ref)?.[field]?.map((item: any) => Number(value(item)));
-      if (!values) return fallback;
-      if (values.length !== 2 && values.length !== 3) throw new InvalidIfcModelError("Invalid IFC coordinate tuple. Re-export the model using decimal points and valid IFC units.");
+    const vector = (ref: any, field: string, dimension: 2 | 3, fallback?: Vector): Vector => {
+      if (!ref && fallback) return fallback;
+      const values = read(ref)?.[field]?.map((item: any) => value(item));
+      if (!values) throw new InvalidIfcPlacementError("Missing IFC placement coordinates or direction");
+      if (values.length !== dimension) throw new InvalidIfcPlacementError("Invalid IFC coordinate tuple");
       const result: Vector = [values[0], values[1], values[2] ?? 0];
-      if (!result.every(Number.isFinite)) throw new InvalidIfcModelError("Invalid IFC coordinate");
+      if (!values.every(Number.isFinite)) throw new InvalidIfcPlacementError("Invalid IFC coordinate");
       return result;
     };
     const axisTransform = (parent: Transform, axis: any): Transform => {
       if (!axis) return parent;
-      const z = unit(vector(axis.Axis, "DirectionRatios", [0, 0, 1]));
-      const reference = unit(vector(axis.RefDirection, "DirectionRatios", [1, 0, 0]));
+      const dimension = axis.type === WebIFC.IFCAXIS2PLACEMENT2D ? 2 : 3;
+      if (dimension === 3 && axis.type !== WebIFC.IFCAXIS2PLACEMENT3D) throw new InvalidIfcPlacementError("Unsupported IFC axis placement");
+      const z = dimension === 2 ? [0, 0, 1] as Vector : unit(vector(axis.Axis, "DirectionRatios", 3, [0, 0, 1]));
+      const reference = unit(vector(axis.RefDirection, "DirectionRatios", dimension, [1, 0, 0]));
       const y = unit(cross(z, reference));
       const x = unit(cross(y, z));
-      const offset = rotate(parent, vector(axis.Location, "Coordinates", [0, 0, 0]));
+      const offset = rotate(parent, vector(axis.Location, "Coordinates", dimension));
       return { origin: parent.origin.map((n, i) => n + offset[i]) as Vector, x: rotate(parent, x), y: rotate(parent, y), z: rotate(parent, z) };
     };
     const placements = new Map<number, Transform | null>();
     const placement = (ref: any, active = new Set<number>()): Transform | null => {
       if (!ref) return identity();
       const entry = read(ref);
-      if (!entry) throw new InvalidIfcModelError("Missing IFC placement reference");
+      if (!entry) throw new InvalidIfcPlacementError("Missing IFC placement reference");
       if (placements.has(entry.expressID)) return placements.get(entry.expressID)!;
-      if (active.size > 128 || active.has(entry.expressID)) throw new InvalidIfcModelError("Cyclic or excessive IFC placement depth");
+      if (active.size > 128 || active.has(entry.expressID)) throw new InvalidIfcPlacementError("Cyclic or excessive IFC placement depth");
       if (entry.type !== WebIFC.IFCLOCALPLACEMENT) return null;
       active.add(entry.expressID);
       const parent = placement(entry.PlacementRelTo, active);
       if (!parent) { placements.set(entry.expressID, null); active.delete(entry.expressID); return null; }
       const axis = read(entry.RelativePlacement);
-      if (!axis) throw new InvalidIfcModelError("Missing IFC relative placement");
+      if (!axis) throw new InvalidIfcPlacementError("Missing IFC relative placement");
       const result = axisTransform(parent, axis);
       placements.set(entry.expressID, result);
       active.delete(entry.expressID);
@@ -127,6 +181,13 @@ export async function readIfcModel(bytes: Uint8Array, options: IfcModelOptions =
     for (let index = 0; index < fileName.length; index += 1) { hash ^= fileName.charCodeAt(index); hash = Math.imul(hash, 16777619); }
     const sourceModelId = options.sourceModelId?.trim().toLowerCase().replace(/\.ifc$/i, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || `ifc-model-${(hash >>> 0).toString(36).slice(0, 6)}`;
     const elements: IfcElementData[] = [];
+    let placementIssues = 0;
+    let firstPlacementError: InvalidIfcPlacementError | undefined;
+    const notePlacementIssue = (error: unknown) => {
+      if (!(error instanceof InvalidIfcPlacementError)) throw error;
+      firstPlacementError ??= error;
+      placementIssues++;
+    };
     const countsByType: Record<string, number> = {};
     for (const [ifcType, type] of Object.entries(IFC_ELEMENT_TYPES)) {
       for (const entity of lines(WebIFC[ifcType as keyof typeof IFC_ELEMENT_TYPES])) {
@@ -145,7 +206,10 @@ export async function readIfcModel(bytes: Uint8Array, options: IfcModelOptions =
         const pickText = (...keys: string[]) => keys.map(k => text(properties[k])).find(Boolean) || null;
         const dimension = (...keys: string[]) => keys.map(k => number(properties[k], propertyUnits[k] ? scaleUnit(propertyUnits[k]) : mm)).find(n => n != null && n > 0) ?? null;
         let transform: Transform | null = null;
-        if (entity.ObjectPlacement) transform = placement(entity.ObjectPlacement);
+        try {
+          if (entity.ObjectPlacement) transform = placement(entity.ObjectPlacement);
+          if (!transform) placementIssues++;
+        } catch (error) { notePlacementIssue(error); }
         // Dimensions come from declared IFC quantities/properties or exact primitive profiles.
         // Tessellated world-axis bounds are NOT treated as design dimensions.
         const dimensions: Record<string, number | null> = {
@@ -172,11 +236,19 @@ export async function readIfcModel(bytes: Uint8Array, options: IfcModelOptions =
             // Only an explicit swept solid defines an authoritative extrusion axis.
             // Product placement alone does not describe a beam/wall centreline.
             if (transform && type === "beam" && profile?.type === WebIFC.IFCRECTANGLEPROFILEDEF) {
-              const solidTransform = axisTransform(transform, read(solid.Position));
-              const profileOffset = rotate(solidTransform, vector(read(profile.Position)?.Location, "Coordinates", [0, 0, 0]));
-              lineTransform = { ...solidTransform, origin: solidTransform.origin.map((n, i) => n + profileOffset[i]) as Vector };
-              direction = unit(rotate(solidTransform, vector(solid.ExtrudedDirection, "DirectionRatios", [0, 0, 1])));
-              lineLength = number(solid.Depth);
+              try {
+                const solidPosition = read(solid.Position);
+                if (solid.Position && !solidPosition) throw new InvalidIfcPlacementError("Missing IFC solid placement");
+                const solidTransform = axisTransform(transform, solidPosition);
+                const profileOffset = rotate(solidTransform, (profile.Position ? vector(read(profile.Position)?.Location, "Coordinates", 2) : [0, 0, 0]));
+                lineTransform = { ...solidTransform, origin: solidTransform.origin.map((n, i) => n + profileOffset[i]) as Vector };
+                direction = unit(rotate(solidTransform, vector(solid.ExtrudedDirection, "DirectionRatios", 3)));
+                lineLength = number(solid.Depth);
+              } catch (error) {
+                lineTransform = null;
+                direction = null;
+                notePlacementIssue(error);
+              }
             }
             if (profile?.type === WebIFC.IFCRECTANGLEPROFILEDEF && number(profile.XDim) != null && number(profile.YDim) != null && number(solid.Depth) != null) {
               const a = number(profile.XDim), b = number(profile.YDim), depth = number(solid.Depth);
@@ -205,7 +277,8 @@ export async function readIfcModel(bytes: Uint8Array, options: IfcModelOptions =
         countsByType[type] = (countsByType[type] || 0) + 1;
       }
     }
-    return { sourceModelId, fileName, importedCount: elements.length, countsByType, elements, schema: api.GetModelSchema(model) };
+    if (firstPlacementError && !elements.some(element => element.hasPlacement)) throw firstPlacementError;
+    return { sourceModelId, fileName, placementIssues, importedCount: elements.length, countsByType, elements, schema: api.GetModelSchema(model) };
   } finally {
     if (model !== undefined && model >= 0) api.CloseModel(model);
     api.Dispose();

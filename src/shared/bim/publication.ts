@@ -36,7 +36,7 @@ async function* collectionPages(store: BimStore, collection: string, filter?: Bi
 }
 
 /** Every staging chunk is fenced against cleanup and delayed writers. */
-export async function publishBimModel(store: BimStore, sourceModelId: string, elements: BimElementRecord[]): Promise<PublicationResult> {
+export async function publishBimModel(store: BimStore, sourceModelId: string, elements: BimElementRecord[], options: { partial?: boolean } = {}): Promise<PublicationResult> {
   checkId(sourceModelId);
   if (!elements.length) throw new Error("Cannot publish an empty BIM model");
   const ids = new Set<string>();
@@ -45,10 +45,13 @@ export async function publishBimModel(store: BimStore, sourceModelId: string, el
     ids.add(element.elementId);
   }
   const modelPath = `bimModels/${sourceModelId}`;
+  const partialConflict = () => Object.assign(new Error("A partial IFC import cannot replace a published model."), { status: 409 });
+  const hasLegacy = options.partial && (await store.list("elements", { field: "sourceModelId", value: sourceModelId })).length > 0;
   const generation = store.id();
   const generationPath = `bimGenerations/${generation}`;
   const baseline = await store.transaction(async tx => {
     const state = await tx.get("bimState/current"), model = await tx.get(modelPath);
+    if (options.partial && (model ? !model.deleted && epoch(model) === epoch(state) : hasLegacy && !state?.legacyHidden)) throw partialConflict();
     tx.set(generationPath, { sourceModelId, status: "staging", updatedAt: store.timestamp() });
     return { state, model };
   });

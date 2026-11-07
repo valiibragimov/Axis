@@ -12,6 +12,7 @@ export function createIfcImportService(ports: IfcImportPorts) {
     const model = await ports.parse(bytes, options, signal);
     signal?.throwIfAborted();
     if (!model.importedCount) throw Object.assign(new Error("No supported IFC elements were found in the file"), { status: 422 });
+    if (model.placementIssues > 0) throw Object.assign(new Error("Partial IFC placement requires review in the workspace."), { status: 422 });
     // Publication owns its atomicity/recovery. Once started, finish even if the client leaves.
     const saved = await ports.save(projectId, model);
     return { sourceModelId: model.sourceModelId, fileName: model.fileName, importedCount: saved.writtenCount, replacedCount: saved.removedCount, countsByType: model.countsByType };

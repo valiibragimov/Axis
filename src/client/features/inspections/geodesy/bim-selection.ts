@@ -173,20 +173,20 @@ export function findNearestGeoAxisLabel(axisEntries: GeoAxisEntry[], coordinate:
 }
 
 export function createGeoLinearPrefillPoints(prefill: Partial<GeoPrefill> = {}) {
-  const startX = parseGeoBimFiniteNumber(prefill.lineStartX ?? prefill.projX);
-  const startY = parseGeoBimFiniteNumber(prefill.lineStartY ?? prefill.projY);
+  const startX = parseGeoBimFiniteNumber(prefill.lineStartX);
+  const startY = parseGeoBimFiniteNumber(prefill.lineStartY);
   const endX = parseGeoBimFiniteNumber(prefill.lineEndX);
   const endY = parseGeoBimFiniteNumber(prefill.lineEndY);
 
-  if (startX == null || startY == null) {
+  if (startX == null || startY == null || endX == null || endY == null) {
     return null;
   }
 
   return {
     startX,
     startY,
-    endX: endX ?? startX,
-    endY: endY ?? startY
+    endX,
+    endY
   };
 }
 

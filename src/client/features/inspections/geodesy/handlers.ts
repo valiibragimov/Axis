@@ -1,3 +1,4 @@
+import { isNormativeBearingLevel } from "../normative-rules.js";
 import { t } from "../../../shared/i18n/index.js";
 import {
   getConstructionModuleBehavior
@@ -155,7 +156,8 @@ export function bindGeodesyHandlers({
     state.geo = data.status === "ok";
     checked.geo = data.status === "ok" || data.status === "bad";
     geoResult.className = data.status === "ok" ? "result ok" : data.status === "bad" ? "result not-ok" : "result";
-    geoResult.textContent = t(data.status === "ok" ? "engineering_conforms" : data.status === "bad" ? "engineering_nonconforms" : "engineering_requires_review");
+    geoResult.textContent = t(data.status === "ok" ? "engineering_conforms" : data.status === "bad" ? "engineering_nonconforms" :
+      data.dataStatus === "checked" ? "assessment_no_applicable_limit" : "engineering_incomplete");
     if (data.status === "bad" && data.dataStatus !== "checked") geoResult.append(` — ${t("engineering_incomplete")}`);
     const rows = data.columns || data.walls || data.beams || [data];
     for (const [index, row] of rows.entries()) {
@@ -184,12 +186,14 @@ export function bindGeodesyHandlers({
       getCurrentConstructionSubtype()
     );
 
+    const heightOnly = geoBehavior.geodesyHeightOnly || isNormativeBearingLevel(readAcceptanceCriteria(document.getElementById("geo")));
+
     if (geoFlags.isUnsupported) {
       setGeoUnsupportedState({ notify: true });
       return;
     }
 
-    if (geoBehavior.floorRequired !== false && !validateRequiredField(floorEl, "Этаж")) return;
+    if (!heightOnly && geoBehavior.floorRequired !== false && !validateRequiredField(floorEl, "Этаж")) return;
 
     // Специальная обработка для колонн
     if (geoFlags.isColumn) {
@@ -249,7 +253,7 @@ export function bindGeodesyHandlers({
         lastMsg: geoResult.innerHTML || ""
       };
 
-      if (nodes.has(key) && nodes.get(key)?.coordinateUnit !== "m") key = `${key}_${Date.now()}`;
+      if (nodes.has(key) && (nodes.get(key)?.coordinateUnit !== "m" || ((nodes.get(key)?.measurementScope === "height") !== heightOnly))) key = `${key}_${Date.now()}`;
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
@@ -421,7 +425,7 @@ export function bindGeodesyHandlers({
         lastMsg: geoResult.innerHTML || ""
       };
 
-      if (nodes.has(key) && nodes.get(key)?.coordinateUnit !== "m") key = `${key}_${Date.now()}`;
+      if (nodes.has(key) && (nodes.get(key)?.coordinateUnit !== "m" || ((nodes.get(key)?.measurementScope === "height") !== heightOnly))) key = `${key}_${Date.now()}`;
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
@@ -592,7 +596,7 @@ export function bindGeodesyHandlers({
         lastMsg: geoResult.innerHTML || ""
       };
 
-      if (nodes.has(key) && nodes.get(key)?.coordinateUnit !== "m") key = `${key}_${Date.now()}`;
+      if (nodes.has(key) && (nodes.get(key)?.coordinateUnit !== "m" || ((nodes.get(key)?.measurementScope === "height") !== heightOnly))) key = `${key}_${Date.now()}`;
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
@@ -676,7 +680,7 @@ export function bindGeodesyHandlers({
     }
 
     const pointLabel = (document.getElementById("geoPointLabel") as HTMLInputElement)?.value.trim() || "";
-    if (geoBehavior.geodesyHeightOnly && !pointLabel) {
+    if (heightOnly && !pointLabel) {
       showNotification(t("survey_point_required"), "warning");
       return;
     }
@@ -690,16 +694,16 @@ export function bindGeodesyHandlers({
     const pH = parseFloat(projH.value);
     const fH = parseFloat(factH.value);
 
-    const floor = geoBehavior.floorVisible === false ? "" : floorEl.value.trim();
+    const floor = heightOnly || geoBehavior.floorVisible === false ? "" : floorEl.value.trim();
     const axisState = getGeoAxisState(construction.value || "Плита");
-    if (axisState.isPlate && !validateGeoPlateAxisRange({ showWarning: true })) {
+    if (!heightOnly && axisState.isPlate && !validateGeoPlateAxisRange({ showWarning: true })) {
       return;
     }
     const loadedKey = geoResult.dataset.loadedKey;
     const loadedNode = loadedKey ? nodes.get(loadedKey) : null;
     const canEditLoadedNode = loadedKey && loadedNode &&
       (!loadedNode.construction || loadedNode.construction === getCurrentConstructionKey()) &&
-      (!geoBehavior.geodesyHeightOnly || loadedNode.measurementScope === "height");
+      ((loadedNode.measurementScope === "height") === heightOnly);
     let key = (canEditLoadedNode ? loadedKey : "") || buildGeoNodeKey({
       constructionValue: getCurrentConstructionKey(),
       floorValue: floor,
@@ -711,14 +715,14 @@ export function bindGeodesyHandlers({
       numberTo: axisState.isPlate ? axisState.numberTo : ""
     });
 
-    if (geoBehavior.geodesyHeightOnly && !canEditLoadedNode) key = `${getCurrentConstructionKey()}_${crypto.randomUUID()}`;
+    if (heightOnly && !canEditLoadedNode) key = `${getCurrentConstructionKey()}_${crypto.randomUUID()}`;
     // Подготавливаем данные узла для вычисления статуса
     const nodeDataForEval = {
-      measurementScope: geoBehavior.geodesyHeightOnly ? "height" as const : "coordinates" as const,
-      projX: !geoBehavior.geodesyHeightOnly && !isNaN(pX) ? +projX.value : null,
-      factX: !geoBehavior.geodesyHeightOnly && !isNaN(fX) ? +factX.value : null,
-      projY: !geoBehavior.geodesyHeightOnly && !isNaN(pY) ? +projY.value : null,
-      factY: !geoBehavior.geodesyHeightOnly && !isNaN(fY) ? +factY.value : null,
+      measurementScope: heightOnly ? "height" as const : "coordinates" as const,
+      projX: !heightOnly && !isNaN(pX) ? +projX.value : null,
+      factX: !heightOnly && !isNaN(fX) ? +factX.value : null,
+      projY: !heightOnly && !isNaN(pY) ? +projY.value : null,
+      factY: !heightOnly && !isNaN(fY) ? +factY.value : null,
       projH: !isNaN(pH) ? +projH.value : null,
       factH: !isNaN(fH) ? +factH.value : null
     };
@@ -727,10 +731,11 @@ export function bindGeodesyHandlers({
     const geoToleranceXY = confirmedGeoTolerance("geoPlan");
     const geoToleranceH = confirmedGeoTolerance("geoHeight");
     const evaluation = evaluateGeoNode(nodeDataForEval, geoToleranceXY, geoToleranceH);
-    if ([projX, projY, projH].some(input => input.dataset.unitUnconfirmed === "1")) evaluation.status = "empty";
+    const requiredDesignFields = heightOnly ? [projH] : [projX, projY, projH];
+    if (requiredDesignFields.some(input => input.dataset.unitUnconfirmed === "1")) evaluation.status = "empty";
 
     const stairNameValue = geoBehavior.showStairName ? (geoStairNameEl?.value?.trim() || "") : "";
-    const measuredFlatness = geoBehavior.showGeoFlatnessCheck ? collectGeoPlateFlatnessData() : null;
+    const measuredFlatness = !heightOnly && geoBehavior.showGeoFlatnessCheck ? collectGeoPlateFlatnessData() : null;
     const plateFlatnessData = measuredFlatness?.actual != null ? measuredFlatness : null;
     const plateFlatnessComplete = Boolean(
       plateFlatnessData &&
@@ -742,7 +747,7 @@ export function bindGeodesyHandlers({
       plateFlatnessComplete &&
       plateFlatnessData.result === "exceeded"
     );
-    const openingEvaluation = geoBehavior.showOpeningPoints && plateOpeningPoints.length
+    const openingEvaluation = !heightOnly && geoBehavior.showOpeningPoints && plateOpeningPoints.length
       ? evaluateGeoColumnNode(plateOpeningPoints.map(point => ({ ...point, id: Number(point.id), mark: "" })), geoToleranceXY) : null;
     const finalEvaluationStatus = plateFlatnessBlocksOkStatus || evaluation.status === "bad" || openingEvaluation?.status === "bad"
       ? "bad" : evaluation.status === "empty" || (plateFlatnessData && !plateFlatnessComplete) || openingEvaluation?.status === "empty" ? "empty" : evaluation.status;
@@ -760,8 +765,8 @@ export function bindGeodesyHandlers({
       ...bim.collectNodeData(),
       floor: geoBehavior.floorVisible === false ? null : (floor || null),
       measurementScope: nodeDataForEval.measurementScope,
-      pointLabel: geoBehavior.geodesyHeightOnly ? pointLabel : null,
-      location: geoBehavior.geodesyHeightOnly ? pointLabel : axisState.isPlate ? (axisState.location || null) : null,
+      pointLabel: heightOnly ? pointLabel : null,
+      location: heightOnly ? pointLabel : axisState.isPlate ? (axisState.location || null) : null,
       stairName: stairNameValue || null,
       plateFlatnessChecked: plateFlatnessData ? plateFlatnessData.checked : null,
       plateFlatnessActual: plateFlatnessData ? plateFlatnessData.actual : null,
@@ -769,7 +774,7 @@ export function bindGeodesyHandlers({
       plateFlatnessClass: plateFlatnessData ? plateFlatnessData.surfaceClass : null,
       plateFlatnessTolerance: plateFlatnessData ? plateFlatnessData.tolerance : null,
       plateFlatnessResult: plateFlatnessData ? (plateFlatnessData.result || null) : null,
-      openingPoints: geoBehavior.showOpeningPoints
+      openingPoints: !heightOnly && geoBehavior.showOpeningPoints
         ? plateOpeningPoints
             .map((point) => ({
               projX: point.projX === "" ? null : +point.projX,
@@ -779,13 +784,13 @@ export function bindGeodesyHandlers({
             }))
             .filter((point) => point.projX != null || point.projY != null || point.factX != null || point.factY != null)
         : null,
-      letter: geoBehavior.geodesyHeightOnly || axisState.isPlate ? null : axisState.letter,
-      number: geoBehavior.geodesyHeightOnly || axisState.isPlate ? null : axisState.number,
-      axisMode: axisState.isPlate ? (axisState.axisMode || null) : null,
-      axisLetterFrom: axisState.isPlate ? (axisState.letterFrom || null) : null,
-      axisLetterTo: axisState.isPlate ? (axisState.letterTo || null) : null,
-      axisNumberFrom: axisState.isPlate ? (axisState.numberFrom || null) : null,
-      axisNumberTo: axisState.isPlate ? (axisState.numberTo || null) : null,
+      letter: heightOnly || axisState.isPlate ? null : axisState.letter,
+      number: heightOnly || axisState.isPlate ? null : axisState.number,
+      axisMode: !heightOnly && axisState.isPlate ? (axisState.axisMode || null) : null,
+      axisLetterFrom: !heightOnly && axisState.isPlate ? (axisState.letterFrom || null) : null,
+      axisLetterTo: !heightOnly && axisState.isPlate ? (axisState.letterTo || null) : null,
+      axisNumberFrom: !heightOnly && axisState.isPlate ? (axisState.numberFrom || null) : null,
+      axisNumberTo: !heightOnly && axisState.isPlate ? (axisState.numberTo || null) : null,
 
       projX: nodeDataForEval.projX,
       factX: nodeDataForEval.factX,
@@ -800,7 +805,7 @@ export function bindGeodesyHandlers({
       lastMsg: geoResult.innerHTML || ""
     };
 
-    if (nodes.has(key) && nodes.get(key)?.coordinateUnit !== "m") key = `${key}_${Date.now()}`;
+    if (nodes.has(key) && (nodes.get(key)?.coordinateUnit !== "m" || ((nodes.get(key)?.measurementScope === "height") !== heightOnly))) key = `${key}_${Date.now()}`;
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
@@ -815,12 +820,12 @@ export function bindGeodesyHandlers({
     // Добавляем запись в журнал, если узел был проверен (не pending)
     if (!skipJournal && finalEvaluationStatus !== "empty" && evaluation.hasAllData && (!plateFlatnessData || plateFlatnessComplete)) {
       const allOk = finalEvaluationStatus === "ok";
-      const contextLabel = (geoBehavior.geodesyHeightOnly ? pointLabel : "") || axisState.location || axisState.nodeLabel || "узел";
+      const contextLabel = (heightOnly ? pointLabel : "") || axisState.location || axisState.nodeLabel || "узел";
       const context = floor ? `${floor}-${contextLabel}` : contextLabel;
       const detailsParts = [];
-      if (!geoBehavior.geodesyHeightOnly && !isNaN(pX) && !isNaN(fX)) detailsParts.push(`ΔX=${(Math.abs(fX - pX) * 1000).toFixed(1)} мм`);
-      if (!geoBehavior.geodesyHeightOnly && !isNaN(pY) && !isNaN(fY)) detailsParts.push(`ΔY=${(Math.abs(fY - pY) * 1000).toFixed(1)} мм`);
-      if (!isNaN(pH) && !isNaN(fH)) detailsParts.push(`ΔH=${(Math.abs(fH - pH) * 1000).toFixed(1)} мм`);
+      if (!heightOnly && !isNaN(pX) && !isNaN(fX)) detailsParts.push(`ΔX=${(Math.abs(fX - pX) * 1000).toFixed(1)} мм`);
+      if (!heightOnly && !isNaN(pY) && !isNaN(fY)) detailsParts.push(`ΔY=${(Math.abs(fY - pY) * 1000).toFixed(1)} мм`);
+      if (!isNaN(pH) && !isNaN(fH)) detailsParts.push(`ΔH=${((fH - pH) * 1000).toFixed(1)} мм`);
       if (plateFlatnessData && plateFlatnessComplete) {
         detailsParts.push(`Плоскостность=${plateFlatnessData.actual.toFixed(1)} мм при допуске ${plateFlatnessData.tolerance.toFixed(1)} мм`);
       }
@@ -842,8 +847,8 @@ export function bindGeodesyHandlers({
     try {
       await saveProjectNode(key, data);
       console.log("Узел сохранён в Firebase:", key);
-        const hasProj = geoBehavior.geodesyHeightOnly ? !isNaN(pH) : !isNaN(pX) && !isNaN(pY);
-        const hasFact = geoBehavior.geodesyHeightOnly ? !isNaN(fH) : !isNaN(fX) && !isNaN(fY);
+        const hasProj = heightOnly ? !isNaN(pH) : !isNaN(pX) && !isNaN(pY);
+        const hasFact = heightOnly ? !isNaN(fH) : !isNaN(fX) && !isNaN(fY);
         if (!hasProj && !hasFact) {
           showNotification("Узел сохранён. Заполните данные для проверки.", "info");
         } else if (!hasProj) {

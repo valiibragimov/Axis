@@ -51,6 +51,29 @@ test("malformed decimal-comma coordinate tuples are rejected", async () => {
   await assert.rejects(readIfcModel(new TextEncoder().encode(source)), /Invalid IFC coordinate tuple/);
 });
 
+test("an invalid placement does not erase valid coordinates or invent replacement coordinates", async () => {
+  const source = new TextDecoder().decode(modelFixture()).replace("ENDSEC;\nEND-ISO",
+    "#50=IFCCARTESIANPOINT((1.,2.,3.,4.));\n#51=IFCAXIS2PLACEMENT3D(#50,$,$);\n#52=IFCLOCALPLACEMENT($,#51);\n#53=IFCCOLUMN('1BBCDEFGHIJKLMNOPQRSTU',$,'Second',$,$,#52,#20,'C-2',.COLUMN.);\nENDSEC;\nEND-ISO");
+  const model = await readIfcModel(new TextEncoder().encode(source));
+  assert.equal(model.placementIssues, 1);
+  assert.deepEqual(model.elements.map(e => [e.projectX, e.projectY, e.projectH]), [[1000,2000,3000], [null,null,null]]);
+});
+
+test("the shared parser validates the STEP footer outside comments and large inputs", async () => {
+  const source = new TextDecoder().decode(modelFixture());
+  const trailing = `/*${"x".repeat(260000)}*/\n`;
+  assert.equal((await readIfcModel(new TextEncoder().encode(source + trailing))).importedCount, 1);
+  const truncated = new TextEncoder().encode(source.replace("END-ISO-10303-21;", "/* END-ISO-10303-21; */"));
+  await assert.rejects(readIfcModel(truncated), /STEP exchange ending/);
+  for (const prefix of ["/* ", "'"]) {
+    const embedded = source.replace("ENDSEC;\nEND-ISO", prefix + "ENDSEC;\nEND-ISO");
+    await assert.rejects(readIfcModel(new TextEncoder().encode(embedded)), /STEP exchange ending/);
+  }
+  const pool = createIfcWorkerPool();
+  try { await assert.rejects(pool.parse(truncated, {}), /STEP exchange ending/); }
+  finally { await pool.close(); }
+});
+
 test("existing source normalization and Unicode filename hashes stay stable", async () => {
   const sourceModelId = "Long_Model-".repeat(7);
   const model = await readIfcModel(modelFixture(), { sourceModelId });

@@ -20,6 +20,7 @@ interface IfcImportOptions {
 }
 
 interface IfcImportSummaryResult extends Partial<IfcImportResult> {
+  placementIssues?: number;
   countsByLabel?: Record<string, number>;
 }
 
@@ -140,12 +141,16 @@ export async function importIfcIntoProject({
     sourceModelId: parsedImport.sourceModelId
   });
 
+  const partial = (parsedImport.placementIssues ?? 0) > 0;
+  if (partial && !onValidation) throw new IfcImportCancelledError("Подтвердите импорт с неполными данными размещения.");
   if (onValidation) {
     const approved = await onValidation(parsedImport.requirementSummary);
     if (!approved) {
       throw new IfcImportCancelledError();
     }
   }
+
+  if (parsedImport.requirementSummary?.canImport === false) throw new Error("Структура IFC не прошла проверку.");
 
   if (!parsedImport.importedCount) {
     throw new Error("В IFC-файле не найдены поддерживаемые элементы.");
@@ -164,7 +169,7 @@ export async function importIfcIntoProject({
   });
 
   const { writtenCount: importedCount, removedCount: replacedCount } = await publishProjectBimModel(
-    normalizedProjectId, parsedImport.sourceModelId, parsedImport.elements as Array<{ elementId: string; sourceModelId: string; [key: string]: unknown }>
+    normalizedProjectId, parsedImport.sourceModelId, parsedImport.elements as Array<{ elementId: string; sourceModelId: string; [key: string]: unknown }>, partial
   );
 
   return {

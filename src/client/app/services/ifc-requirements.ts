@@ -125,23 +125,25 @@ function createFileCheck({
 
 export function analyzeIfcRequirements(
   ifcText: string,
-  sourceElements: RequirementElement[] = []
+  sourceElements: RequirementElement[] = [],
+  parsed?: { schema: string; placementIssues: number }
 ): IfcRequirementSummary {
   const normalizedIfcText = String(ifcText || "");
   const elements = Array.isArray(sourceElements) ? sourceElements : [];
   const structuralElements = elements.filter(isStructuralElement);
-  const schema = extractIfcSchema(normalizedIfcText);
+  const schema = parsed?.schema || extractIfcSchema(normalizedIfcText);
   const hasSupportedSchema = Boolean(
     schema &&
     [...SUPPORTED_SCHEMAS].some((supportedSchema) =>
       schema === supportedSchema || schema.startsWith(`${supportedSchema}_`)
     )
   );
-  const hasStepEnvelope =
+  // The shared WebIFC adapter already verified the full exchange when parsed is present.
+  const hasStepEnvelope = Boolean(parsed) || (
     /\bISO-10303-21\s*;/iu.test(normalizedIfcText) &&
     /\bHEADER\s*;/iu.test(normalizedIfcText) &&
     /\bDATA\s*;/iu.test(normalizedIfcText) &&
-    /\bEND-ISO-10303-21\s*;/iu.test(normalizedIfcText);
+    /\bEND-ISO-10303-21\s*;/iu.test(normalizedIfcText));
 
   const guidCounts = new Map<string, number>();
   for (const element of elements) {
@@ -232,6 +234,14 @@ export function analyzeIfcRequirements(
       predicate: hasPlacement
     })
   ];
+
+  if (parsed?.placementIssues) checks.push(createFileCheck({
+    id: "partial-placement",
+    label: "Неполные данные размещения",
+    description: "Некорректные координаты или оси оставлены пустыми. Такой импорт не заменяет опубликованную модель.",
+    severity: "warning",
+    passed: false
+  }));
 
   const attributeChecks = checks.filter((check) =>
     ["guid", "guid-unique", "name", "floor", "axes", "mark", "placement"].includes(check.id)

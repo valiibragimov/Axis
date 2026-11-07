@@ -2,6 +2,7 @@ export const engineering = {
   "ru": {
     "lab_readings_summary": "{{count}} Ri · Rm = {{mean}} МПа",
     "assessment_pending": "Требует проверки",
+    "assessment_no_applicable_limit": "Нет применимого допуска",
     "documents_preview": "Просмотреть PDF",
     "documents_close_preview": "Закрыть просмотр",
     "lab_readings": "Исходные лабораторные значения Ri, МПа",
@@ -236,7 +237,7 @@ export const engineering = {
     "form_step_1_of_2": "Шаг 1 из 2",
     "form_and": "и",
     "form_concrete_cover_5_mm": "), защитный слой ±5 мм (",
-    "form_survey_control_measures_x_y_and_elevation_h_at_grid_intersections_limi": "Геодезическая привязка выполняется по пересечениям буквенных и цифровых разбивочных осей с определением фактических координат в плане (X, Y) и высотной отметки (H). Допустимые отклонения составляют: по координатам X/Y — не более ±8 мм, по высоте H — не более ±10 мм; контроль выполняется в соответствии с",
+    "form_survey_control_measures_x_y_and_elevation_h_at_grid_intersections_limi": "Геодезическая привязка выполняется по пересечениям буквенных и цифровых разбивочных осей с определением фактических координат в плане (X, Y) и высотной отметки (H). Допуск зависит от конструкции и условий измерения. См.",
     "form_inspect_concrete_cover_bar_spacing_diameter_and_embedded_items_bar_dia": "Проверка защитного слоя, шага и диаметра стержней, расположения закладных элементов. Диаметр арматуры должен строго соответствовать проектному. Фактические значения сравниваются с проектными с учётом действующих требований и проектной документации: шаг ±20 мм (",
     "form_mark_grid_axes_floor_guid_or_element_id": "Марка, оси, этаж, GUID или ID элемента",
     "form_show_help": "Показать описание",
@@ -314,6 +315,7 @@ export const engineering = {
   "en": {
     "lab_readings_summary": "{{count}} Ri · Rm = {{mean}} MPa",
     "assessment_pending": "Review required",
+    "assessment_no_applicable_limit": "No applicable limit",
     "documents_preview": "View PDF",
     "documents_close_preview": "Close preview",
     "lab_readings": "Source laboratory readings Ri, MPa",
@@ -548,7 +550,7 @@ export const engineering = {
     "form_step_1_of_2": "Step 1 of 2",
     "form_and": "and",
     "form_concrete_cover_5_mm": "), concrete cover ±5 mm (",
-    "form_survey_control_measures_x_y_and_elevation_h_at_grid_intersections_limi": "Survey control measures X, Y and elevation H at grid intersections. Limits: X/Y ±8 mm; H ±10 mm, according to",
+    "form_survey_control_measures_x_y_and_elevation_h_at_grid_intersections_limi": "Survey control measures X, Y and elevation H at grid intersections. Limits depend on the construction and measurement conditions. See",
     "form_inspect_concrete_cover_bar_spacing_diameter_and_embedded_items_bar_dia": "Inspect concrete cover, bar spacing, diameter and embedded items. Bar diameter must match the design. Compare measured values with design and applicable requirements: spacing ±20 mm (",
     "form_mark_grid_axes_floor_guid_or_element_id": "Mark, grid axes, floor, GUID or element ID",
     "form_show_help": "Show help",

@@ -66,6 +66,11 @@ test("Firestore publication is atomic, conflict-safe, owner-scoped and backward-
       assert.equal(records[0].data.name, "complete");
       assert.equal((await getFirestore().doc("projects/project/elements/model_0").get()).data().name, "legacy");
     });
+    await t.test("a partial IFC model cannot replace an existing publication", async () => {
+      const before = await store.get("bimModels/model");
+      await assert.rejects(publishBimModel(store, "model", elements(1, "partial"), { partial: true }), { status: 409 });
+      assert.deepEqual(await store.get("bimModels/model"), before);
+    });
     await t.test("failure in a later batch never changes the visible generation", async () => {
       let batches = 0;
       const failing = { ...store, batch: (entries, guard) => { if (++batches === 2) throw new Error("simulated storage failure"); return store.batch(entries, guard); } };

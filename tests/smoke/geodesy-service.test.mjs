@@ -588,6 +588,14 @@ test("geodesy BIM records exclude deleted and malformed elements", () => {
   ]);
 });
 
+test("BIM placement never substitutes for missing engineering axis endpoints", async () => {
+  const { createGeoLinearPrefillPoints } = await import("../../dist/features/inspections/geodesy/bim-selection.js");
+  assert.equal(createGeoLinearPrefillPoints({ projX: 10, projY: 20 }), null);
+  assert.equal(createGeoLinearPrefillPoints({ lineStartX: 10, lineStartY: 20, lineEndX: 30 }), null);
+  assert.deepEqual(createGeoLinearPrefillPoints({ lineStartX: 0, lineStartY: 20, lineEndX: 30, lineEndY: 40 }),
+    { startX: 0, startY: 20, endX: 30, endY: 40 });
+});
+
 test("geodesy BIM node payload keeps the existing Firestore field format", () => {
   const payload = collectGeodesyBimNodeData({
     selectedId: "column-1",

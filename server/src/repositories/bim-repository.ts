@@ -52,7 +52,7 @@ export function createAdminBimStore(projectId: string): BimStore {
 }
 
 export function publishProjectBimModel(projectId: string, model: IfcModelData) {
-  return publishBimModel(createAdminBimStore(projectId), model.sourceModelId, model.elements);
+  return publishBimModel(createAdminBimStore(projectId), model.sourceModelId, model.elements, { partial: model.placementIssues > 0 });
 }
 export function clearProjectElements(projectId: string, sourceModelId?: string) {
   return hideBimModels(createAdminBimStore(projectId), sourceModelId);

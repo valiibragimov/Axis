@@ -235,3 +235,33 @@ test("registration, empty project list and legacy inspection persistence with th
     await app.close();
   }
 });
+
+test("geodesy displays the selected bearing-level limit instead of a universal X/Y tolerance", { timeout: 60000 }, async () => {
+  const app = await startApp();
+  try {
+    const { page } = app;
+    await openSection(page, "geo");
+    const criteria = page.locator("#geo [data-acceptance]");
+    await criteria.locator("summary").click();
+    await criteria.locator("[data-normative-context]").selectOption("bearing-level");
+    assert.match(await criteria.locator("p").innerText(), /5\.12/u);
+    await page.locator("#geoPointLabel").fill("Bearing point A");
+    assert.match(await page.locator("#tolHField").inputValue(), /-5 … 0/u);
+    assert.equal(await page.locator("#projX").isVisible(), false);
+    assert.equal(await criteria.locator("[data-reference]").isVisible(), false);
+    await page.locator("#projH").fill("10");
+    await page.locator("#factH").fill("9.995");
+    await page.locator("#btnGeo").click();
+    let saved;
+    for (let attempt = 0; attempt < 40 && !saved; attempt++) {
+      saved = (await app.records("geoNodes"))[0];
+      if (!saved) await page.waitForTimeout(100);
+    }
+    assert.equal(saved?.status, "ok", JSON.stringify({ projH: saved?.projH, factH: saved?.factH, scope: saved?.measurementScope, criteria: saved?.acceptanceCriteria }));
+    assert.equal(saved.measurementScope, "height");
+    assert.equal(saved.projX, null);
+    assert.equal(saved.axisMode, null);
+    assert.equal(saved.acceptanceCriteria.normativeRule, "sp70-2026-11-v1/bearing-level");
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});

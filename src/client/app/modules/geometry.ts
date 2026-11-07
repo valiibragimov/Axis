@@ -160,6 +160,12 @@ async function clearGeomInspectionDualWrite(projectId) {
   });
 }
 
+function geometryVerdict(evaluation: ReturnType<typeof evaluateGeomCheck>) {
+  return t(evaluation.status === "ok" ? "engineering_conforms" :
+    evaluation.status === "exceeded" ? "engineering_nonconforms" :
+    evaluation.hasUnverifiedMeasurements ? "assessment_no_applicable_limit" : "engineering_incomplete");
+}
+
 let commonPhysicalDimensions: PhysicalDimensions = {};
 function renderCommonDimensions() {
   const root = document.querySelector<HTMLElement>("#geometry [data-step='2']");
@@ -171,7 +177,7 @@ function renderCommonDimensions() {
     { key: "thickness", label: t("dimension_thickness") }, { key: "vertical", label: t("form_vertical_deviation_mm") },
     { key: "flatness", label: t("form_measured_flatness_deviation_mm") }, { key: "opening", label: t("dimension_opening") },
     { key: "step", label: t("dimension_step") }
-  ]);
+  ], { module: "geometry", construction: () => getSelectedConstructionKey() || "" });
 }
 let geomChecks: Map<string, GeometryCheckRecord>;
 let geometryInitialized = false;
@@ -2986,12 +2992,11 @@ function loadGeomCheck(id) {
   if (geomNoteEl) geomNoteEl.value = d.note || "";
 
   if (geometryResult) {
-  geometryResult.className = "result";
-  if (evaluateGeomCheck(d).status === "ok") geometryResult.classList.add("ok");
-  if (evaluateGeomCheck(d).status === "exceeded") geometryResult.classList.add("not-ok");
-  geometryResult.textContent = t(evaluateGeomCheck(d).status === "ok" ? "engineering_conforms" : evaluateGeomCheck(d).status === "exceeded" ? "engineering_nonconforms" : "engineering_requires_review");
-  if (evaluateGeomCheck(d).status === "exceeded" && evaluateGeomCheck(d).hasIncompleteMeasurements) geometryResult.append(` — ${t("engineering_incomplete")}`);
-}
+    const evaluation = evaluateGeomCheck(d);
+    geometryResult.className = evaluation.status === "ok" ? "result ok" : evaluation.status === "exceeded" ? "result not-ok" : "result";
+    geometryResult.textContent = geometryVerdict(evaluation);
+    if (evaluation.status === "exceeded" && evaluation.hasIncompleteMeasurements) geometryResult.append(` — ${t("engineering_incomplete")}`);
+  }
 
   syncGeomBimSelectionFromCheck(d);
   // Restoring construction emits change and clears edit IDs; restore identity last.
@@ -3181,7 +3186,7 @@ async function saveGeomCheck({ skipJournalOnce = false } = {}) {
   getChecked().geometry = evaluation.status !== "empty";
   if (geometryResult) {
     geometryResult.className = evaluation.status === "ok" ? "result ok" : evaluation.status === "exceeded" ? "result not-ok" : "result";
-    geometryResult.textContent = t(evaluation.status === "ok" ? "engineering_conforms" : evaluation.status === "exceeded" ? "engineering_nonconforms" : "engineering_requires_review");
+    geometryResult.textContent = geometryVerdict(evaluation);
     if (evaluation.status === "exceeded" && evaluation.hasIncompleteMeasurements) geometryResult.append(` — ${t("engineering_incomplete")}`);
     const rows = [data, ...(data.columns || []), ...(data.walls || []), ...(data.beams || []), ...(data.stairs || [])];
     for (const [index, row] of rows.entries()) {

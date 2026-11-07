@@ -9,5 +9,5 @@ export interface IfcElementData {
 
 export interface IfcModelData {
   sourceModelId: string; fileName: string; importedCount: number;
-  countsByType: Record<string, number>; elements: IfcElementData[]; schema: string;
+  placementIssues: number; countsByType: Record<string, number>; elements: IfcElementData[]; schema: string;
 }
