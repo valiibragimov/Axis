@@ -9,7 +9,8 @@ import { pageNames } from "./web-files.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = resolve(__dirname, "..", "..");
-const inlineRoot = resolve(projectRoot, "dist/pages/inline");
+const buildRoot = process.env.AXIS_BUILD_ROOT || projectRoot;
+const inlineRoot = resolve(buildRoot, "dist/pages/inline");
 await mkdir(inlineRoot, {recursive:true});
 async function preparePage(source, name) {
   const document = parse(source);
@@ -29,7 +30,7 @@ async function preparePage(source, name) {
   }
   return serialize(document);
 }
-const outputPath = resolve(projectRoot, "build/pages/index.html");
+const outputPath = resolve(buildRoot, "build/pages/index.html");
 const outputHtml = await readIndexHtmlSource(projectRoot);
 await mkdir(dirname(outputPath), { recursive: true });
 await writeFile(outputPath, await preparePage(outputHtml, "index"), "utf8");
@@ -44,5 +45,5 @@ for (const name of pageNames.filter(name => name !== "index")) {
   const source = await readFile(path, "utf8");
   const marker = /<!-- shared-sidebar:start -->[\s\S]*?<!-- shared-sidebar:end -->/;
   const output = marker.test(source) ? source.replace(marker, "<!-- shared-sidebar:start -->\n" + sidebar.trim() + "\n<!-- shared-sidebar:end -->") : source;
-  await writeFile(resolve(projectRoot, "build/pages", page), await preparePage(output, name), "utf8");
+  await writeFile(resolve(buildRoot, "build/pages", page), await preparePage(output, name), "utf8");
 }

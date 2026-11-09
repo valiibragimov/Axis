@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..", "..");
-const outputPath = path.join(projectRoot, "dist", "profile-feed.json");
+const outputPath = path.join(process.env.AXIS_BUILD_ROOT || projectRoot, "dist", "profile-feed.json");
 
 const PROFILE_FEED_CACHE_TTL_MS = 15 * 60 * 1000;
 const PROFILE_FEED_FETCH_TIMEOUT_MS = 8000;

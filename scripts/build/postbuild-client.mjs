@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = resolve(__dirname, "..", "..");
-const distRoot = resolve(projectRoot, "dist");
+const buildRoot = process.env.AXIS_BUILD_ROOT || projectRoot;
+const distRoot = resolve(buildRoot, "dist");
 
 const copies = [
   { from: resolve(projectRoot, "node_modules/chart.js/dist/chart.umd.min.js"), to: resolve(distRoot, "vendor/chart.js") },

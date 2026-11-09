@@ -6,9 +6,10 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = resolve(__dirname, "..", "..");
+const buildRoot = process.env.AXIS_BUILD_ROOT || projectRoot;
 
-const outDir = resolve(projectRoot, "dist", "app", "vendor");
-const entryFile = resolve(projectRoot, "dist", "app", "vendor-src", "thatopen-bim-visual-panel.js");
+const outDir = resolve(buildRoot, "dist", "app", "vendor");
+const entryFile = resolve(buildRoot, "dist", "app", "vendor-src", "thatopen-bim-visual-panel.js");
 const wasmSource = resolve(projectRoot, "node_modules", "web-ifc", "web-ifc.wasm");
 const ifcLiteWasmSource = resolve(projectRoot, "node_modules", "@ifc-lite", "wasm", "pkg", "ifc-lite_bg.wasm");
 
@@ -33,10 +34,10 @@ await build({
   logLevel: "info"
 });
 
-// Keep the worker's local module graph in one precached entry; WASM stays lazy and shared.
-await build({
+// Production precaches a bundled worker. Dev serves the emitted module graph directly.
+if (!process.env.AXIS_BUILD_ROOT) await build({
   entryPoints: [resolve(projectRoot, "src/client/app/services/ifc-import-worker.ts")],
-  outfile: resolve(projectRoot, "dist/app/services/ifc-import-worker.js"),
+  outfile: resolve(buildRoot, "dist/app/services/ifc-import-worker.js"),
   bundle: true, format: "esm", platform: "browser", target: ["es2022"],
   minify: true, logLevel: "info"
 });

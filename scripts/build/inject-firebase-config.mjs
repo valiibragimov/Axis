@@ -6,8 +6,9 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = resolve(__dirname, "..", "..");
+const buildRoot = process.env.AXIS_BUILD_ROOT || projectRoot;
 const envPath = resolve(projectRoot, ".env");
-const firebaseDistPath = resolve(projectRoot, "dist", "firebase.js");
+const firebaseDistPath = resolve(buildRoot, "dist", "firebase.js");
 
 const firebaseEnvKeys = [
   "FIREBASE_WEB_API_KEY",

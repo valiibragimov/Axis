@@ -18,7 +18,7 @@
 
     <!-- Регистрация Service Worker -->
     <script>
-      if ('serviceWorker' in navigator) {
+      if (!document.documentElement.hasAttribute('data-axis-dev') && 'serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
             .then((reg) => {

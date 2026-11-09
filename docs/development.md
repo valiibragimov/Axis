@@ -23,13 +23,16 @@ Copy [.env.example](../.env.example) to `.env` and supply all six web configurat
 Enable the sign-in providers used by your test accounts and authorise the local hostname in Firebase Authentication. Create Firestore and configure the repository's [rules](../firestore.rules) and [indexes](../firestore.indexes.json) in that development project. Do not use permissive rules as a setup shortcut.
 
 ```sh
-npm run build
-python -m http.server 8000 --bind 127.0.0.1 --directory dist-hosting
+npm run dev:firebase
 ```
 
-Open <http://127.0.0.1:8000/> and sign in with a development account. This mode persists data to the configured Firebase project. Use synthetic projects and models.
+Open <http://127.0.0.1:8000/login.html>. Open tabs reload after saving source files. Styles and static assets are served directly, HTML is rebuilt from templates, and TypeScript changes rebuild the client. A failed build leaves the last successful version active until a later save succeeds. Changes to `.env` are picked up as well. Set `AXIS_DEV_PORT` before launching to use a different port.
 
-There is no hot reload command. After changes, rerun `npm run dev:local` for the emulator application, or `npm run build` for the configured static application. This refreshes `dist-hosting` as well as the compiled modules. `build/pages/index.html` is assembled from [HTML partials](../src/client/index-partials); edit those instead of the generated page.
+The server listens on loopback only. Keep the address and port the same to retain your Firebase session. The root Service Worker is disabled in this mode, and assets bypass the browser cache. Development output lives under `build/dev-firebase`. Use `npm run dev:local` for the separate emulator and local API workflow. Use `npm run build` for Firebase Hosting.
+
+## Updating from GitHub
+
+Run `npm run update:github` on `main`. It checks the working tree and only fast-forwards from `origin/main`. Modified, staged, or untracked files stop the command before it contacts GitHub. Existing stashes remain available.
 
 ## Optional Express API
 
