@@ -342,9 +342,11 @@ test("geodesy saves independent points, edits one ID and records repeat control 
 
     await openSection(page, "journal");
     await page.locator("#journalTable tbody tr").filter({ hasText: "Point A" }).locator(".journal-issue-btn").click();
+    const repeatAction = page.locator(".journal-issue-card__repeat-action");
+    await repeatAction.waitFor();
     const [issue] = await app.records("issues");
-    assert.equal(issue.sourceInspectionId, original.id);
-    await page.locator(".journal-issue-card__repeat-action").click();
+    assert.equal(issue?.sourceInspectionId, original.id);
+    await repeatAction.click();
     await page.locator('#geo[data-inspection-mode="repeat"]').waitFor();
     assert.equal(await fact.inputValue(), "");
     assert.equal(await name.inputValue(), "Point A");
