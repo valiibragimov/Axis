@@ -772,16 +772,19 @@ function applyReinfBimElementSelection(elementId) {
   }
   const nextId = selection.selectedId;
   const element = selection.element;
-  selectedReinfBimElementId = nextId;
   const previousConstruction = construction?.value || "";
   const targetConstruction = getTehnadzorTypeByBimType(element.type) || construction?.value || "";
   if (construction && targetConstruction) {
-    getDependencies().setConstruction(targetConstruction);
+    if (getDependencies().setConstruction(targetConstruction) === false) {
+      if (reinfBimElementSelect) reinfBimElementSelect.value = selectedReinfBimElementId;
+      return;
+    }
     updateReinfLocationFieldsVisibility(
       previousConstruction !== construction.value
     );
   }
 
+  selectedReinfBimElementId = nextId;
   if (reinfBimElementSelect) {
     renderReinfBimElementOptions(nextId);
     reinfBimElementSelect.value = nextId;

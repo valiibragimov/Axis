@@ -690,15 +690,18 @@ export function createStrengthBimSelectionRuntime({
       return;
     }
 
-    selectedElementId = resolution.selectedId;
     const targetConstruction =
       getTehnadzorTypeByBimType(resolution.element.type) ||
       dom.construction?.value ||
       "";
     if (dom.construction && targetConstruction) {
-      setConstruction(targetConstruction);
+      if (setConstruction(targetConstruction) === false) {
+        if (dom.bimElementSelect) dom.bimElementSelect.value = selectedElementId;
+        return;
+      }
     }
 
+    selectedElementId = resolution.selectedId;
     renderElementOptions(resolution.selectedId);
     if (dom.bimElementSelect) {
       dom.bimElementSelect.value = resolution.selectedId;

@@ -229,7 +229,7 @@ function findGeoNodeKeyForJournalEntry(entry, exact = false) {
   const { nodes } = getGeodesyApi();
   const sourceId = String(entry?.sourceId || "").trim();
   if (sourceId && nodes.has(sourceId)) return sourceId;
-  if (exact && sourceId) return null;
+  if (exact) return null;
 
   const entryContext = normalizeJournalMatchText(entry?.context);
   if (!entryContext) return null;
@@ -331,7 +331,7 @@ function clearPendingRepeatControl(issueId = "") {
   }
 }
 
-function issueMatchesRepeatEntry(issue: IssueRecord, entry: JournalEntryRecord, explicit = false) {
+function issueMatchesRepeatEntry(issue: IssueRecord, entry: JournalEntryRecord) {
   if (!issue || getRuntimeIssueStatus(issue) === "closed") return false;
   if (hasIssueRepeatControl(issue)) return false;
   if (entry?.evaluationSchemaVersion !== 2 || normalizeJournalStatus(entry?.status) !== "ok") return false;
@@ -343,11 +343,14 @@ function issueMatchesRepeatEntry(issue: IssueRecord, entry: JournalEntryRecord, 
   const issueModule = normalizeJournalMatchText(issue.module);
   const entryModule = normalizeJournalMatchText(entry.module);
   const withoutFloor = (value: unknown) => String(value || "").replace(/^(?:этаж|floor)\s+[^,]+,\s*/iu, "");
-  const issueContext = normalizeJournalMatchText(issue.context);
-  // Only an explicitly selected legacy issue may omit the floor prefix. Automatic matching keeps floors distinct.
-  const context = explicit && !/^(?:этаж|floor)\s/iu.test(String(issue.context || ""))
+  const stableContext = (value: unknown) => issue.module === "Прочность"
+    ? String(value || "").replace(/(?:^|,\s*)день\s*=\s*[^,]+$/iu, "").trim() || "Прочность бетона"
+    : value;
+  const issueContext = normalizeJournalMatchText(stableContext(issue.context));
+  // Some legacy issues only stored a local axis label without the floor prefix.
+  const context = !/^(?:этаж|floor)\s/iu.test(String(issue.context || ""))
     ? withoutFloor(entry.context || entry.node) : entry.context || entry.node;
-  const entryContext = normalizeJournalMatchText(context);
+  const entryContext = normalizeJournalMatchText(stableContext(context));
   const constructionMatches = matchesConstructionValue(issue.construction, entry.construction);
 
   return Boolean(
@@ -366,7 +369,7 @@ function findIssueForRepeatControl(entry: JournalEntryRecord) {
   const pendingIssue = issueRecords.find(issue => issue.id === pendingIssueId);
   const section = inspectionSection(entry.module);
   return section && getInspectionMode(section) === "repeat" && pendingIssue &&
-    issueMatchesRepeatEntry(pendingIssue, entry, true) ? pendingIssue : null;
+    issueMatchesRepeatEntry(pendingIssue, entry) ? pendingIssue : null;
 }
 
 async function linkRepeatControlFromJournalEntry(entry: JournalEntryRecord) {
@@ -427,6 +430,16 @@ function inspectionSection(module: string) {
 async function startRepeatControlForIssue(issue: IssueRecord) {
   if (!issue?.id) return;
   const entry = buildJournalEntryFromIssue(issue);
+  if (!entry.sourceId && issue.sourceJournalEntryId) {
+    const source = journalEntries.find(record => record.id === issue.sourceJournalEntryId);
+    if (source?.sourceId && source.module === entry.module && source.projectId === entry.projectId) {
+      entry.sourceId = source.sourceId;
+    }
+  }
+  if (!entry.sourceId) {
+    showNotification(t("inspection_repeat_source_missing"), "warning");
+    return;
+  }
   if (!await onJournalRowClick(entry, { exact: true })) return;
   setPendingRepeatControl(issue);
   // A repeat inspection is a new measurement, never an edit of the source evidence.
@@ -1411,7 +1424,7 @@ async function onJournalRowClick(entry, { exact = false } = {}) {
       if (entry.sourceId && reinforcement.checks.has(entry.sourceId)) {
         targetCheckId = entry.sourceId;
         found = true;
-      } else if (!exact || !entry.sourceId) {
+      } else if (!exact) {
         // Ищем по совпадению construction + context + ближайшая timestamp
           const entryTime = resolveJournalTimestampMs(entry.timestamp);
         let bestMatch = null;
@@ -1490,7 +1503,7 @@ async function onJournalRowClick(entry, { exact = false } = {}) {
       if (entry.sourceId && workspace.geometryChecks.has(entry.sourceId)) {
         targetCheckId = entry.sourceId;
         found = true;
-      } else if (!exact || !entry.sourceId) {
+      } else if (!exact) {
           const entryTime = resolveJournalTimestampMs(entry.timestamp);
         let bestMatch = null;
         let bestTimeDiff = Infinity;
@@ -1566,7 +1579,7 @@ async function onJournalRowClick(entry, { exact = false } = {}) {
       if (entry.sourceId && strength.checks.has(entry.sourceId)) {
         targetCheckId = entry.sourceId;
         found = true;
-      } else if (!exact || !entry.sourceId) {
+      } else if (!exact) {
           const entryTime = resolveJournalTimestampMs(entry.timestamp);
         let bestMatch = null;
         let bestTimeDiff = Infinity;

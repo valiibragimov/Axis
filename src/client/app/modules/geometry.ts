@@ -1690,20 +1690,23 @@ function applyGeomBimElementSelection(elementId) {
     return;
   }
 
-  selectedGeomBimElementId = nextId;
-  clearGeomDynamicBimFlags();
-  syncGeomBimFieldsFromState();
-
   const targetConstruction = getTehnadzorTypeByBimType(element.type) || construction?.value || "";
   const targetFlags = getGeometryConstructionFlags(targetConstruction);
   if (construction && targetConstruction) {
     if (geometryContext.setConstruction) {
-      geometryContext.setConstruction(targetConstruction);
+      if (geometryContext.setConstruction(targetConstruction) === false) {
+        syncGeomBimFieldsFromState();
+        return;
+      }
     } else {
       construction.value = targetConstruction;
       updateGeomFieldsVisibility();
     }
   }
+
+  selectedGeomBimElementId = nextId;
+  clearGeomDynamicBimFlags();
+  syncGeomBimFieldsFromState();
 
   geomBimBindingSnapshot = buildGeomBimBindingSnapshot({
     element,

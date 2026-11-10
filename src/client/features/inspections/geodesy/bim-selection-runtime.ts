@@ -993,9 +993,6 @@ export function createGeodesyBimSelectionRuntime(
     const element = resolution.element;
     const form = getForm();
     const sameElement = state.selectedBimElementId === resolution.selectedId;
-    state.selectedBimElementId = resolution.selectedId;
-    syncFieldsFromState();
-
     const targetConstruction =
       getTehnadzorTypeByBimType(element.type) ||
       getCurrentConstructionKey() ||
@@ -1004,7 +1001,12 @@ export function createGeodesyBimSelectionRuntime(
         "floor_slab"
       );
     const flags = getGeoConstructionFlags(targetConstruction);
-    setConstructionAndTrigger(targetConstruction);
+    if (!setConstructionAndTrigger(targetConstruction)) {
+      syncFieldsFromState();
+      return false;
+    }
+    state.selectedBimElementId = resolution.selectedId;
+    syncFieldsFromState();
     state.bimBindingSnapshot = buildGeodesyBimBindingSnapshot({
       element,
       constructionType: targetConstruction
