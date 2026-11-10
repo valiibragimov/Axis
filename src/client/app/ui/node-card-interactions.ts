@@ -1,7 +1,7 @@
 import { escapeHtml } from "../../shared/html.js";
 
 interface NodeCardInteractionOptions {
-  onOpen?: () => Promise<void> | void;
+  onOpen?: () => unknown;
   onDelete?: (button: HTMLElement) => Promise<void> | void;
 }
 

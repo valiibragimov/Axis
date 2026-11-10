@@ -250,7 +250,7 @@ test("strength action saves a new check and replaces its provisional id", async 
   const checkId = await harness.actions.saveCheck();
 
   assert.equal(checkId, "server-check");
-  assert.equal(harness.state.currentCheckId, "server-check");
+  assert.equal(harness.state.currentCheckId, null);
   assert.equal(harness.state.checks.has("server-check"), true);
   assert.equal(harness.calls[0][0], "create");
   assert.equal(harness.journals[0][0], "upsert");
@@ -265,7 +265,7 @@ test("strength action updates the current check", async () => {
   assert.equal(checkId, "check-1");
   assert.equal(harness.calls[0][0], "update");
   assert.equal(harness.calls[0][2], "check-1");
-  assert.equal(harness.state.currentCheckId, "check-1");
+  assert.equal(harness.state.currentCheckId, null);
 });
 
 test("strength action restores a saved check into the form", async () => {

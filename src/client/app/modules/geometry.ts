@@ -1,3 +1,5 @@
+import { setInspectionHistoryMetadata } from "../../features/inspections/inspection-form.js";
+import { markInspectionMode, canReplaceInspection, focusInspectionMode, startNewInspection, serializeInspectionSave } from "../../features/inspections/inspection-form.js";
 import { evaluateGeometryCheck as evaluateGeomCheck } from "../../features/inspections/geometry/evaluation.js";
 import { commonDimensionKeys, elementDimensionKeys, type PhysicalDimensions } from "../../features/inspections/geometry/dimensions.js";
 import { mountPhysicalDimensions } from "../ui/physical-dimensions.js";
@@ -170,8 +172,11 @@ let commonPhysicalDimensions: PhysicalDimensions = {};
 function renderCommonDimensions() {
   const root = document.querySelector<HTMLElement>("#geometry [data-step='2']");
   if (!root) return;
-  root.querySelector(":scope > [data-physical-dimensions]")?.remove();
-  mountPhysicalDimensions(root, commonPhysicalDimensions, commonDimensionKeys(getSelectedConstructionKey(), getSelectedPileElement()));
+  const dimensions = document.getElementById("geomPhysicalDimensions");
+  if (dimensions) {
+    dimensions.replaceChildren();
+    mountPhysicalDimensions(dimensions, commonPhysicalDimensions, commonDimensionKeys(getSelectedConstructionKey(), getSelectedPileElement()));
+  }
   mountAcceptanceCriteria(root, [
     { key: "dimensions", label: t("physical_dimensions") }, { key: "section", label: t("dimension_section") },
     { key: "thickness", label: t("dimension_thickness") }, { key: "vertical", label: t("form_vertical_deviation_mm") },
@@ -2846,14 +2851,15 @@ function renderGeomChecks() {
         }
       }
     });
+    setInspectionHistoryMetadata(row, d, d.status);
     list.appendChild(row);
   });
 }
 function loadGeomCheck(id) {
   const d = geomChecks.get(id);
-  if (!d) return;
+  if (!d || !canReplaceInspection("geometry")) return false;
     if (geometryContext.setConstruction) {
-      geometryContext.setConstruction(d.construction || d.constructionType || "", d.constructionSubtype || "", d.constructionPileElement || "");
+      if (geometryContext.setConstruction(d.construction || d.constructionType || "", d.constructionSubtype || "", d.constructionPileElement || "") === false) return false;
     } else if (construction && d.constructionType) {
       construction.value = d.constructionType;
     }
@@ -3004,9 +3010,15 @@ function loadGeomCheck(id) {
   renderCommonDimensions();
   restoreAcceptanceCriteria(document.getElementById("geometry"), d.acceptanceCriteria);
   setCurrentGeomCheckId(id);
-  document.querySelector<HTMLButtonElement>('#geometry [data-wizard-step="2"]')?.click();
+  markInspectionMode("geometry", "edit");
+  focusInspectionMode("geometry");
+  return true;
 }
 async function saveGeomCheck({ skipJournalOnce = false } = {}) {
+  return serializeInspectionSave("geometry", () => persistGeomCheck(skipJournalOnce));
+}
+
+async function persistGeomCheck(skipJournalOnce: boolean) {
   if (!validateProject(getCurrentProjectId())) return;
   console.log("[btnSaveGeomCheck] currentProjectId:", getCurrentProjectId());
 
@@ -3226,7 +3238,6 @@ async function saveGeomCheck({ skipJournalOnce = false } = {}) {
     const projectId = getCurrentProjectId();
     const saved = await saveGeomInspection(projectId, id, data);
     notifyFirestoreSyncStatusSafe(saved.ref);
-    setCurrentGeomCheckId(finalId);
 
     if (!skipJournal && data.status !== "empty") {
       let context = "";
@@ -3253,6 +3264,8 @@ async function saveGeomCheck({ skipJournalOnce = false } = {}) {
         construction: data.construction || getSelectedConstructionKey()
       });
     }
+    setCurrentGeomCheckId(null);
+    markInspectionMode("geometry", "saved");
   } catch (err) {
     console.error("[btnSaveGeomCheck] Ошибка сохранения в Firestore:", err);
     showNotification("Ошибка сохранения в Firestore.", "error");
@@ -3271,6 +3284,7 @@ function runGeomCheck() {
 }
 
 function clearGeomForm() {
+  if (!startNewInspection("geometry")) return;
   commonPhysicalDimensions = {};
   renderCommonDimensions();
   restoreAcceptanceCriteria(document.getElementById("geometry"));

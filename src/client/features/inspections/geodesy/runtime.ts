@@ -50,7 +50,6 @@ interface GeodesyRuntimeDependencies {
   syncIfcImportControls(): void;
   saveMeta(): void;
   cancelProjectDesignAutosave(): void;
-  saveProjectDesign(): Promise<unknown>;
   updateSummaryTab(): void;
   upsertJournalEntry(payload: GeodesyJournalPayload): Promise<unknown>;
   safeValue(value: unknown): string;
@@ -80,6 +79,7 @@ export function createGeodesyRuntime(
   let form: GeodesyFormRuntime | null = null;
   let nodeActions: ReturnType<typeof createGeodesyNodeActions> | null = null;
   let started = false;
+  let clearForm: (() => void) | undefined;
 
   const getForm = () => {
     if (!form) throw new Error("GEODESY_RUNTIME_NOT_STARTED");
@@ -159,14 +159,14 @@ export function createGeodesyRuntime(
       renderNodes,
       onLoadError
     });
-    bindGeodesyHandlers({
+    ({ clearForm } = bindGeodesyHandlers({
       ...dependencies,
       bim,
       form,
       nodeActions,
       renderNodes,
       saveNodes
-    });
+    }));
     bim.start();
     started = true;
     return api;
@@ -174,6 +174,7 @@ export function createGeodesyRuntime(
 
   const api = {
     start,
+    clearForm: () => clearForm?.(),
     bim,
     get nodes() {
       return state.nodes;
@@ -202,11 +203,13 @@ export function createGeodesyRuntime(
     renderNodes,
     renderWalls: () => getForm().renderWalls(),
     resetCurrentNodeKeys() {
+      delete dom.geoResult.dataset.loadedKey;
       state.currentNodeKeys.column = null;
       state.currentNodeKeys.wall = null;
       state.currentNodeKeys.beam = null;
     },
     clearCurrentNodeKey(nodeId: string) {
+      if (dom.geoResult.dataset.loadedKey === nodeId) delete dom.geoResult.dataset.loadedKey;
       if (state.currentNodeKeys.column === nodeId) {
         state.currentNodeKeys.column = null;
       }

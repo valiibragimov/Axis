@@ -857,13 +857,14 @@ export function createReinforcementForm(
   }
 
   async function restoreCheck(check: ReinforcementCheckRecord) {
-    await Promise.resolve(
+    const selected = await Promise.resolve(
       setConstruction(
         String(check.construction || check.constructionType || ""),
         String(check.constructionSubtype || ""),
         String(check.constructionPileElement || "")
       )
     );
+    if (selected === false) return false;
     updateFieldsVisibility(false);
     restoreAcceptanceCriteria(dom.document.getElementById("reinforcement"), check.acceptanceCriteria);
     state.currentCheckId = String(check.id || "") || null;

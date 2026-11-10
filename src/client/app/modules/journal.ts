@@ -1,3 +1,4 @@
+import { beginRepeatInspection, canReplaceInspectionProject, getInspectionMode } from "../../features/inspections/inspection-form.js";
 import { t, translateStatus } from "../../shared/i18n/index.js";
 import { refreshPendingProjectAnalytics } from "../services/analytics-current.js";
 import type { WorkspaceContext } from "../workspace-context.js";
@@ -76,7 +77,7 @@ export interface JournalGeodesyApi {
   nodes: Map<string, Record<string, unknown>>;
   saveNodes(): void;
   renderNodes(): void;
-  loadNode(nodeId: string): void;
+  loadNode(nodeId: string): boolean;
   resetCurrentNodeKeys(): void;
   clearCurrentNodeKey(nodeId: string): void;
   resetInspectionStatus(): void;
@@ -224,10 +225,11 @@ function buildGeoNodeContextCandidates(node) {
   return Array.from(candidates);
 }
 
-function findGeoNodeKeyForJournalEntry(entry) {
+function findGeoNodeKeyForJournalEntry(entry, exact = false) {
   const { nodes } = getGeodesyApi();
   const sourceId = String(entry?.sourceId || "").trim();
   if (sourceId && nodes.has(sourceId)) return sourceId;
+  if (exact && sourceId) return null;
 
   const entryContext = normalizeJournalMatchText(entry?.context);
   if (!entryContext) return null;
@@ -336,9 +338,7 @@ function issueMatchesRepeatEntry(issue: IssueRecord, entry: JournalEntryRecord, 
 
   const issueSourceId = String(issue.sourceInspectionId || "").trim();
   const entrySourceId = String(entry.sourceId || "").trim();
-  if (issueSourceId && entrySourceId && issueSourceId === entrySourceId) {
-    return true;
-  }
+  if (!entrySourceId || issueSourceId === entrySourceId) return false;
 
   const issueModule = normalizeJournalMatchText(issue.module);
   const entryModule = normalizeJournalMatchText(entry.module);
@@ -363,12 +363,10 @@ function issueMatchesRepeatEntry(issue: IssueRecord, entry: JournalEntryRecord, 
 
 function findIssueForRepeatControl(entry: JournalEntryRecord) {
   const pendingIssueId = getPendingRepeatControlIssueId();
-  if (pendingIssueId) {
-    const pendingIssue = issueRecords.find((issue) => issue.id === pendingIssueId);
-    if (pendingIssue && issueMatchesRepeatEntry(pendingIssue, entry, true)) return pendingIssue;
-  }
-
-  return issueRecords.find((issue) => issueMatchesRepeatEntry(issue, entry)) || null;
+  const pendingIssue = issueRecords.find(issue => issue.id === pendingIssueId);
+  const section = inspectionSection(entry.module);
+  return section && getInspectionMode(section) === "repeat" && pendingIssue &&
+    issueMatchesRepeatEntry(pendingIssue, entry, true) ? pendingIssue : null;
 }
 
 async function linkRepeatControlFromJournalEntry(entry: JournalEntryRecord) {
@@ -416,16 +414,35 @@ function buildJournalEntryFromIssue(issue: IssueRecord): JournalEntryRecord {
   };
 }
 
+function inspectionSection(module: string) {
+  switch (module) {
+    case "Геодезия": return "geo";
+    case "Геометрия": return "geometry";
+    case "Армирование": return "reinforcement";
+    case "Прочность": return "strength";
+    default: return null;
+  }
+}
+
 async function startRepeatControlForIssue(issue: IssueRecord) {
   if (!issue?.id) return;
-  setPendingRepeatControl(issue);
   const entry = buildJournalEntryFromIssue(issue);
-  if (!await onJournalRowClick(entry)) { clearPendingRepeatControl(issue.id); return; }
+  if (!await onJournalRowClick(entry, { exact: true })) return;
+  setPendingRepeatControl(issue);
   // A repeat inspection is a new measurement, never an edit of the source evidence.
-  if (entry.module === "Геометрия") workspace.geometryCheckId = null;
-  else if (entry.module === "Армирование") getReinforcementApi().setCurrentCheckId(null);
-  else if (entry.module === "Прочность") getStrengthApi().setCurrentCheckId(null);
-  else if (entry.module === "Геодезия") getGeodesyApi().resetCurrentNodeKeys();
+  if (entry.module === "Геометрия") {
+    workspace.geometryCheckId = null;
+    beginRepeatInspection("geometry");
+  } else if (entry.module === "Армирование") {
+    getReinforcementApi().setCurrentCheckId(null);
+    beginRepeatInspection("reinforcement");
+  } else if (entry.module === "Прочность") {
+    getStrengthApi().setCurrentCheckId(null);
+    beginRepeatInspection("strength");
+  } else if (entry.module === "Геодезия") {
+    getGeodesyApi().resetCurrentNodeKeys();
+    beginRepeatInspection("geo");
+  }
   showNotification("Открыта исходная проверка. Выполните повторный контроль и сохраните результат.", "info");
 }
 
@@ -1313,7 +1330,7 @@ async function deleteModuleCheckFromEntry(entry) {
 /**
  * Обработчик клика по строке журнала для навигации к соответствующей проверке
  */
-async function onJournalRowClick(entry) {
+async function onJournalRowClick(entry, { exact = false } = {}) {
   if (isNavigatingToEntry) {
     console.log("[Journal] Навигация уже выполняется, пропускаем");
     return;
@@ -1326,23 +1343,13 @@ async function onJournalRowClick(entry) {
       // Шаг 1: Проверяем и переключаем проект, если нужно
       if (entry.projectId && entry.projectId !== workspace.getProjectId()) {
         console.log("[Journal] Переключаем проект:", entry.projectId);
+        if (!canReplaceInspectionProject()) return false;
         await workspace.selectProject(entry.projectId);
         // Ждем для загрузки всех данных проекта (узлы, проверки, журнал)
         await new Promise(resolve => setTimeout(resolve, 800));
         // Перезагружаем журнал, чтобы убедиться, что данные синхронизированы
         await loadJournalFromFirestore();
       }
-
-    // Шаг 2: Устанавливаем конструкцию
-    if (entry.construction && workspace.construction) {
-      const constructionValue = entry.construction;
-      if (!matchesConstructionValue(workspace.construction.dataset.machineValue || workspace.construction.value, constructionValue)) {
-        console.log("[Journal] Устанавливаем конструкцию:", constructionValue);
-        if (!workspace.setConstruction(constructionValue, entry.constructionSubtype || "")) {
-          showNotification(`Не удалось установить конструкцию "${constructionValue}"`, "warning");
-        }
-      }
-    }
 
     // Шаг 3: Переключаем вкладку на нужный модуль
     const moduleTabMap = {
@@ -1369,11 +1376,11 @@ async function onJournalRowClick(entry) {
     if (entry.module === "Геодезия") {
       const geodesy = getGeodesyApi();
       // Ищем узел геодезии
-      const targetNodeKey = findGeoNodeKeyForJournalEntry(entry);
+      const targetNodeKey = findGeoNodeKeyForJournalEntry(entry, exact);
 
       if (targetNodeKey && geodesy.nodes.has(targetNodeKey)) {
         console.log("[Journal] Открываем узел геодезии:", targetNodeKey);
-        geodesy.loadNode(targetNodeKey);
+        if (!geodesy.loadNode(targetNodeKey)) return false;
         found = true;
 
         // Прокручиваем к форме
@@ -1404,7 +1411,7 @@ async function onJournalRowClick(entry) {
       if (entry.sourceId && reinforcement.checks.has(entry.sourceId)) {
         targetCheckId = entry.sourceId;
         found = true;
-      } else {
+      } else if (!exact || !entry.sourceId) {
         // Ищем по совпадению construction + context + ближайшая timestamp
           const entryTime = resolveJournalTimestampMs(entry.timestamp);
         let bestMatch = null;
@@ -1441,7 +1448,7 @@ async function onJournalRowClick(entry) {
 
       if (targetCheckId && reinforcement.checks.has(targetCheckId)) {
         console.log("[Journal] Открываем проверку армирования:", targetCheckId);
-        reinforcement.loadCheck(targetCheckId);
+        if (!await reinforcement.loadCheck(targetCheckId)) return false;
         
         // Если это стена, ищем конкретную стену
         if (matchesConstructionValue(entry.construction, "wall") && entry.context) {
@@ -1483,7 +1490,7 @@ async function onJournalRowClick(entry) {
       if (entry.sourceId && workspace.geometryChecks.has(entry.sourceId)) {
         targetCheckId = entry.sourceId;
         found = true;
-      } else {
+      } else if (!exact || !entry.sourceId) {
           const entryTime = resolveJournalTimestampMs(entry.timestamp);
         let bestMatch = null;
         let bestTimeDiff = Infinity;
@@ -1517,7 +1524,7 @@ async function onJournalRowClick(entry) {
 
       if (targetCheckId && workspace.geometryChecks.has(targetCheckId)) {
         console.log("[Journal] Открываем проверку геометрии:", targetCheckId);
-        geometryActions.load(targetCheckId);
+        if (!await geometryActions.load(targetCheckId)) return false;
 
         // Если это стена, ищем конкретную стену
         if (matchesConstructionValue(entry.construction, "wall") && entry.context) {
@@ -1559,7 +1566,7 @@ async function onJournalRowClick(entry) {
       if (entry.sourceId && strength.checks.has(entry.sourceId)) {
         targetCheckId = entry.sourceId;
         found = true;
-      } else {
+      } else if (!exact || !entry.sourceId) {
           const entryTime = resolveJournalTimestampMs(entry.timestamp);
         let bestMatch = null;
         let bestTimeDiff = Infinity;
@@ -1582,7 +1589,7 @@ async function onJournalRowClick(entry) {
 
       if (targetCheckId && strength.checks.has(targetCheckId)) {
         console.log("[Journal] Открываем проверку прочности:", targetCheckId);
-        strength.loadCheck(targetCheckId);
+        if (!await strength.loadCheck(targetCheckId)) return false;
 
         const strengthSection = document.getElementById("strength");
         if (strengthSection) {

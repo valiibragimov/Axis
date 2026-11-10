@@ -1,5 +1,7 @@
 interface ProjectSelectorBindingOptions {
   projectSelector: HTMLSelectElement | null;
+  canChangeProject?: () => boolean;
+  getCurrentProjectId?: () => string | null;
   setCurrentProjectId: (projectId: string | null) => unknown;
   setModulesEnabled: (enabled: boolean) => void;
   resetFormForNewProject: () => void | Promise<void>;
@@ -28,6 +30,8 @@ interface IfcBindingsOptions {
 
 export function initProjectSelectorBinding({
   projectSelector,
+  canChangeProject,
+  getCurrentProjectId,
   setCurrentProjectId,
   setModulesEnabled,
   resetFormForNewProject,
@@ -38,6 +42,10 @@ export function initProjectSelectorBinding({
 
   projectSelector.addEventListener("change", async () => {
     const projectId = projectSelector.value;
+    if (canChangeProject && !canChangeProject()) {
+      projectSelector.value = getCurrentProjectId?.() || "";
+      return;
+    }
     if (!projectId || projectId === "Нет объектов" || projectId.trim() === "") {
       setCurrentProjectId(null);
       setModulesEnabled(false);

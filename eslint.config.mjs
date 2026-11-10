@@ -11,6 +11,7 @@ export default [
     ignores: [
       "dist/**",
       "dist-local/**",
+      "build/**",
       "tmp/**",
       "dist-hosting/**",
       "server/dist/**",

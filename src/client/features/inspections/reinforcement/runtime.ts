@@ -1,3 +1,5 @@
+import { setInspectionHistoryMetadata } from "../inspection-form.js";
+import { markInspectionMode, canReplaceInspection, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
 import { comparePhysicalMeasurement, measurementNumber, type AcceptanceCriteria } from "../acceptance.js";
 import { t } from "../../../shared/i18n/index.js";
 import { TOLERANCES } from "../../../config.js";
@@ -309,15 +311,18 @@ export function createReinforcementRuntime(
           updateSummary();
         }
       });
+      setInspectionHistoryMetadata(row, check, status);
       list.appendChild(row);
     });
   }
 
   async function loadCheck(id: string) {
     const check = state.checks.get(id);
-    if (!check) return;
-    await form.restoreCheck({ ...check, id });
+    if (!check || !canReplaceInspection("reinforcement")) return false;
+    if (await form.restoreCheck({ ...check, id }) === false) return false;
+    markInspectionMode("reinforcement", "edit");
     form.openRestoredCheckForm();
+    return true;
   }
 
   function renderRunResult(check: ReinforcementCheckRecord) {
@@ -442,6 +447,10 @@ export function createReinforcementRuntime(
   async function saveCheck(
     { skipJournalOnce: skipJournalOption = false } = {}
   ) {
+    return serializeInspectionSave("reinforcement", () => persistCheck(skipJournalOption));
+  }
+
+  async function persistCheck(skipJournalOption: boolean) {
     const projectId = getCurrentProjectId();
     if (!validateProject(projectId) || !projectId) return;
     const flags = form.getConstructionFlags();
@@ -493,12 +502,13 @@ export function createReinforcementRuntime(
         saveLocalChecks();
         renderChecks();
       }
-      state.currentCheckId = finalId;
       if (!skipJournal && candidate.status !== "empty") {
         await upsertJournalEntry(
           buildReinforcementJournalPayload(candidate, finalId)
         );
       }
+      state.currentCheckId = null;
+      markInspectionMode("reinforcement", "saved");
     } catch (error) {
       console.error(
         "[btnSaveReinfCheck] Ошибка сохранения в Firestore:",
@@ -510,6 +520,7 @@ export function createReinforcementRuntime(
   }
 
   function clearForm() {
+    if (!startNewInspection("reinforcement")) return;
     form.clear();
     const projectId = getCurrentProjectId();
     if (

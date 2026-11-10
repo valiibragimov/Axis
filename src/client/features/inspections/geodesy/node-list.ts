@@ -1,3 +1,4 @@
+import { setInspectionHistoryMetadata } from "../inspection-form.js";
 import {
   getConstructionModuleBehavior,
   getConstructionProfile
@@ -218,6 +219,7 @@ export function renderGeoNodesList({
           }
         }
       });
+      setInspectionHistoryMetadata(row, n, requiresReview ? "pending" : n.status);
       listElement.appendChild(row);
       return;
     }
@@ -271,6 +273,7 @@ export function renderGeoNodesList({
           }
         }
       });
+      setInspectionHistoryMetadata(row, n, requiresReview ? "pending" : n.status);
       listElement.appendChild(row);
       return;
     }
@@ -372,6 +375,7 @@ export function renderGeoNodesList({
           }
         }
       });
+      setInspectionHistoryMetadata(row, n, requiresReview ? "pending" : n.status);
       listElement.appendChild(row);
       return;
     }
@@ -449,6 +453,7 @@ export function renderGeoNodesList({
         }
       }
     });
-    listElement.appendChild(row);
+    setInspectionHistoryMetadata(row, n, requiresReview ? "pending" : n.status);
+      listElement.appendChild(row);
   });
 }

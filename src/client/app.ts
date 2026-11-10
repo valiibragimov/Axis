@@ -1,3 +1,4 @@
+import { bindInspectionForms, canReplaceInspectionProject, resetInspectionModes } from "./features/inspections/inspection-form.js";
 import { mountAcceptanceCriteria, restoreAcceptanceCriteria } from "./app/ui/acceptance-criteria.js";
 import { initializeLocalization } from "./shared/i18n/index.js";
 import {
@@ -99,7 +100,16 @@ let geoNodesRegistry: ReturnType<typeof createGeodesyState>["nodes"] | null =
   null;
 
 function setCurrentProjectIdState(projectId) {
+  const previousProjectId = currentProjectId;
   currentProjectId = writeStoredProjectId(projectId);
+  if (previousProjectId !== currentProjectId) {
+    geodesyRuntimeRef?.resetCurrentNodeKeys();
+    delete geoResult.dataset.legacyUnits;
+    currentGeomCheckId = null;
+    setCurrentReinforcementCheckId(reinforcementState, null);
+    setCurrentStrengthCheckId(strengthState, null);
+    resetInspectionModes();
+  }
   if (typeof syncIfcImportControls === "function") {
     syncIfcImportControls();
   }
@@ -179,7 +189,6 @@ const {
   btnClearNodes,
   btnGeo,
   btnSaveNode,
-  btnUpdateNode,
   btnClearForm,
   btnGeoColumns,
   btnGeoWalls,
@@ -301,7 +310,7 @@ const constructionSelectionRuntime = createConstructionSelectionRuntime({
   pileElement: constructionPileElementSelect,
   pileElementShell: constructionPileElementShell,
   pileElementLabel: constructionPileElementLabelEl
-});
+}, canReplaceInspectionProject);
 const {
   buildCurrentConstructionPayload,
   getCurrentConstructionCategoryKey,
@@ -474,6 +483,9 @@ construction.addEventListener("change", () => {
     localStorage.setItem("selected_construction", getCurrentConstructionKey());
   }
   // Смена конструкции должна начинать новую проверку в каждом модуле
+  geodesyRuntimeRef?.resetCurrentNodeKeys();
+  delete geoResult.dataset.legacyUnits;
+  resetInspectionModes();
   setCurrentReinforcementCheckId(reinforcementState, null);
   currentGeomCheckId = null;
   setCurrentStrengthCheckId(strengthState, null);
@@ -524,7 +536,6 @@ const geodesyRuntime = createGeodesyRuntime({
   syncIfcImportControls,
   saveMeta,
   cancelProjectDesignAutosave: () => projectDesignAutosave.cancel(),
-  saveProjectDesign: () => saveProjectDesignToFirestore(),
   updateSummaryTab: () => appModuleBridge.updateSummaryTab(),
   upsertJournalEntry: (payload) => appModuleBridge.upsertJournalEntry(payload),
   safeValue,
@@ -566,10 +577,15 @@ function setConstructionAndTrigger(constructionType, constructionSubtype = "", c
     return false;
   }
 
+  const nextPileElement = constructionPileElement || getCurrentPileElement();
+  if (selectionState.key === getCurrentConstructionKey() &&
+      selectionState.subtypeKey === getCurrentConstructionSubtype() &&
+      nextPileElement === getCurrentPileElement()) return true;
+  if (!canReplaceInspectionProject()) return false;
   syncConstructionSelectionState(nextConstructionValue, {
     syncVisibleControls: true,
     nextSubtypeValue: selectionState.subtypeKey,
-    nextPileElementValue: constructionPileElement || getCurrentPileElement()
+    nextPileElementValue: nextPileElement
   });
   localStorage.setItem("selected_construction", selectionState.key);
 
@@ -888,6 +904,15 @@ async function loadProjects() {
 }
 
 const projectRuntime = createProjectRuntime({
+  clearInspectionForms: async () => {
+    resetInspectionModes();
+    geodesyRuntime.clearForm();
+    await Promise.all([
+      clearReinfForm(),
+      withGeometryModule(module => module.clearGeomForm()),
+      clearStrengthForm()
+    ]);
+  },
   getCurrentUserId: () => currentUserId,
   getCurrentProjectId: () => currentProjectId,
   setCurrentProjectId: setCurrentProjectIdState,
@@ -952,6 +977,8 @@ initAuthBootstrap({
 });
 
 initProjectSelectorBinding({
+  canChangeProject: canReplaceInspectionProject,
+  getCurrentProjectId: () => currentProjectId,
   projectSelector: projectSelector as HTMLSelectElement | null,
   setCurrentProjectId: setCurrentProjectIdState,
   setModulesEnabled,
@@ -1043,6 +1070,7 @@ initActionMenus();
 //  Отслеживание сетевого состояния
 // ============================
 initNetworkStatus();
+bindInspectionForms();
 
 void initializeLocalization().then(() => {
   const geo = document.querySelector<HTMLElement>("#geo [data-step='2']");

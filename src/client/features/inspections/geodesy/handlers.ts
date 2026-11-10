@@ -1,3 +1,4 @@
+import { markInspectionMode, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
 import { isNormativeBearingLevel } from "../normative-rules.js";
 import { t } from "../../../shared/i18n/index.js";
 import {
@@ -13,7 +14,6 @@ import {
   parseDecimal,
   showConfirm,
   showNotification,
-  toDocIdPart,
   validateProject,
   validateRequiredField
 } from "../../../utils.js";
@@ -62,7 +62,6 @@ interface GeodesyHandlersDependencies {
   saveNodes(): void;
   saveMeta(): void;
   cancelProjectDesignAutosave(): void;
-  saveProjectDesign(): Promise<unknown>;
   updateSummaryTab(): void;
   upsertJournalEntry(payload: GeodesyJournalPayload): Promise<unknown>;
   safeValue(value: unknown): string;
@@ -86,7 +85,6 @@ export function bindGeodesyHandlers({
   saveNodes,
   saveMeta,
   cancelProjectDesignAutosave,
-  saveProjectDesign,
   updateSummaryTab,
   upsertJournalEntry,
   safeValue
@@ -96,7 +94,6 @@ export function bindGeodesyHandlers({
     btnClearNodes,
     btnGeo,
     btnSaveNode,
-    btnUpdateNode,
     btnClearForm,
     columnMarkEl,
     columnsList,
@@ -120,7 +117,6 @@ export function bindGeodesyHandlers({
   const confirmedGeoTolerance = (key: string) =>
     getConfirmedGeoTolerance(readAcceptanceCriteria(document.getElementById("geo")), key);
   const {
-    buildGeoNodeKey,
     collectGeoPlateFlatnessData,
     getGeoAxisState,
     getGeoWallEntityAddText,
@@ -134,7 +130,6 @@ export function bindGeodesyHandlers({
     renderWalls,
     resetGeoPlateAxisFields,
     setGeoUnsupportedState,
-    setUpdateNodeVisibility,
     updateGeoPlateFlatnessCalculatedFields,
     updateNodeId,
     validateGeoPlateAxisRange
@@ -173,7 +168,14 @@ export function bindGeodesyHandlers({
     data.lastMsg = geoResult.innerHTML;
   }
 
-  btnSaveNode?.addEventListener("click", async () => {
+  function editableNodeKey(key: string | null | undefined, heightOnly: boolean) {
+    const node = key ? nodes.get(key) : undefined;
+    return key && node?.coordinateUnit === "m" &&
+      (!node.construction || node.construction === getCurrentConstructionKey()) &&
+      ((node.measurementScope === "height") === heightOnly) ? key : null;
+  }
+
+  async function saveCheck() {
     if (!validateProject(getCurrentProjectId())) return;
     if (geoResult.dataset.legacyUnits === "1") {
       showNotification("Единицы старой записи не определены. Исходная запись сохранена; создайте новую проверку после очистки формы.", "warning");
@@ -207,14 +209,7 @@ export function bindGeodesyHandlers({
       const columnMark = normalizeMarking(columnMarkEl.value);
       const floor = floorEl.value.trim();
 
-      // Используем существующий ключ для обновления или создаем новый
-      let key = geodesyNodeState.currentNodeKeys.column;
-      if (!key || !nodes.has(key)) {
-        // Создаем новый ключ на основе маркировки и этажа
-        const markPart = columnMark ? toDocIdPart(columnMark.replace(/\s+/g, "_")) : "no_mark";
-        const floorPart = floor ? toDocIdPart(floor.replace(/\s+/g, "_")) : "no_floor";
-        key = `columns_${markPart}_${floorPart}_${Date.now()}`;
-      }
+      const key = editableNodeKey(geodesyNodeState.currentNodeKeys.column, false) ?? crypto.randomUUID();
 
       // Вычисляем статус узла колонны с помощью чистой функции
       const columnToleranceXY = confirmedGeoTolerance("geoPlan");
@@ -253,7 +248,6 @@ export function bindGeodesyHandlers({
         lastMsg: geoResult.innerHTML || ""
       };
 
-      if (nodes.has(key) && (nodes.get(key)?.coordinateUnit !== "m" || ((nodes.get(key)?.measurementScope === "height") !== heightOnly))) key = `${key}_${Date.now()}`;
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
@@ -262,27 +256,28 @@ export function bindGeodesyHandlers({
       renderNodes();
       saveNodes();
 
-      const skipJournal = geodesyNodeState.skipJournalOnce;
-      if (geodesyNodeState.skipJournalOnce) {
-        geodesyNodeState.skipJournalOnce = false;
-      }
-      // Добавляем запись в журнал, если узел был проверен (не pending)
-      if (!skipJournal && evaluation.status !== "empty" && evaluation.hasAllData) {
-        await upsertJournalEntry(buildColumnJournalPayload({
-          key,
-          construction: getCurrentConstructionKey(),
-          columnMark,
-          floor,
-          columns,
-          status: evaluation.status
-        }));
-      }
-
-      // Обновляем вкладку "Итог"
-      updateSummaryTab();
-
       try {
         await saveProjectNode(key, data);
+        const skipJournal = geodesyNodeState.skipJournalOnce;
+        if (geodesyNodeState.skipJournalOnce) {
+          geodesyNodeState.skipJournalOnce = false;
+        }
+        // Добавляем запись в журнал, если узел был проверен (не pending)
+        if (!skipJournal && evaluation.status !== "empty" && evaluation.hasAllData) {
+          await upsertJournalEntry(buildColumnJournalPayload({
+            key,
+            construction: getCurrentConstructionKey(),
+            columnMark,
+            floor,
+            columns,
+            status: evaluation.status
+          }));
+        }
+
+        // Обновляем вкладку "Итог"
+        updateSummaryTab();
+
+        finishSave(key);
         console.log("Колонны сохранены в Firebase:", key);
         const projCount = columns.filter(col => {
           const pX = parseFloat(col.projX);
@@ -331,12 +326,7 @@ export function bindGeodesyHandlers({
         return;
       }
 
-      // Используем существующий ключ для обновления или создаем новый
-      let key = geodesyNodeState.currentNodeKeys.wall;
-      if (!key || !nodes.has(key)) {
-        const floorPart = floor ? toDocIdPart(floor.replace(/\s+/g, "_")) : "no_floor";
-        key = `walls_${floorPart}_${Date.now()}`;
-      }
+      const key = editableNodeKey(geodesyNodeState.currentNodeKeys.wall, false) ?? crypto.randomUUID();
 
       // Вычисляем статус узла стены с помощью чистой функции
       const wallToleranceXY = confirmedGeoTolerance("geoPlan");
@@ -425,7 +415,6 @@ export function bindGeodesyHandlers({
         lastMsg: geoResult.innerHTML || ""
       };
 
-      if (nodes.has(key) && (nodes.get(key)?.coordinateUnit !== "m" || ((nodes.get(key)?.measurementScope === "height") !== heightOnly))) key = `${key}_${Date.now()}`;
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
@@ -434,29 +423,30 @@ export function bindGeodesyHandlers({
       renderNodes();
       saveNodes();
 
-      const skipJournal = geodesyNodeState.skipJournalOnce;
-      if (geodesyNodeState.skipJournalOnce) {
-        geodesyNodeState.skipJournalOnce = false;
-      }
-      // Добавляем запись в журнал, если узел был проверен
-      if (!skipJournal && evaluation.status !== "empty" && evaluation.hasAllData) {
-        await upsertJournalEntry(buildLinearJournalPayload({
-          key,
-          construction: getCurrentConstructionKey(),
-          floor,
-          rows: walls,
-          status: evaluation.status,
-          entityLabel: wallEntityLabel,
-          entityPlural: wallEntityPlural,
-          emptyDetails: `Проверка ${wallEntityPluralGenitive}`
-        }));
-      }
-
-      // Обновляем вкладку "Итог"
-      updateSummaryTab();
-
       try {
         await saveProjectNode(key, data);
+        const skipJournal = geodesyNodeState.skipJournalOnce;
+        if (geodesyNodeState.skipJournalOnce) {
+          geodesyNodeState.skipJournalOnce = false;
+        }
+        // Добавляем запись в журнал, если узел был проверен
+        if (!skipJournal && evaluation.status !== "empty" && evaluation.hasAllData) {
+          await upsertJournalEntry(buildLinearJournalPayload({
+            key,
+            construction: getCurrentConstructionKey(),
+            floor,
+            rows: walls,
+            status: evaluation.status,
+            entityLabel: wallEntityLabel,
+            entityPlural: wallEntityPlural,
+            emptyDetails: `Проверка ${wallEntityPluralGenitive}`
+          }));
+        }
+
+        // Обновляем вкладку "Итог"
+        updateSummaryTab();
+
+        finishSave(key);
         console.log(`${wallEntityPlural} сохранены в Firebase:`, key);
         const projCount = walls.filter(wall => {
           if (wall.bindingType === "number_letters") {
@@ -517,12 +507,7 @@ export function bindGeodesyHandlers({
 
       const floor = floorEl.value.trim();
 
-      // Используем существующий ключ для обновления или создаем новый
-      let key = geodesyNodeState.currentNodeKeys.beam;
-      if (!key || !nodes.has(key)) {
-        const floorPart = floor ? toDocIdPart(floor.replace(/\s+/g, "_")) : "no_floor";
-        key = `beams_${floorPart}_${Date.now()}`;
-      }
+      const key = editableNodeKey(geodesyNodeState.currentNodeKeys.beam, false) ?? crypto.randomUUID();
 
       const beamToleranceXY = confirmedGeoTolerance("geoPlan");
       // Вычисляем статус узла балки с помощью чистой функции
@@ -596,7 +581,6 @@ export function bindGeodesyHandlers({
         lastMsg: geoResult.innerHTML || ""
       };
 
-      if (nodes.has(key) && (nodes.get(key)?.coordinateUnit !== "m" || ((nodes.get(key)?.measurementScope === "height") !== heightOnly))) key = `${key}_${Date.now()}`;
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
@@ -605,29 +589,30 @@ export function bindGeodesyHandlers({
       renderNodes();
       saveNodes();
 
-      const skipJournal = geodesyNodeState.skipJournalOnce;
-      if (geodesyNodeState.skipJournalOnce) {
-        geodesyNodeState.skipJournalOnce = false;
-      }
-      // Добавляем запись в журнал, если узел был проверен
-      if (!skipJournal && evaluation.status !== "empty" && evaluation.hasAllData) {
-        await upsertJournalEntry(buildLinearJournalPayload({
-          key,
-          construction: getCurrentConstructionKey(),
-          floor,
-          rows: beams,
-          status: evaluation.status,
-          entityLabel: "Балка",
-          entityPlural: "Балки",
-          emptyDetails: "Проверка балок"
-        }));
-      }
-
-      // Обновляем вкладку "Итог"
-      updateSummaryTab();
-
       try {
         await saveProjectNode(key, data);
+        const skipJournal = geodesyNodeState.skipJournalOnce;
+        if (geodesyNodeState.skipJournalOnce) {
+          geodesyNodeState.skipJournalOnce = false;
+        }
+        // Добавляем запись в журнал, если узел был проверен
+        if (!skipJournal && evaluation.status !== "empty" && evaluation.hasAllData) {
+          await upsertJournalEntry(buildLinearJournalPayload({
+            key,
+            construction: getCurrentConstructionKey(),
+            floor,
+            rows: beams,
+            status: evaluation.status,
+            entityLabel: "Балка",
+            entityPlural: "Балки",
+            emptyDetails: "Проверка балок"
+          }));
+        }
+
+        // Обновляем вкладку "Итог"
+        updateSummaryTab();
+
+        finishSave(key);
         console.log("Балки сохранены в Firebase:", key);
         const projCount = beams.filter(beam => {
           if (beam.bindingType === "number_letters") {
@@ -699,23 +684,7 @@ export function bindGeodesyHandlers({
     if (!heightOnly && axisState.isPlate && !validateGeoPlateAxisRange({ showWarning: true })) {
       return;
     }
-    const loadedKey = geoResult.dataset.loadedKey;
-    const loadedNode = loadedKey ? nodes.get(loadedKey) : null;
-    const canEditLoadedNode = loadedKey && loadedNode &&
-      (!loadedNode.construction || loadedNode.construction === getCurrentConstructionKey()) &&
-      ((loadedNode.measurementScope === "height") === heightOnly);
-    let key = (canEditLoadedNode ? loadedKey : "") || buildGeoNodeKey({
-      constructionValue: getCurrentConstructionKey(),
-      floorValue: floor,
-      letterValue: axisState.isPlate ? "" : axisState.letter,
-      numberValue: axisState.isPlate ? "" : axisState.number,
-      letterFrom: axisState.isPlate ? axisState.letterFrom : "",
-      letterTo: axisState.isPlate ? axisState.letterTo : "",
-      numberFrom: axisState.isPlate ? axisState.numberFrom : "",
-      numberTo: axisState.isPlate ? axisState.numberTo : ""
-    });
-
-    if (heightOnly && !canEditLoadedNode) key = `${getCurrentConstructionKey()}_${crypto.randomUUID()}`;
+    const key = editableNodeKey(geoResult.dataset.loadedKey, heightOnly) ?? crypto.randomUUID();
     // Подготавливаем данные узла для вычисления статуса
     const nodeDataForEval = {
       measurementScope: heightOnly ? "height" as const : "coordinates" as const,
@@ -757,7 +726,7 @@ export function bindGeodesyHandlers({
                        (evaluation.hasProjXY ? "project_only" :
                        (evaluation.hasFactXY ? "fact_only" : "empty"));
     const data: GeodesyNodeRecord = {
-      ...(canEditLoadedNode ? nodes.get(key) : {}),
+      ...nodes.get(key),
         acceptanceCriteria: readAcceptanceCriteria(document.getElementById("geo")),
         evaluationSchemaVersion: 2,
         coordinateUnit: "m", deviationUnit: "mm", measurementSchemaVersion: 2,
@@ -805,7 +774,6 @@ export function bindGeodesyHandlers({
       lastMsg: geoResult.innerHTML || ""
     };
 
-    if (nodes.has(key) && (nodes.get(key)?.coordinateUnit !== "m" || ((nodes.get(key)?.measurementScope === "height") !== heightOnly))) key = `${key}_${Date.now()}`;
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
@@ -813,39 +781,40 @@ export function bindGeodesyHandlers({
     renderNodes();
     saveNodes();
 
-    const skipJournal = geodesyNodeState.skipJournalOnce;
-    if (geodesyNodeState.skipJournalOnce) {
-      geodesyNodeState.skipJournalOnce = false;
-    }
-    // Добавляем запись в журнал, если узел был проверен (не pending)
-    if (!skipJournal && finalEvaluationStatus !== "empty" && evaluation.hasAllData && (!plateFlatnessData || plateFlatnessComplete)) {
-      const allOk = finalEvaluationStatus === "ok";
-      const contextLabel = (heightOnly ? pointLabel : "") || axisState.location || axisState.nodeLabel || "узел";
-      const context = floor ? `${floor}-${contextLabel}` : contextLabel;
-      const detailsParts = [];
-      if (!heightOnly && !isNaN(pX) && !isNaN(fX)) detailsParts.push(`ΔX=${(Math.abs(fX - pX) * 1000).toFixed(1)} мм`);
-      if (!heightOnly && !isNaN(pY) && !isNaN(fY)) detailsParts.push(`ΔY=${(Math.abs(fY - pY) * 1000).toFixed(1)} мм`);
-      if (!isNaN(pH) && !isNaN(fH)) detailsParts.push(`ΔH=${((fH - pH) * 1000).toFixed(1)} мм`);
-      if (plateFlatnessData && plateFlatnessComplete) {
-        detailsParts.push(`Плоскостность=${plateFlatnessData.actual.toFixed(1)} мм при допуске ${plateFlatnessData.tolerance.toFixed(1)} мм`);
-      }
-
-      await upsertJournalEntry({
-        evaluationSchemaVersion: 2,
-        module: "Геодезия",
-        status: allOk ? "ok" : "exceeded",
-        context: context,
-        details: detailsParts.join("; ") || "Проверка узла",
-        sourceId: key,
-        construction: data.construction || getCurrentConstructionKey()
-      });
-    }
-
-    // Обновляем вкладку "Итог"
-    updateSummaryTab();
-
     try {
       await saveProjectNode(key, data);
+      const skipJournal = geodesyNodeState.skipJournalOnce;
+      if (geodesyNodeState.skipJournalOnce) {
+        geodesyNodeState.skipJournalOnce = false;
+      }
+      // Добавляем запись в журнал, если узел был проверен (не pending)
+      if (!skipJournal && finalEvaluationStatus !== "empty" && evaluation.hasAllData && (!plateFlatnessData || plateFlatnessComplete)) {
+        const allOk = finalEvaluationStatus === "ok";
+        const contextLabel = (heightOnly ? pointLabel : "") || axisState.location || axisState.nodeLabel || "узел";
+        const context = floor ? `${floor}-${contextLabel}` : contextLabel;
+        const detailsParts = [];
+        if (!heightOnly && !isNaN(pX) && !isNaN(fX)) detailsParts.push(`ΔX=${(Math.abs(fX - pX) * 1000).toFixed(1)} мм`);
+        if (!heightOnly && !isNaN(pY) && !isNaN(fY)) detailsParts.push(`ΔY=${(Math.abs(fY - pY) * 1000).toFixed(1)} мм`);
+        if (!isNaN(pH) && !isNaN(fH)) detailsParts.push(`ΔH=${((fH - pH) * 1000).toFixed(1)} мм`);
+        if (plateFlatnessData && plateFlatnessComplete) {
+          detailsParts.push(`Плоскостность=${plateFlatnessData.actual.toFixed(1)} мм при допуске ${plateFlatnessData.tolerance.toFixed(1)} мм`);
+        }
+
+        await upsertJournalEntry({
+          evaluationSchemaVersion: 2,
+          module: "Геодезия",
+          status: allOk ? "ok" : "exceeded",
+          context: context,
+          details: detailsParts.join("; ") || "Проверка узла",
+          sourceId: key,
+          construction: data.construction || getCurrentConstructionKey()
+        });
+      }
+
+      // Обновляем вкладку "Итог"
+      updateSummaryTab();
+
+      finishSave(key);
       console.log("Узел сохранён в Firebase:", key);
         const hasProj = heightOnly ? !isNaN(pH) : !isNaN(pX) && !isNaN(pY);
         const hasFact = heightOnly ? !isNaN(fH) : !isNaN(fX) && !isNaN(fY);
@@ -862,52 +831,22 @@ export function bindGeodesyHandlers({
       console.error("Ошибка Firebase:", err);
       showNotification("Ошибка сохранения в Firebase.", "error");
     }
+  }
+
+  function finishSave(key: string) {
+    if (geoResult.dataset.loadedKey !== key) return;
+    delete geoResult.dataset.loadedKey;
+    for (const type of ["column", "wall", "beam"] as const) {
+      if (geodesyNodeState.currentNodeKeys[type] === key) geodesyNodeState.currentNodeKeys[type] = null;
+    }
+    markInspectionMode("geo", "saved");
+  }
+
+  btnSaveNode?.addEventListener("click", () => {
+    void serializeInspectionSave("geo", saveCheck);
   });
 
-  btnUpdateNode?.addEventListener("click", () => {
-    const geoFlags = getGeoConstructionFlags();
-    if (geoFlags.isUnsupported) {
-      setGeoUnsupportedState({ notify: true });
-      return;
-    }
-
-    // Специальная обработка для колонн
-    if (geoFlags.isColumn) {
-      if (
-        !geodesyNodeState.currentNodeKeys.column ||
-        !nodes.has(geodesyNodeState.currentNodeKeys.column)
-      ) {
-        showNotification("Сначала сохраните узел колонн.", "warning");
-        return;
-      }
-      btnSaveNode?.click();
-      return;
-    }
-
-    // Обычная обработка для остальных конструкций
-    const floor = geoFlags.behavior.floorVisible === false ? "" : floorEl.value.trim();
-    const axisState = getGeoAxisState(getCurrentConstructionKey() || construction.value || "floor_slab");
-    if (axisState.isPlate && !validateGeoPlateAxisRange({ showWarning: true })) {
-      return;
-    }
-    let key = geoResult.dataset.loadedKey || buildGeoNodeKey({
-      constructionValue: getCurrentConstructionKey(),
-      floorValue: floor,
-      letterValue: axisState.isPlate ? "" : axisState.letter,
-      numberValue: axisState.isPlate ? "" : axisState.number,
-      letterFrom: axisState.isPlate ? axisState.letterFrom : "",
-      letterTo: axisState.isPlate ? axisState.letterTo : "",
-      numberFrom: axisState.isPlate ? axisState.numberFrom : "",
-      numberTo: axisState.isPlate ? axisState.numberTo : ""
-    });
-    if (!nodes.has(key)) {
-      showNotification("Сначала сохраните узел.", "warning");
-      return;
-    }
-    btnSaveNode?.click();
-  });
-
-  btnClearForm?.addEventListener("click", async () => {
+  function clearForm() {
     delete geoResult.dataset.legacyUnits;
     delete geoResult.dataset.loadedKey;
     restoreAcceptanceCriteria(document.getElementById("geo"));
@@ -954,14 +893,11 @@ export function bindGeodesyHandlers({
     state.geo = false;
     checked.geo = false;
     updateNodeId();
-    setUpdateNodeVisibility(false);
     saveMeta();
     cancelProjectDesignAutosave();
-    try {
-      await saveProjectDesign();
-    } catch (error) {
-      console.error("Не удалось сохранить очищенное состояние формы геодезии:", error);
-    }
+  }
+  btnClearForm?.addEventListener("click", () => {
+    if (startNewInspection("geo")) clearForm();
   });
 
   async function clearGeoNodesForCurrentProject() {
@@ -996,4 +932,5 @@ export function bindGeodesyHandlers({
   });
 
   // Очистка сохранённых проверок армирования
+  return { clearForm };
 }

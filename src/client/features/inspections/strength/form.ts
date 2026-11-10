@@ -49,7 +49,7 @@ export interface StrengthConstructionFlags {
 export interface StrengthForm {
   init(): void;
   readCheck(existing?: StrengthCheckRecord | null): StrengthCheckRecord;
-  restoreCheck(check: StrengthCheckRecord): void;
+  restoreCheck(check: StrengthCheckRecord): false | void;
   clear(): void;
   validateMarking(): boolean;
   updateFieldsVisibility(): void;
@@ -496,13 +496,14 @@ export function createStrengthForm({
     } satisfies StrengthCheckRecord;
   }
 
-  function restoreCheck(check: StrengthCheckRecord) {
+  function restoreCheck(check: StrengthCheckRecord): false | void {
     if (check.construction || check.constructionType) {
-      setConstruction(
+      const selected = setConstruction(
         String(check.construction || check.constructionType || ""),
         String(check.constructionSubtype || ""),
         String(check.constructionPileElement || "")
       );
+      if (selected === false) return false;
     }
     updateFieldsVisibility();
     const flags = getConstructionFlags(

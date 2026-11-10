@@ -21,6 +21,7 @@ interface ProjectRuntimeOptions {
   getCurrentProjectId: () => string | null;
   setCurrentProjectId: (projectId: string | null) => string | null;
   projectSelector: HTMLSelectElement | null;
+  clearInspectionForms?: () => Promise<unknown>;
   resetFormForNewProject: () => void | Promise<void>;
   loadGeoNodesForProject: (projectId: string) => Promise<unknown> | unknown;
   loadProjectBimElements: (projectId: string) => Promise<unknown> | unknown;
@@ -88,8 +89,13 @@ export function createProjectRuntime(options: ProjectRuntimeOptions) {
     const revision = ++selectionRevision;
     const uid = options.getCurrentUserId();
     const isLatest = () => revision === selectionRevision && uid === options.getCurrentUserId();
-    const load = () => {
+    const load = async () => {
       if (!isLatest()) return;
+      if (projectId !== options.getCurrentProjectId()) {
+        setModulesEnabled(false);
+        await options.clearInspectionForms?.();
+        if (!isLatest()) return;
+      }
       return selectProjectFromService(projectId, {
         isCurrentSelection: () => isLatest() && options.getCurrentProjectId() === projectId,
         setCurrentProjectId: options.setCurrentProjectId,

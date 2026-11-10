@@ -757,6 +757,8 @@
     #coordinatesBlock .coordinate-grid-spacer { display: none; }
     .construction-bar .project-select-wrapper { flex-basis: 100%; }
     .construction-bar .construction-select-wrapper { flex: 1 1 160px; max-width: none; }
+    .construction-bar #constructionFieldShell,
+    .construction-bar .bim-import-wrapper { flex-basis: 100%; }
     .control-plan-toolbar-actions, .journal-toolbar, .node-actions { min-width: 0; flex-wrap: wrap; }
   }
   @media (max-width: 420px) {
@@ -785,4 +787,41 @@
 
   .local-environment-banner { margin: 0 0 16px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-subtle); color: var(--text-muted); font-size: 12px; }
 
+}
+
+@layer design {
+  .inspection-mode {
+    display: grid;
+    gap: .25rem;
+    margin-block-end: 1rem;
+    padding: .75rem 1rem;
+    border-inline-start: 3px solid var(--accent);
+    background: var(--surface-subtle);
+  }
+  .inspection-mode > [data-mode] { display: none; }
+  :is(#geo, #geometry, #reinforcement, #strength):not([data-inspection-mode]) .inspection-mode > [data-mode="new"],
+  [data-inspection-mode="new"] .inspection-mode > [data-mode="new"],
+  [data-inspection-mode="edit"] .inspection-mode > [data-mode="edit"],
+  [data-inspection-mode="repeat"] .inspection-mode > [data-mode="repeat"],
+  [data-inspection-mode="saved"] .inspection-mode > [data-mode="saved"] { display: block; }
+  .inspection-history-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+    gap: .75rem;
+    margin-block-end: 1rem;
+  }
+  .inspection-history-filters label { display: grid; gap: .25rem; }
+  .inspection-history-filters :is(input, select) { width: 100%; min-height: 2.5rem; }
+  .inspection-history-meta { font-size: .875rem; font-weight: 400; font-variant-numeric: tabular-nums; }
+  [data-inspection-status][hidden], [data-inspection-no-matches][hidden], .strength-group-title[hidden] { display: none; }
+}
+@layer design {
+  .inspection-history-edit {
+    display: block;
+    margin-block-start: .25rem;
+    font-size: .875rem;
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: .15em;
+  }
 }

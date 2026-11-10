@@ -36,7 +36,8 @@ interface SyncConstructionOptions {
 }
 
 export function createConstructionSelectionRuntime(
-  elements: ConstructionSelectionElements
+  elements: ConstructionSelectionElements,
+  canChange = () => true
 ) {
   const {
     construction,
@@ -357,7 +358,14 @@ export function createConstructionSelectionRuntime(
 
     document.addEventListener("app:language-changed", () => { syncConstructionSelectionState(getCurrentConstructionKey()); });
 
-    category.addEventListener("change", () => {
+    const allowChange = (event: Event) => {
+      if (!event.isTrusted || canChange()) return true;
+      syncConstructionSelectionState(getCurrentConstructionKey(), { syncVisibleControls: true });
+      return false;
+    };
+
+    category.addEventListener("change", (event) => {
+      if (!allowChange(event)) return;
       const hasSelection = fillConstructionTypeSelect(category.value, "");
       if (!hasSelection) return;
 
@@ -369,7 +377,8 @@ export function createConstructionSelectionRuntime(
       construction.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    type.addEventListener("change", () => {
+    type.addEventListener("change", (event) => {
+      if (!allowChange(event)) return;
       const nextSubtypeValue = fillConstructionSubtypeSelect(type.value, "");
       syncConstructionSelectionState(type.value, {
         syncVisibleControls: false,
@@ -378,7 +387,8 @@ export function createConstructionSelectionRuntime(
       construction.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    subtype?.addEventListener("change", () => {
+    subtype?.addEventListener("change", (event) => {
+      if (!allowChange(event)) return;
       const nextPileElementValue =
         syncPileElementSelect(
           type.value,
@@ -393,7 +403,8 @@ export function createConstructionSelectionRuntime(
       construction.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    pileElement?.addEventListener("change", () => {
+    pileElement?.addEventListener("change", (event) => {
+      if (!allowChange(event)) return;
       syncConstructionSelectionState(type.value, {
         syncVisibleControls: false,
         nextSubtypeValue: getCurrentConstructionSubtype(),

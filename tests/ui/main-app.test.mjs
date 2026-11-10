@@ -4,6 +4,7 @@ import { chromium, firefox } from "playwright";
 import { startApp, swipe, openSection } from "./helpers/production-app.mjs";
 
 const sections = ["overview", "controlPlan", "journal", "geo", "reinforcement", "geometry", "strength", "summary", "knowledge", "documents"];
+const selectedBrowser = process.env.AXIS_TEST_BROWSER === "firefox" ? firefox : chromium;
 
 test("charts and PDF load from the application under its real CSP", {timeout:45000}, async()=>{
   const app=await startApp();
@@ -94,7 +95,7 @@ test("mobile panel respects vertical, short, cancelled and non-edge gestures", {
 });
 
 test("saved geometry uses real Firestore, keyboard actions and project isolation", {timeout:60000}, async()=>{
-  const app=await startApp();const {page}=app;
+  const app=await startApp({ browserType: selectedBrowser });const {page}=app;
   try {
     await openSection(page,"geometry");
     const card=page.locator("#geomChecksList .node").first();await card.waitFor();
@@ -107,12 +108,42 @@ test("saved geometry uses real Firestore, keyboard actions and project isolation
     for(let i=0;i<50;i++){if((await app.read("geomChecks","saved-geometry"))?.factPlateHeight===500)break;await page.waitForTimeout(100);}
     assert.equal((await app.read("geomChecks","saved-geometry")).factPlateHeight,500);
     assert.equal((await app.records("geomChecks")).length,1,"Updating a saved record must retain its identity");
-    await page.reload();await openSection(page,"geometry");await page.locator("#geomChecksList .node-open-button").first().click();
+    await page.locator('#geometry[data-inspection-mode="saved"]').waitFor();
+    await page.locator("#geomAxisNumberTo").selectOption("5");
+    await page.locator("#factPlateHeight").fill("501");
+    await page.locator("#btnGeom").click();
+    await page.locator('#geometry[data-inspection-mode="saved"]').waitFor();
+    const geometry = await app.records("geomChecks");
+    assert.equal(geometry.length, 2);
+    assert.equal(geometry.find(record => record.id === "saved-geometry").factPlateHeight, 500);
+    const second = geometry.find(record => record.id !== "saved-geometry");
+    assert.equal(second.axisNumberTo, "5");
+    assert.equal(second.factPlateHeight, 501);
+    await page.reload();
+    await openSection(page,"geometry");
+    await page.locator("#geomChecksList .node").filter({ hasText: "1-4" }).locator(".node-open-button").click();
     await page.waitForFunction(()=>document.getElementById("factPlateHeight").value==="500");
+    await page.evaluate(() => {
+      document.addEventListener("app:project-context-updated", event => {
+        document.documentElement.dataset.testLoadedProject = event.detail.projectId;
+      });
+    });
+    await page.locator("#factPlateHeight").fill("499");
+    page.once("dialog", dialog => dialog.dismiss());
     await page.locator("#projectSelector").selectOption("project-other");
-    await page.waitForFunction(()=>!document.querySelector("#geomChecksList .node"));
-    await page.locator("#projectSelector").selectOption("project-main");await page.locator("#geomChecksList .node").waitFor();
-  }finally{await app.close();}
+    assert.equal(await page.locator("#projectSelector").inputValue(), "project-main");
+    assert.equal(await page.locator("#factPlateHeight").inputValue(), "499");
+    page.once("dialog", dialog => dialog.accept());
+    await page.locator("#projectSelector").selectOption("project-other");
+    await page.waitForFunction(()=>document.documentElement.dataset.testLoadedProject==="project-other");
+    assert.equal(await page.locator("#geomChecksList .node").count(), 0);
+    assert.equal(await page.locator("#factPlateHeight").inputValue(), "");
+    assert.equal(await page.locator("[data-inspection-dirty]").count(), 0);
+    await page.locator("#projectSelector").selectOption("project-main");
+    await page.waitForFunction(() => document.documentElement.dataset.testLoadedProject === "project-main", null, { timeout: 10000 });
+    await openSection(page, "geometry");
+    assert.equal(await page.locator("#geomChecksList .node").count(), 2);
+  } finally { await app.close(); }
 });
 
 test("profile and settings use the same mobile drawer and persist a real profile edit", {timeout:60000}, async()=>{
@@ -156,7 +187,7 @@ test("public pages keep their stable URLs, themes and accessible login validatio
 
 
 test("registration, empty project list and legacy inspection persistence with the service worker active", { timeout: 90000 }, async () => {
-  const browserType = process.env.AXIS_TEST_BROWSER === "firefox" ? firefox : chromium;
+  const browserType = selectedBrowser;
   const app = await startApp({ authenticated: false, serviceWorkers: "allow", browserType });
   const { page } = app;
   const firestoreRequests = [];
@@ -262,6 +293,70 @@ test("geodesy displays the selected bearing-level limit instead of a universal X
     assert.equal(saved.projX, null);
     assert.equal(saved.axisMode, null);
     assert.equal(saved.acceptanceCriteria.normativeRule, "sp70-2026-11-v1/bearing-level");
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});
+
+test("geodesy saves independent points, edits one ID and records repeat control separately", { timeout: 90000 }, async () => {
+  const app = await startApp({ browserType: selectedBrowser });
+  const { page } = app;
+  try {
+    await openSection(page, "geo");
+    const criteria = page.locator("#geo [data-acceptance]");
+    await criteria.locator("summary").click();
+    await criteria.locator("[data-normative-context]").selectOption("bearing-level");
+    await page.locator("#projH").fill("10");
+    const name = page.locator("#geoPointLabel");
+    const fact = page.locator("#factH");
+    const save = async () => {
+      await page.locator("#btnGeo").click();
+      await page.locator('#geo[data-inspection-mode="saved"]').waitFor();
+    };
+    await name.fill("Point A");
+    await fact.fill("10.01");
+    await save();
+    const [original] = await app.records("geoNodes");
+    assert.equal(original.status, "bad");
+
+    await name.fill("Point B");
+    await fact.fill("9.998");
+    await save();
+    const records = await app.records("geoNodes");
+    assert.equal(records.length, 2);
+    const second = records.find(record => record.pointLabel === "Point B");
+    assert.notEqual(original.id, second.id);
+    assert.equal((await app.read("geoNodes", original.id)).factH, 10.01);
+
+
+    await page.locator("#geo [data-inspection-search]").fill("Point B");
+    assert.equal(await page.locator("#nodesList .node:visible").count(), 1);
+    await page.locator("#nodesList .node:visible .node-open-button").click();
+    await page.locator('#geo[data-inspection-mode="edit"]').waitFor();
+    await fact.fill("9.997");
+    page.once("dialog", dialog => dialog.dismiss());
+    await page.locator("#btnClearForm").click();
+    assert.equal(await fact.inputValue(), "9.997");
+    await save();
+    assert.equal((await app.records("geoNodes")).length, 2);
+    assert.equal((await app.read("geoNodes", second.id)).factH, 9.997);
+
+    await openSection(page, "journal");
+    await page.locator("#journalTable tbody tr").filter({ hasText: "Point A" }).locator(".journal-issue-btn").click();
+    const [issue] = await app.records("issues");
+    assert.equal(issue.sourceInspectionId, original.id);
+    await page.locator(".journal-issue-card__repeat-action").click();
+    await page.locator('#geo[data-inspection-mode="repeat"]').waitFor();
+    assert.equal(await fact.inputValue(), "");
+    assert.equal(await name.inputValue(), "Point A");
+    await page.locator("#btnGeo").click();
+    assert.equal((await app.records("geoNodes")).length, 2, "Repeat control requires fresh evidence");
+    await fact.fill("9.996");
+    await save();
+    const afterRepeat = await app.records("geoNodes");
+    assert.equal(afterRepeat.length, 3);
+    assert.equal((await app.read("geoNodes", original.id)).factH, 10.01);
+    const repeat = afterRepeat.find(record => record.factH === 9.996);
+    assert.equal((await app.read("issues", issue.id)).repeatControlInspectionId, repeat.id);
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });

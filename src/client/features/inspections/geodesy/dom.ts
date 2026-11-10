@@ -8,7 +8,6 @@ export function createGeodesyDomBindings(root: Document) {
     btnClearNodes: get("btnClearNodes"),
     btnGeo: get("btnGeo"),
     btnSaveNode: get("btnSaveNode"),
-    btnUpdateNode: get("btnUpdateNode"),
     btnClearForm: get("btnClearForm"),
     btnGeoColumns: get("btnGeoColumns"),
     btnGeoWalls: get("btnGeoWalls"),

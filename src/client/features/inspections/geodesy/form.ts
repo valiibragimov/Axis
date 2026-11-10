@@ -1,3 +1,4 @@
+import { markInspectionMode, canReplaceInspection, focusInspectionMode } from "../inspection-form.js";
 import { isNormativeBearingLevel } from "../normative-rules.js";
 import { t } from "../../../shared/i18n/index.js";
 import { compareMeasurement, measurementNumber } from "../acceptance.js";
@@ -15,7 +16,6 @@ import {
   defaultRusLetters,
   normalizeMarking,
   sanitizeHtml,
-  toDocIdPart
 } from "../../../utils.js";
 import { replaceGeodesyItems, type GeodesyState } from "./state.js";
 import type { createGeodesyDomBindings } from "./dom.js";
@@ -90,7 +90,7 @@ export function createGeodesyForm({
 }: GeodesyFormDependencies) {
   const { nodes, columns, walls, beams, plateOpeningPoints } = geodesyNodeState;
   const {
-    btnGeo, btnUpdateNode, btnAddColumn, btnGeoColumns, btnAddWall,
+    btnGeo, btnAddColumn, btnGeoColumns, btnAddWall,
     btnGeoWalls, btnAddBeam, btnGeoBeams, btnAddGeoPlateOpeningPoint,
     columnMarkEl, columnMarkField, columnsBlock, columnsList,
     wallsBlock, wallsList, beamsBlock, beamsList, geoWallsLimitLabel,
@@ -735,115 +735,6 @@ export function createGeodesyForm({
     const createEmptyBeamRow = createEmptyLinearRow;
 
 
-
-  interface GeoNodeKeyOptions {
-    constructionValue?: string;
-    floorValue?: string;
-    letterValue?: string;
-    numberValue?: string;
-    letterFrom?: string;
-    letterTo?: string;
-    numberFrom?: string;
-    numberTo?: string;
-  }
-
-  function buildGeoNodeKey({
-    constructionValue,
-    floorValue,
-    letterValue = "",
-    numberValue = "",
-    letterFrom = "",
-    letterTo = "",
-    numberFrom = "",
-    numberTo = ""
-  }: GeoNodeKeyOptions = {}) {
-    const rawFloor = floorValue || "";
-    const behavior = getConstructionModuleBehavior(
-      constructionValue,
-      "geo",
-      construction?.dataset.subtypeKey || ""
-    );
-    const isRangeLocation =
-      behavior.locationMode === "plate_range" || behavior.locationMode === "strip_foundation";
-    const rawLetter = isRangeLocation
-      ? (letterFrom && letterTo ? `${letterFrom}_${letterTo}` : (letterFrom || letterTo || letterValue || ""))
-      : (letterValue || "");
-    const rawNumber = isRangeLocation
-      ? (numberFrom && numberTo ? `${numberFrom}_${numberTo}` : (numberFrom || numberTo || numberValue || ""))
-      : (numberValue || "");
-
-    const safeFloor = toDocIdPart(rawFloor);
-    const safeLetter = toDocIdPart(rawLetter);
-    const safeNumber = toDocIdPart(rawNumber);
-
-    const rawBaseKey = rawFloor ? `${rawFloor}-${rawLetter}-${rawNumber}` : `${rawLetter}-${rawNumber}`;
-    const safeBaseKey = safeFloor ? `${safeFloor}-${safeLetter}-${safeNumber}` : `${safeLetter}-${safeNumber}`;
-
-    const rawPrefixedKey = constructionValue ? `${constructionValue}:${rawBaseKey}` : rawBaseKey;
-    const safePrefixedKey = constructionValue ? `${constructionValue}:${safeBaseKey}` : safeBaseKey;
-    const hasMatchingNodeKey = (candidateKey: string) => {
-      if (!candidateKey || !nodes?.has(candidateKey)) return false;
-      if (candidateKey.includes(":")) return true;
-      const legacyNode = nodes.get(candidateKey);
-      return Boolean(
-        legacyNode &&
-        normalizeConstructionKey(legacyNode.construction || legacyNode.constructionType) === constructionValue
-      );
-    };
-    const buildBaseKey = (rawLetterPart: string, rawNumberPart: string) =>
-      rawFloor ? `${rawFloor}-${rawLetterPart}-${rawNumberPart}` : `${rawLetterPart}-${rawNumberPart}`;
-    const buildPrefixedKey = (baseKey: string) =>
-      constructionValue ? `${constructionValue}:${baseKey}` : baseKey;
-
-    if (hasMatchingNodeKey(rawPrefixedKey)) {
-      return rawPrefixedKey;
-    }
-    if (hasMatchingNodeKey(rawBaseKey)) {
-      return rawBaseKey;
-    }
-
-    if (behavior.locationMode === "plate_range" && letterFrom && numberFrom) {
-      const legacyRangeKeys = [
-        letterTo ? buildBaseKey(`${letterFrom}_${letterTo}`, numberFrom) : "",
-        numberTo ? buildBaseKey(letterFrom, `${numberFrom}_${numberTo}`) : ""
-      ].filter(Boolean);
-      for (const legacyBaseKey of legacyRangeKeys) {
-        const legacyPrefixedKey = buildPrefixedKey(legacyBaseKey);
-        if (hasMatchingNodeKey(legacyPrefixedKey)) {
-          return legacyPrefixedKey;
-        }
-        if (hasMatchingNodeKey(legacyBaseKey)) {
-          return legacyBaseKey;
-        }
-      }
-    }
-
-    if (
-      isRangeLocation &&
-      letterFrom &&
-      letterTo &&
-      numberFrom &&
-      numberTo &&
-      letterFrom === letterTo &&
-      numberFrom === numberTo
-    ) {
-      const legacyLetter = letterFrom;
-      const legacyNumber = numberFrom;
-      const legacyBaseKey = rawFloor ? `${rawFloor}-${legacyLetter}-${legacyNumber}` : `${legacyLetter}-${legacyNumber}`;
-      const legacyPrefixedKey = constructionValue ? `${constructionValue}:${legacyBaseKey}` : legacyBaseKey;
-      if (nodes && nodes.has(legacyPrefixedKey)) {
-        return legacyPrefixedKey;
-      }
-      if (nodes && nodes.has(legacyBaseKey)) {
-        const legacyNode = nodes.get(legacyBaseKey);
-        if (legacyNode && normalizeConstructionKey(legacyNode.construction || legacyNode.constructionType) === constructionValue) {
-          return legacyBaseKey;
-        }
-      }
-    }
-
-    return safePrefixedKey;
-  }
 
   // Функция добавления колонны
   function addColumn() {
@@ -1837,7 +1728,17 @@ export function createGeodesyForm({
 
   function loadNode(key) {
     const n = nodes.get(key);
-    if (!n) return;
+    if (!n || !canReplaceInspection("geo")) return false;
+    // Определяем тип конструкции узла
+    const nodeConstructionType = detectNodeConstructionType(n);
+
+    // Переключаем конструкцию перед загрузкой данных
+    if (!setConstructionAndTrigger(nodeConstructionType, n.constructionSubtype || n.construction || "", n.constructionPileElement || "")) {
+      showNotification(`Не удалось переключить конструкцию на "${nodeConstructionType}". Узел не может быть открыт.`, "error");
+      return false;
+    }
+
+    markInspectionMode("geo", "edit");
 
     geoResult.dataset.loadedKey = key;
     geoResult.dataset.legacyUnits = n.coordinateUnit === "m" ? "0" : "1";
@@ -1848,15 +1749,6 @@ export function createGeodesyForm({
       checked.geo = false;
     });
 
-    // Определяем тип конструкции узла
-    const nodeConstructionType = detectNodeConstructionType(n);
-
-    // Переключаем конструкцию перед загрузкой данных
-    if (!setConstructionAndTrigger(nodeConstructionType, n.constructionSubtype || n.construction || "", n.constructionPileElement || "")) {
-      showNotification(`Не удалось переключить конструкцию на "${nodeConstructionType}". Узел не может быть открыт.`, "error");
-      return;
-    }
-
     restoreAcceptanceCriteria(document.getElementById("geo"), n.acceptanceCriteria);
     renderGeoToleranceFields();
     if (n.coordinateUnit === "m") for (const input of [projX, projY, projH]) delete input.dataset.unitUnconfirmed;
@@ -1866,7 +1758,8 @@ export function createGeodesyForm({
       plateOpeningPoints.length = 0;
       renderGeoPlateOpeningPoints();
       loadColumnNode(key);
-      return;
+      focusInspectionMode("geo");
+      return true;
     }
 
     // Специальная обработка для стен
@@ -1874,7 +1767,8 @@ export function createGeodesyForm({
       plateOpeningPoints.length = 0;
       renderGeoPlateOpeningPoints();
       loadWallNode(key);
-      return;
+      focusInspectionMode("geo");
+      return true;
     }
 
     // Специальная обработка для балок
@@ -1882,7 +1776,8 @@ export function createGeodesyForm({
       plateOpeningPoints.length = 0;
       renderGeoPlateOpeningPoints();
       loadBeamNode(key);
-      return;
+      focusInspectionMode("geo");
+      return true;
     }
 
     // Обычная обработка для плиты/лестницы
@@ -1961,7 +1856,8 @@ export function createGeodesyForm({
     }
 
     bim.syncFromNode(n);
-    setUpdateNodeVisibility(true);
+    focusInspectionMode("geo");
+    return true;
   }
 
   function resolveGeoProjectFieldFallback(nodeData, fieldName, bimFieldName) {
@@ -2071,7 +1967,6 @@ export function createGeodesyForm({
     }
 
     bim.syncFromNode(n);
-    setUpdateNodeVisibility(true);
   }
 
   function loadBeamNode(key) {
@@ -2132,7 +2027,6 @@ export function createGeodesyForm({
     }
 
     bim.syncFromNode(n);
-    setUpdateNodeVisibility(true);
   }
 
   function loadColumnNode(key) {
@@ -2178,18 +2072,12 @@ export function createGeodesyForm({
     }
 
     bim.syncFromNode(n);
-    setUpdateNodeVisibility(true);
   }
 
-  function setUpdateNodeVisibility(_isVisible: boolean) {
-    if (!btnUpdateNode) return;
-    btnUpdateNode.style.display = "none";
-    btnUpdateNode.disabled = true;
-  }
+
 
   return {
     addGeoPlateOpeningPoint,
-    buildGeoNodeKey,
     collectGeoPlateFlatnessData,
     createEmptyBeamRow,
     createEmptyWallRow,
@@ -2208,7 +2096,6 @@ export function createGeodesyForm({
     renderWalls,
     resetGeoPlateAxisFields,
     setGeoUnsupportedState,
-    setUpdateNodeVisibility,
     syncGeoPlateAxisPrevValues,
     updateGeoPlateFlatnessCalculatedFields,
     updateGeoFieldsVisibility,

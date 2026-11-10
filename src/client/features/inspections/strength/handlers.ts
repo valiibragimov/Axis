@@ -1,3 +1,5 @@
+import { setInspectionHistoryMetadata } from "../inspection-form.js";
+import { markInspectionMode, canReplaceInspection, focusInspectionMode, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
 import { t } from "../../../shared/i18n/index.js";
 import { getConstructionLabel } from "../../../app/construction.js";
 import { setupNodeCardInteractions } from "../../../app/ui/node-card-interactions.js";
@@ -28,7 +30,7 @@ export interface StrengthActions {
   renderChecks(): void;
   runCheck(options?: { autoSave?: boolean }): Promise<void>;
   saveCheck(options?: { skipJournalOnce?: boolean }): Promise<string | null>;
-  loadCheck(checkId: string): Promise<void>;
+  loadCheck(checkId: string): Promise<boolean>;
   deleteCheck(
     checkId: string,
     options?: { askConfirmation?: boolean }
@@ -276,6 +278,7 @@ export function createStrengthActions({
         onOpen: () => loadCheck(id),
         onDelete: async () => { await deleteCheck(id); }
       });
+      setInspectionHistoryMetadata(row, check, evaluation.status);
       fragment.appendChild(row);
     });
     list.appendChild(fragment);
@@ -318,6 +321,10 @@ export function createStrengthActions({
   }
 
   async function saveCheck({ skipJournalOnce: skipJournal = false } = {}) {
+    return serializeInspectionSave("strength", () => persistCheck(skipJournal));
+  }
+
+  async function persistCheck(skipJournal: boolean) {
     const projectId = getCurrentProjectId();
     if (!validateProject(projectId) || !projectId) return null;
     const existingId = state.currentCheckId;
@@ -337,7 +344,7 @@ export function createStrengthActions({
       return null;
     }
 
-    const provisionalId = existingId || crypto.randomUUID();
+    const provisionalId = existing && existingId || crypto.randomUUID();
     const data = form.readCheck(existing);
     const evaluation = evaluateStrengthCheck(data);
     data.status = evaluation.status;
@@ -364,7 +371,6 @@ export function createStrengthActions({
         saveLocalChecks();
         renderChecks();
       }
-      setCurrentStrengthCheckId(state, finalId);
 
       if (!skipJournal && data.status !== "empty") {
         const journalPayload = buildStrengthJournalPayload(data, {
@@ -372,6 +378,8 @@ export function createStrengthActions({
         });
         if (journalPayload) await upsertJournalEntry(journalPayload);
       }
+      setCurrentStrengthCheckId(state, null);
+      markInspectionMode("strength", "saved");
       updateSummary();
       return finalId;
     } catch (error) {
@@ -384,10 +392,13 @@ export function createStrengthActions({
 
   async function loadCheck(checkId: string) {
     const check = state.checks.get(checkId);
-    if (!check) return;
-    form.restoreCheck(check);
+    if (!check || !canReplaceInspection("strength")) return false;
+    if (form.restoreCheck(check) === false) return false;
+    markInspectionMode("strength", "edit");
     setCurrentStrengthCheckId(state, checkId);
     await runCheck({ autoSave: false });
+    focusInspectionMode("strength");
+    return true;
   }
 
   async function deleteCheck(
@@ -418,6 +429,7 @@ export function createStrengthActions({
   }
 
   function clearForm() {
+    if (!startNewInspection("strength")) return;
     setCurrentStrengthCheckId(state, null);
     form.clear();
     resetInspectionStatus();

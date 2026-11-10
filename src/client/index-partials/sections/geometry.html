@@ -117,17 +117,27 @@
       <div class="wizard-progress" data-wizard-progress data-i18n="form_step_1_of_2">Шаг 1 из 2</div>
       <div class="wizard-steps-nav" role="group" aria-label="Шаги геометрии">
         <button type="button" class="wizard-step-btn is-active btn-small btn-secondary lg-btn lg-btn--pill" data-wizard-step="1">
-          <span class="lg-btn__label" data-i18n="form_inspections">Проверки</span>
+          <span class="lg-btn__label" data-i18n="inspection_history">История</span>
         </button>
         <button type="button" class="wizard-step-btn btn-small btn-secondary lg-btn lg-btn--pill" data-wizard-step="2">
-          <span class="lg-btn__label" data-i18n="form_parameters">Параметры</span>
+          <span class="lg-btn__label" data-i18n="inspection_measurements">Измерения</span>
         </button>
       </div>
     </div>
 
     <div class="split wizard-steps">
       <div class="card wizard-step" data-step="2">
-        <h3 class="inspection-form-title" data-i18n="form_parameters">Параметры</h3>
+          <div class="inspection-mode" role="status" tabindex="-1">
+            <strong data-mode="new" data-i18n="inspection_new_action">Новая проверка</strong>
+            <strong data-mode="edit" data-i18n="inspection_edit_mode">Редактирование проверки</strong>
+            <strong data-mode="repeat" data-i18n="inspection_repeat_mode">Повторный контроль</strong>
+            <strong data-mode="saved" data-i18n="inspection_saved_mode">Проверка сохранена</strong>
+            <span data-mode="new" data-i18n="inspection_new_hint">Укажите место и измерения, затем сохраните проверку.</span>
+            <span data-mode="edit" data-i18n="inspection_edit_hint">Сохранение обновит выбранную запись в истории.</span>
+            <span data-mode="repeat" data-i18n="inspection_repeat_hint">Введите новые измерения. Исходная запись останется в истории.</span>
+            <span data-mode="saved" data-i18n="inspection_saved_hint">Следующее сохранение создаст отдельную запись. Для правки откройте запись из истории.</span>
+          </div>
+        <h3 class="inspection-form-title" data-i18n="inspection_measurements">Измерения</h3>
         <div id="geomManualAssistNote" class="geo-manual-note" hidden></div>
         <div id="geomBehaviorMessage" class="geo-manual-note" hidden></div>
         <div id="geomFormworkFields" style="display: none;">
@@ -381,7 +391,8 @@
           </div>
         </dialog>
 
-        <div id="geometryResult" class="result"></div>
+        <div id="geomPhysicalDimensions"></div>
+        <div id="geometryResult" class="result" role="status"></div>
 
         <div class="inspection-actions">
           <div class="row">
@@ -391,7 +402,7 @@
             </div>
           <div class="row">
               <button id="btnClearGeomForm" class="btn-small btn-secondary lg-btn lg-btn--pill">
-                <span class="lg-btn__label" data-i18n="form_reset_form">Очистить форму</span>
+                <span class="lg-btn__label" data-i18n="inspection_new_action">Новая проверка</span>
               </button>
             </div>
         </div>
@@ -400,7 +411,21 @@
       <div class="col wizard-step" data-step="1">
         <div class="card">
           <h3 class="card-title" data-i18n="form_saved_geometry_inspections">Сохранённые проверки геометрии</h3>
-          <div class="nodes" id="geomChecksList"></div>
+          <div class="inspection-history-filters">
+                <label><span data-i18n="inspection_search">Поиск по истории</span>
+                  <input type="search" data-inspection-search>
+                </label>
+                <label><span data-i18n="inspection_filter_status">Статус</span>
+                  <select data-inspection-status-filter>
+                    <option value="" data-i18n="inspection_filter_all">Все статусы</option>
+                    <option value="ok" data-i18n="saved_ok">В норме</option>
+                    <option value="exceeded" data-i18n="saved_exceeded">Есть отклонения</option>
+                    <option value="pending" data-i18n="inspection_filter_pending">Требуется проверка</option>
+                  </select>
+                </label>
+              </div>
+              <p class="caption" data-inspection-no-matches role="status" data-i18n="inspection_no_matches" hidden>Нет проверок по выбранным условиям.</p>
+              <div class="nodes" id="geomChecksList"></div>
 
           <!-- Кнопки управления -->
           <div class="actions">
