@@ -21,3 +21,5 @@ Axis — название продукта на русском и английс
 [Axis](https://axisxyz.web.app) работает на сайте Hosting `axisxyz` в существующем проекте Firebase `tehnadzor-online`. Используйте ID проекта, ID веб-приложения и бакет Storage этого проекта. Для рабочей сборки задайте `FIREBASE_WEB_AUTH_DOMAIN=axisxyz.web.app`. Добавьте домен в Firebase Authentication, а в действующем OAuth-клиенте Google разрешите источник `https://axisxyz.web.app` и URI переадресации `https://axisxyz.web.app/__/auth/handler`.
 
 Соберите приложение командой `npm run build` и опубликуйте только Hosting командой `firebase deploy --only hosting:axisxyz --project tehnadzor-online`. Firebase сохраняет стандартный сайт и его домены. Сессия входа и локальный кеш привязаны к адресу, поэтому на новом сайте войдите в существующий аккаунт.
+
+Стандартный сайт постоянно перенаправляет посетителей на Axis. Настройки переадресации находятся в `firebase.legacy-hosting.json`. Чтобы обновить их, после сборки выполните `firebase deploy --only hosting --config firebase.legacy-hosting.json --project tehnadzor-online`.

@@ -1,0 +1,15 @@
+{
+  "hosting": {
+    "site": "tehnadzor-online",
+    "public": "dist-hosting",
+    "ignore": ["**"],
+    "redirects": [
+      { "source": "/", "destination": "https://axisxyz.web.app/", "type": 301 },
+      {
+        "source": "/:path*",
+        "destination": "https://axisxyz.web.app/:path",
+        "type": 301
+      }
+    ]
+  }
+}

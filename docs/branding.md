@@ -21,3 +21,5 @@ GitHub repository identity, history, issues, permissions and workflows remain at
 [Axis](https://axisxyz.web.app) uses Hosting site `axisxyz` in the existing Firebase project `tehnadzor-online`. Keep the project ID, web app ID and Storage bucket from that project. For the production build, set `FIREBASE_WEB_AUTH_DOMAIN=axisxyz.web.app`. Firebase Authentication must allow this domain, and the existing Google OAuth client must allow the origin `https://axisxyz.web.app` and redirect URI `https://axisxyz.web.app/__/auth/handler`.
 
 Build with `npm run build` and deploy Hosting only with `firebase deploy --only hosting:axisxyz --project tehnadzor-online`. Firebase retains the default site and its provisioned domains. Browser sign-in and local cache are origin-specific, so open the new site and sign in with your existing account.
+
+The default site serves permanent redirects to Axis. Its separate configuration is `firebase.legacy-hosting.json`. To update those redirects, deploy with `firebase deploy --only hosting --config firebase.legacy-hosting.json --project tehnadzor-online` after building.
