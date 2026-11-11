@@ -98,3 +98,11 @@ Run the commands listed in [README](../README.md#development-and-tests) before s
 On Linux, install Chromium and its system dependencies with `npx playwright install --with-deps chromium`. Windows tests launch installed Google Chrome.
 
 [CI](../.github/workflows/ci.yml) supplies fake Firebase web values for builds. Tests use synthetic fixtures; they must not depend on live project data.
+
+## GitHub Actions and Firebase Hosting
+
+Work on a branch and open a pull request to `main`. GitHub requires an up-to-date branch, a passing `ci` check and both CodeQL analyses. Successful CI on `main` publishes the `axisxyz` Hosting site. Scheduled feed refreshes use the same CI gate.
+
+The Firebase Preview workflow publishes the successful PR artifact to the separate `axis-preview-1226173870` project. Find the URL in the workflow run summary. The public channel expires after seven days. The preview uses synthetic configuration and supports reviewing public pages. CI exercises sign-in, Firestore and Storage through emulators.
+
+The `firebase-production` and `firebase-preview` environments use separate Workload Identity Federation providers and Hosting service accounts. Each provider checks the repository ID, `refs/heads/main`, workflow path and environment. Set `FIREBASE_WIF_PROVIDER` and `FIREBASE_DEPLOY_SERVICE_ACCOUNT` in each environment. Preview also requires `FIREBASE_PREVIEW_PROJECT` and `FIREBASE_PREVIEW_SITE`. The production build reads its public web app settings from Firebase Hosting's reserved URL.

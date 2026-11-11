@@ -98,3 +98,11 @@ Service worker компилируется в `dist/sw.js`. Исходники н
 В Linux установите Chromium и его системные зависимости командой `npx playwright install --with-deps chromium`. В Windows тесты запускают установленный Google Chrome.
 
 [CI](../.github/workflows/ci.yml) использует тестовые значения веб-конфигурации Firebase для сборок. Тесты работают с синтетическими данными и не должны зависеть от данных реальных проектов.
+
+## GitHub Actions и Firebase Hosting
+
+Вносите изменения в ветке и открывайте PR в `main`. Для слияния GitHub требует актуальную ветку, зелёную проверку `ci` и два анализа CodeQL. После успешного CI на `main` GitHub публикует только Hosting-сайт `axisxyz`. Плановое обновление ленты проходит тот же CI.
+
+Workflow Firebase Preview публикует артефакт успешного PR в отдельном проекте `axis-preview-1226173870`. Ссылка находится в сводке запуска Firebase Preview. Канал действует семь дней. Превью публично, использует синтетическую конфигурацию и предназначено для проверки страниц без входа. Сценарии входа, Firestore и Storage проверяются эмуляторами в CI.
+
+Окружения `firebase-production` и `firebase-preview` используют собственные провайдеры Workload Identity Federation и сервисные аккаунты с правами Firebase Hosting в соответствующих проектах. Провайдеры проверяют ID репозитория, `refs/heads/main`, имя workflow и окружение. Для каждого окружения задаются `FIREBASE_WIF_PROVIDER` и `FIREBASE_DEPLOY_SERVICE_ACCOUNT`. Для превью дополнительно нужны `FIREBASE_PREVIEW_PROJECT` и `FIREBASE_PREVIEW_SITE`. Рабочая сборка читает публичную конфигурацию веб-приложения из зарезервированного URL Firebase Hosting.
