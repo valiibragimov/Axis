@@ -89,7 +89,10 @@ test("mobile panel respects vertical, short, cancelled and non-edge gestures", {
     await page.setViewportSize({width:390,height:480});await swipe(page,{x:8,y:240},{x:180,y:240});
     await page.locator("#headerProfileButton").scrollIntoViewIfNeeded();assert.equal(await page.locator("#headerProfileButton").isVisible(),true);
     await page.setViewportSize({width:1440,height:1000});
-    assert.equal(Math.round((await page.locator("#workspaceSidebar").boundingBox()).width),64);
+    await page.waitForFunction(() => {
+      const sidebar = document.getElementById("workspaceSidebar");
+      return sidebar && Math.round(sidebar.getBoundingClientRect().width) === 64;
+    });
     assert.equal(await drawer.evaluate(e=>e.open),false);
   }finally{await app.close();}
 });
