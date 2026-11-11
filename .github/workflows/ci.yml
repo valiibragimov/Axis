@@ -142,6 +142,7 @@ jobs:
       - name: Build production Hosting files
         run: |
           npm ci
+          npm ci --prefix server
           npm run build:client
           npm run build:profile-feed
           npm run build:hosting
