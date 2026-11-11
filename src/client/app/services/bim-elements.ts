@@ -15,7 +15,7 @@ const BIM_DISPLAY_LABELS = Object.freeze({
   other: "Прочее"
 });
 
-export const BIM_TO_TEHNADZOR_TYPE = Object.freeze({
+export const BIM_TO_AXIS_TYPE = Object.freeze({
   slab: "floor_slab",
   column: "column",
   wall: "wall",
@@ -203,8 +203,8 @@ function compareLocale(left, right) {
   return catalogCollator.compare(String(left || ""), String(right || ""));
 }
 
-export function getTehnadzorTypeByBimType(type) {
-  return BIM_TO_TEHNADZOR_TYPE[String(type || "").trim().toLowerCase()] || null;
+export function getAxisTypeByBimType(type) {
+  return BIM_TO_AXIS_TYPE[String(type || "").trim().toLowerCase()] || null;
 }
 
 export function getBimTypeLabel(type) {

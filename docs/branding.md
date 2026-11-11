@@ -8,12 +8,16 @@ The rename requires no data migration. Existing accounts, projects, inspections 
 
 The following legacy technical names are intentionally retained:
 
-- Firebase project IDs, auth domains, buckets, environment variables and emulator IDs: keep existing configuration and deployment targets.
 - `tehnadzor_repeat_control` and IndexedDB `tehnadzor-bim-viewer`: preserve existing browser data.
 - The `tehnadzor-` service worker cache prefix: preserve cache lifecycle behavior; the build still refreshes the content hash.
-- `BIM_TO_TEHNADZOR_TYPE`, `getTehnadzorTypeByBimType`, IFC exporter identifiers: preserve technical contracts and fixtures.
 - Old-name strings in compatibility tests and production-config exclusion lists: continue detecting legacy settings and exercising stored data.
 
 The Russian engineering term «технадзор» describes a supervision role or activity and is not a product name. Keep it in educational content and document requisites.
 
 GitHub repository identity, history, issues, permissions and workflows remain attached to the renamed repository. Firebase hosting addresses are independent of the GitHub name and must not be renamed as part of branding.
+
+## Firebase Hosting
+
+[Axis](https://axisxyz.web.app) uses Hosting site `axisxyz` in the existing Firebase project `tehnadzor-online`. Keep the project ID, web app ID and Storage bucket from that project. For the production build, set `FIREBASE_WEB_AUTH_DOMAIN=axisxyz.web.app`. Firebase Authentication must allow this domain, and the existing Google OAuth client must allow the origin `https://axisxyz.web.app` and redirect URI `https://axisxyz.web.app/__/auth/handler`.
+
+Build with `npm run build` and deploy Hosting only with `firebase deploy --only hosting:axisxyz --project tehnadzor-online`. Firebase retains the default site and its provisioned domains. Browser sign-in and local cache are origin-specific, so open the new site and sign in with your existing account.

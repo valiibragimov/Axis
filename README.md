@@ -2,6 +2,8 @@
 
 # Axis
 
+[Open Axis](https://axisxyz.web.app)
+
 [Branding and compatibility](docs/branding.md)
 
 Axis is a web application for construction inspection. It helps field engineers and quality control teams record measurements, compare them with design values and tolerances, and follow up on defects within a project.

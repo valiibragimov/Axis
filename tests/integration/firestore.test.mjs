@@ -13,7 +13,7 @@ const { createAdminBimStore } = require("../../server/dist/server/src/repositori
 const { publishBimModel, loadPublishedBimElements, hideBimModels, readPublishedBimPages, collectBimGenerations } = require("../../server/dist/src/shared/bim/publication.js");
 const address = process.env.FIRESTORE_EMULATOR_HOST || "";
 if (!/^(127\.0\.0\.1|localhost):\d+$/.test(address)) throw new Error("Integration tests require a local Firestore emulator; live access is forbidden.");
-const projectId = "demo-tehnadzor-test";
+const projectId = "demo-axis-test";
 const elements = (count, label) => Array.from({ length: count }, (_, index) => ({ elementId: `model_${index}`, sourceModelId: "model", name: label, projectX: index * 1000 }));
 
 test("Firestore publication is atomic, conflict-safe, owner-scoped and backward-readable", { timeout: 120000 }, async t => {

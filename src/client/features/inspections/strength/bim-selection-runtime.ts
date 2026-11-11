@@ -4,7 +4,7 @@ import { getConstructionLabel } from "../../../app/construction.js";
 import {
   buildBimElementFilterOptions,
   buildBimElementOptionLabel,
-  getTehnadzorTypeByBimType
+  getAxisTypeByBimType
 } from "../../../app/services/bim-elements.js";
 import { ensureBimVisualPanel } from "../../../app/services/bim-visual-panel.js";
 import { onAppTabActivated } from "../../../app/services/module-activation.js";
@@ -575,7 +575,7 @@ export function createStrengthBimSelectionRuntime({
     }
 
     const typeLabel = getConstructionLabel(
-      getTehnadzorTypeByBimType(selectedElement.type),
+      getAxisTypeByBimType(selectedElement.type),
       "Элемент"
     );
     setStatus(
@@ -609,7 +609,7 @@ export function createStrengthBimSelectionRuntime({
 
     const targetConstruction =
       dom.construction?.value ||
-      getTehnadzorTypeByBimType(element.type) ||
+      getAxisTypeByBimType(element.type) ||
       "";
     const flags = getForm().getConstructionFlags(targetConstruction);
     if ((flags.isPlate || flags.isStair) && element.axes) {
@@ -691,7 +691,7 @@ export function createStrengthBimSelectionRuntime({
     }
 
     const targetConstruction =
-      getTehnadzorTypeByBimType(resolution.element.type) ||
+      getAxisTypeByBimType(resolution.element.type) ||
       dom.construction?.value ||
       "";
     if (dom.construction && targetConstruction) {

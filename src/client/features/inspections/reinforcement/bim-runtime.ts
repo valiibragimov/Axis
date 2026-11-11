@@ -27,7 +27,7 @@ import {
 import {
   buildBimElementFilterOptions,
   buildBimElementOptionLabel,
-  getTehnadzorTypeByBimType
+  getAxisTypeByBimType
 } from "../../../app/services/bim-elements.js";
 import { ensureBimVisualPanel } from "../../../app/services/bim-visual-panel.js";
 import { getCurrentIfcFileFromInput } from "../../../app/services/bim-runtime-context.js";
@@ -634,7 +634,7 @@ function updateReinfBimControlsState() {
     return;
   }
 
-  const typeLabel = getConstructionLabel(getTehnadzorTypeByBimType(selectedElement.type), "Элемент");
+  const typeLabel = getConstructionLabel(getAxisTypeByBimType(selectedElement.type), "Элемент");
   setReinfBimStatus(`${typeLabel} выбран из BIM. Привязка сохранится вместе с проверкой.`, "success");
 }
 
@@ -659,7 +659,7 @@ function buildReinfBindingPayloadFromSnapshot() {
 function applyReinfBimPrefillFromElement(element, { overwrite = false } = {}) {
   if (!element) return;
 
-  const targetConstruction = construction?.value || getTehnadzorTypeByBimType(element.type) || "";
+  const targetConstruction = construction?.value || getAxisTypeByBimType(element.type) || "";
   const targetFlags = getReinfConstructionFlags(targetConstruction);
   const floorField = getReinfFloorFieldByConstruction(targetConstruction);
   if (floorField && element.floor && (overwrite || !String(floorField.value || "").trim())) {
@@ -773,7 +773,7 @@ function applyReinfBimElementSelection(elementId) {
   const nextId = selection.selectedId;
   const element = selection.element;
   const previousConstruction = construction?.value || "";
-  const targetConstruction = getTehnadzorTypeByBimType(element.type) || construction?.value || "";
+  const targetConstruction = getAxisTypeByBimType(element.type) || construction?.value || "";
   if (construction && targetConstruction) {
     if (getDependencies().setConstruction(targetConstruction) === false) {
       if (reinfBimElementSelect) reinfBimElementSelect.value = selectedReinfBimElementId;

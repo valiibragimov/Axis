@@ -1,6 +1,6 @@
 [Русский](architecture-audit-final.ru.md)
 
-# Final architecture audit: Tehnadzor / Axis
+# Final architecture audit: Axis
 
 2 November 2026. Reviewed baseline: `c31c1e7`, main after the Axis rename. Scope is the original eight cards in the [roadmap](architecture-audit-roadmap.md), not a new product specification. Evidence includes current execution paths, correction history, existing regressions and fresh local checks. No production data, deployment or actual Firebase bills were used.
 

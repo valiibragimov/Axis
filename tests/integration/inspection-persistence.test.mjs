@@ -207,7 +207,7 @@ test("browser Firestore retries and channel cancellation remain consistent acros
   const [host, port] = address.split(":");
   const projectId = "demo-inspection-transport";
   const environment = await initializeTestEnvironment({ projectId, firestore: { host, port: Number(port), rules: await readFile("firestore.rules", "utf8") } });
-  const temporaryRoot = await mkdtemp(resolve(tmpdir(), "tehnadzor-channel-"));
+  const temporaryRoot = await mkdtemp(resolve(tmpdir(), "axis-channel-"));
   let server, browser, transportProxy;
   try {
     transportProxy = await startFirestoreTransportProxy(address);

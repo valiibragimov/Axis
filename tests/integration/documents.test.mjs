@@ -14,7 +14,7 @@ for (const name of ["FIRESTORE_EMULATOR_HOST", "FIREBASE_STORAGE_EMULATOR_HOST"]
 test("PDF versions and document-only roles are enforced in Firestore and Storage", { timeout: 120000 }, async t => {
   const [host, port] = process.env.FIRESTORE_EMULATOR_HOST.split(":");
   const [storageHost, storagePort] = process.env.FIREBASE_STORAGE_EMULATOR_HOST.split(":");
-  const environment = await initializeTestEnvironment({ projectId: "demo-tehnadzor-documents", firestore: { host, port: Number(port), rules: await readFile("firestore.rules", "utf8") }, storage: { host: storageHost, port: Number(storagePort), rules: await readFile("storage.rules", "utf8") } });
+  const environment = await initializeTestEnvironment({ projectId: "demo-axis-documents", firestore: { host, port: Number(port), rules: await readFile("firestore.rules", "utf8") }, storage: { host: storageHost, port: Number(storagePort), rules: await readFile("storage.rules", "utf8") } });
   const owner = environment.authenticatedContext("owner");
   const editor = environment.authenticatedContext("editor");
   const reader = environment.authenticatedContext("reader");
@@ -26,8 +26,8 @@ test("PDF versions and document-only roles are enforced in Firestore and Storage
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const require = createRequire(new URL("../../server/package.json", import.meta.url));
   const admin = require("firebase-admin/app");
-  process.env.FIREBASE_STORAGE_BUCKET = "demo-tehnadzor-documents.appspot.com";
-  if (!admin.getApps().length) admin.initializeApp({ projectId: "demo-tehnadzor-documents" });
+  process.env.FIREBASE_STORAGE_BUCKET = "demo-axis-documents.appspot.com";
+  if (!admin.getApps().length) admin.initializeApp({ projectId: "demo-axis-documents" });
   const { createDocumentUploader } = require("./dist/server/src/application/upload-document.js");
   const { firebaseDocumentUploadPorts, downloadDocument } = require("./dist/server/src/repositories/document-repository.js");
   const uploadDocument = createDocumentUploader(firebaseDocumentUploadPorts);
@@ -57,37 +57,37 @@ test("PDF versions and document-only roles are enforced in Firestore and Storage
     });
     await t.test("upload requires metadata, author, PDF type, size and scoped path", async () => {
       const metadata = { contentType: "application/pdf", cacheControl: "private, no-store", customMetadata: { sha256 } };
-      await assertFails(uploadBytes(ref(reader.storage("gs://demo-tehnadzor-documents.appspot.com"), objectPath), bytes, metadata));
-      await assertFails(uploadBytes(ref(editor.storage("gs://demo-tehnadzor-documents.appspot.com"), "projects/p/documents/d/versions/unregistered/file.pdf"), bytes, metadata));
-      await assertFails(uploadBytes(ref(editor.storage("gs://demo-tehnadzor-documents.appspot.com"), objectPath), bytes, { ...metadata, contentType: "text/plain" }));
-      await assertFails(uploadBytes(ref(editor.storage("gs://demo-tehnadzor-documents.appspot.com"), objectPath), bytes, { ...metadata, customMetadata: { sha256, firebaseStorageDownloadTokens: "public" } }));
-      await assertFails(uploadBytes(ref(editor.storage("gs://demo-tehnadzor-documents.appspot.com"), objectPath), bytes, metadata));
+      await assertFails(uploadBytes(ref(reader.storage("gs://demo-axis-documents.appspot.com"), objectPath), bytes, metadata));
+      await assertFails(uploadBytes(ref(editor.storage("gs://demo-axis-documents.appspot.com"), "projects/p/documents/d/versions/unregistered/file.pdf"), bytes, metadata));
+      await assertFails(uploadBytes(ref(editor.storage("gs://demo-axis-documents.appspot.com"), objectPath), bytes, { ...metadata, contentType: "text/plain" }));
+      await assertFails(uploadBytes(ref(editor.storage("gs://demo-axis-documents.appspot.com"), objectPath), bytes, { ...metadata, customMetadata: { sha256, firebaseStorageDownloadTokens: "public" } }));
+      await assertFails(uploadBytes(ref(editor.storage("gs://demo-axis-documents.appspot.com"), objectPath), bytes, metadata));
       await assert.rejects(uploadDocument(target, "reader", bytes), { status: 403 });
       await uploadDocument(target, "editor", bytes);
       // Upload is atomically finalized by the authorized API; no public token is created.
       const [storedMetadata] = await require("firebase-admin/storage").getStorage().bucket(process.env.FIREBASE_STORAGE_BUCKET).file(objectPath).getMetadata();
       assert.equal(storedMetadata.metadata?.firebaseStorageDownloadTokens, undefined);
-      await assertFails(getBytes(ref(editor.storage("gs://demo-tehnadzor-documents.appspot.com"), objectPath)));
+      await assertFails(getBytes(ref(editor.storage("gs://demo-axis-documents.appspot.com"), objectPath)));
     });
     await t.test("ready versions are readable only by authorized participants and cannot be overwritten", async () => {
       await assertFails(updateDoc(doc(editor.firestore(), versionPath), { status: "ready", uploadedAt: serverTimestamp() }));
       await uploadDocument(target, "editor", bytes);
       assert.deepEqual(new Uint8Array((await downloadDocument(target, "reader")).bytes), bytes);
-      await assertFails(getBytes(ref(reader.storage("gs://demo-tehnadzor-documents.appspot.com"), objectPath)));
+      await assertFails(getBytes(ref(reader.storage("gs://demo-axis-documents.appspot.com"), objectPath)));
       await assert.rejects(downloadDocument(target, "foreign"), { status: 403 });
-      await assertFails(getBytes(ref(foreign.storage("gs://demo-tehnadzor-documents.appspot.com"), objectPath)));
-      await assertFails(getBytes(ref(anonymous.storage("gs://demo-tehnadzor-documents.appspot.com"), objectPath)));
+      await assertFails(getBytes(ref(foreign.storage("gs://demo-axis-documents.appspot.com"), objectPath)));
+      await assertFails(getBytes(ref(anonymous.storage("gs://demo-axis-documents.appspot.com"), objectPath)));
       await assertFails(updateDoc(doc(owner.firestore(), versionPath), { title: "rewritten" }));
       await assertFails(deleteDoc(doc(owner.firestore(), versionPath)));
-      await assertFails(deleteObject(ref(owner.storage("gs://demo-tehnadzor-documents.appspot.com"), objectPath)));
-      await assertFails(updateMetadata(ref(owner.storage("gs://demo-tehnadzor-documents.appspot.com"), objectPath), { customMetadata: { firebaseStorageDownloadTokens: "public" } }));
-      await assertFails(uploadBytes(ref(editor.storage("gs://demo-tehnadzor-documents.appspot.com"), objectPath), bytes, { contentType: "application/pdf" }));
+      await assertFails(deleteObject(ref(owner.storage("gs://demo-axis-documents.appspot.com"), objectPath)));
+      await assertFails(updateMetadata(ref(owner.storage("gs://demo-axis-documents.appspot.com"), objectPath), { customMetadata: { firebaseStorageDownloadTokens: "public" } }));
+      await assertFails(uploadBytes(ref(editor.storage("gs://demo-axis-documents.appspot.com"), objectPath), bytes, { contentType: "application/pdf" }));
     });
     await t.test("revocation blocks future reads of every version", async () => {
       await deleteDoc(doc(owner.firestore(), "projects/p/documentMembers/reader"));
       await assertFails(getDocFromServer(doc(reader.firestore(), versionPath)));
       await assert.rejects(downloadDocument(target, "reader"), { status: 403 });
-      await assertFails(getBytes(ref(reader.storage("gs://demo-tehnadzor-documents.appspot.com"), objectPath)));
+      await assertFails(getBytes(ref(reader.storage("gs://demo-axis-documents.appspot.com"), objectPath)));
     });
   } finally { await environment.cleanup(); await Promise.all(admin.getApps().map(app => admin.deleteApp(app))); }
 });

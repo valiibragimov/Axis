@@ -8,7 +8,7 @@ import {
   buildBimElementFilterOptions,
   buildBimElementOptionLabel,
   buildGeoPrefillFromBimElement as buildRawGeoPrefill,
-  getTehnadzorTypeByBimType
+  getAxisTypeByBimType
 } from "../../../app/services/bim-elements.js";
 import { ensureBimVisualPanel } from "../../../app/services/bim-visual-panel.js";
 import { onAppTabActivated } from "../../../app/services/module-activation.js";
@@ -727,7 +727,7 @@ export function createGeodesyBimSelectionRuntime(
     }
 
     const typeLabel = getConstructionLabel(
-      getTehnadzorTypeByBimType(selectedElement.type),
+      getAxisTypeByBimType(selectedElement.type),
       "Элемент"
     );
     setStatus(
@@ -994,7 +994,7 @@ export function createGeodesyBimSelectionRuntime(
     const form = getForm();
     const sameElement = state.selectedBimElementId === resolution.selectedId;
     const targetConstruction =
-      getTehnadzorTypeByBimType(element.type) ||
+      getAxisTypeByBimType(element.type) ||
       getCurrentConstructionKey() ||
       normalizeConstructionKey(
         APP_CONFIG.DEFAULT_CONSTRUCTION,

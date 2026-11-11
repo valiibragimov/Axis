@@ -2,7 +2,7 @@ import { getConstructionLabel } from "../../../app/construction.js";
 import {
   buildBimElementSearchText,
   formatBimElementLabel,
-  getTehnadzorTypeByBimType,
+  getAxisTypeByBimType,
   normalizeProjectBimElement,
   sortProjectBimElements
 } from "../../../app/services/bim-elements.js";
@@ -181,7 +181,7 @@ export function buildReinforcementBimBindingSnapshot({
     normalizeReinforcementBimValue(fallbackData.bimType)?.toLowerCase();
   const typeLabel =
     getConstructionLabel(constructionType) ||
-    getConstructionLabel(getTehnadzorTypeByBimType(rawType)) ||
+    getConstructionLabel(getAxisTypeByBimType(rawType)) ||
     getConstructionLabel(fallbackData.construction) ||
     getConstructionLabel(fallbackData.constructionType) ||
     normalizeReinforcementBimValue(fallbackData.constructionLabel) ||

@@ -5,6 +5,7 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
+    "target": "axisxyz",
     "public": "dist-hosting",
     "predeploy": ["npm --prefix \"$PROJECT_DIR\" run check:hosting -- --production"],
     "headers": [

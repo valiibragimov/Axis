@@ -84,7 +84,7 @@ import {
   buildBimElementOptionLabel,
   buildBimElementSearchText,
   formatBimElementLabel,
-  getTehnadzorTypeByBimType,
+  getAxisTypeByBimType,
   normalizeProjectBimElement,
   sortProjectBimElements
 } from "../services/bim-elements.js";
@@ -927,7 +927,7 @@ function buildGeomBimBindingSnapshot({ element = null, checkData = null, constru
 
   const typeLabel =
     getConstructionLabel(constructionType) ||
-    getConstructionLabel(getTehnadzorTypeByBimType(rawType)) ||
+    getConstructionLabel(getAxisTypeByBimType(rawType)) ||
     getConstructionLabel(fallbackData.construction) ||
     getConstructionLabel(fallbackData.constructionType) ||
     normalizeGeomBimValue(fallbackData.constructionLabel) ||
@@ -1122,7 +1122,7 @@ function updateGeomBimControlsState() {
     return;
   }
 
-  const typeLabel = getConstructionLabel(getTehnadzorTypeByBimType(selectedElement.type), "Элемент");
+  const typeLabel = getConstructionLabel(getAxisTypeByBimType(selectedElement.type), "Элемент");
   setGeomBimStatus(
     `Выбран ${typeLabel}${selectedElement.mark ? ` ${selectedElement.mark}` : ""}. Тип, марка, BIM-оси и доступные проектные размеры подставлены в форму.`,
     "success"
@@ -1567,7 +1567,7 @@ function applyGeomBimDimensionPrefill(element, { overwrite = false } = {}) {
 
   markGeomDynamicBimFields(buildGeomBimBindingSnapshot({
     element,
-    constructionType: construction?.value || getTehnadzorTypeByBimType(element.type)
+    constructionType: construction?.value || getAxisTypeByBimType(element.type)
   }));
 }
 
@@ -1690,7 +1690,7 @@ function applyGeomBimElementSelection(elementId) {
     return;
   }
 
-  const targetConstruction = getTehnadzorTypeByBimType(element.type) || construction?.value || "";
+  const targetConstruction = getAxisTypeByBimType(element.type) || construction?.value || "";
   const targetFlags = getGeometryConstructionFlags(targetConstruction);
   if (construction && targetConstruction) {
     if (geometryContext.setConstruction) {

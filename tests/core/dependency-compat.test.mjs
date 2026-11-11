@@ -25,13 +25,13 @@ test("Redocly preserves URL header glob matching with patched minimatch", async 
   assert.deepEqual(requests[0].headers, { "X-Implicit": "implicit", "X-Explicit": "explicit", "X-Braces": "braces" });
   await readFileFromUrl("https://example.invalid/schema.json", { headers: [], customFetch });
   assert.deepEqual(requests[1].headers, {});
-  process.env.TEHNADZOR_SYNTHETIC_HEADER = "from-env";
+  process.env.AXIS_SYNTHETIC_HEADER = "from-env";
   try {
     await readFileFromUrl("https://example.invalid/schema.json", {
-      headers: [{ matches: "example.invalid/**", name: "X-Env", value: "ignored", envVariable: "TEHNADZOR_SYNTHETIC_HEADER" }], customFetch
+      headers: [{ matches: "example.invalid/**", name: "X-Env", value: "ignored", envVariable: "AXIS_SYNTHETIC_HEADER" }], customFetch
     });
     assert.deepEqual(requests[2].headers, { "X-Env": "from-env" });
-  } finally { delete process.env.TEHNADZOR_SYNTHETIC_HEADER; }
+  } finally { delete process.env.AXIS_SYNTHETIC_HEADER; }
   await assert.rejects(readFileFromUrl("https://example.invalid/schema.json", {
     headers, customFetch: async () => ({ ok: false, status: 403, statusText: "Forbidden" })
   }), /Failed to load .*403 Forbidden/);
