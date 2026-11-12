@@ -273,14 +273,13 @@
           <input id="strengthAssessmentDate" type="date" /></div>
           <div><label for="strengthAssessmentVerdict" data-i18n="assessment_verdict">Заключение</label>
           <select id="strengthAssessmentVerdict">
-            <option value="" data-i18n="engineering_requires_review">Требует проверки</option>
+            <option value="" data-i18n="assessment_pending">Нет заключения</option>
             <option value="conforms" data-i18n="engineering_conforms">Соответствует</option>
             <option value="nonconforms" data-i18n="engineering_nonconforms">Не соответствует</option>
           </select></div>
           <label class="field-wide"><input id="strengthAssessmentConfirmed" type="checkbox" /><span data-i18n="assessment_confirmed">Подтверждаю применимость и реквизиты основания</span></label>
           </div>
         </details>
-        <div class="caption" data-i18n="form_note_the_curve_is_an_approximate_model">Примечание: кривая — приближённая модель.</div>
         <div id="strengthResult" class="result"></div>
         <canvas id="strengthChart"></canvas>
 

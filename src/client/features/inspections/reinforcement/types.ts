@@ -94,6 +94,7 @@ export interface ReinforcementBimBindingSnapshot {
 
 export interface ReinforcementCheckRecord
   extends ReinforcementBimFields, ReinforcementMeasurements {
+  repeatOf?: string | null;
   acceptanceCriteria?: AcceptanceCriteria | null;
   id?: string | null;
   projectId?: string | null;

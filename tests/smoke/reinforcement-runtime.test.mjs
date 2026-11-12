@@ -885,7 +885,7 @@ test("run result contains the final phrase", async () => {
   await runtime.runCheck();
   assert.match(
     dom.reinfResult.innerHTML,
-    /engineering_requires_review|Требует проверки/
+    /engineering_incomplete|Недостаточно измерений|assessment_no_applicable_limit|Нет применимого допуска/
   );
 });
 

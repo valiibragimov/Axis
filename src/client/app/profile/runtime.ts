@@ -24,8 +24,8 @@ export function createProfileRuntime({
 }: ProfileRuntimeOptions) {
   let currentEngineerName = "";
 
-  const publishEngineerName = (value: string) => {
-    currentEngineerName = value;
+  const publishEngineerName = (value: string, engineerName = value) => {
+    currentEngineerName = engineerName;
     document.querySelectorAll<HTMLElement>("[data-account-name]").forEach(el => {
       el.textContent = value || t("profile");
       if (value) el.removeAttribute("data-i18n");
@@ -63,7 +63,10 @@ export function createProfileRuntime({
       }
 
       const data = snap.data() || {};
-      publishEngineerName(formatEngineerName(data.firstName, data.lastName));
+      publishEngineerName(
+        [data.firstName, data.lastName].map(value => String(value || "").trim()).filter(Boolean).join(" "),
+        formatEngineerName(data.firstName, data.lastName)
+      );
       setHeaderProfileAvatar(String(data.avatarDataUrl || ""));
     } catch (error) {
       console.warn("loadCurrentUserEngineerName error", error);

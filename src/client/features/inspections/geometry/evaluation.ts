@@ -1,4 +1,4 @@
-import { RULESET, resolveNormativeCriteria, sectionTolerance } from "../normative-rules.js";
+import { RULESET, resolveNormativeCriteria, sectionTolerance, sp70Reference } from "../normative-rules.js";
 import { compareMeasurement, comparePhysicalMeasurement, measurementNumber, summarizeMeasurements } from "../acceptance.js";
 import { getConstructionProfile, getConstructionModuleBehavior, normalizeConstructionKey } from "../../../app/construction.js";
 import { getInspectionStatus } from "../../../app/inspection-registry.js";
@@ -20,24 +20,29 @@ export function evaluateGeometryCheck(check: GeometryCheckRecord) {
   const measurements: GeometryMeasurement[] = [];
   if (applicable !== "object") return { ...summarizeMeasurements([]), measurements };
   const savedCriteria = check.acceptanceCriteria;
-  const criteria = savedCriteria?.normativeRule === `${RULESET}/monolithic`
-    ? resolveNormativeCriteria("geometry", construction, "monolithic")
+  const context = savedCriteria?.normativeRule?.split("/")[1] || "";
+  const useNormativeDimensions = savedCriteria?.normativeRule?.startsWith(`${RULESET}/`) &&
+    ["monolithic", "monolithic-floor-support", "precast-beam-support"].includes(context);
+  const criteria = useNormativeDimensions
+    ? resolveNormativeCriteria("geometry", construction, context, savedCriteria?.effectiveOn ?? "2026-11-01")
     : savedCriteria;
+  const positions: Record<string, number> = { vertical: 1, clearSpan: 5, section: 6, thickness: 6, opening: 8 };
   const results: Array<ReturnType<typeof compareMeasurement>> = [];
   const assess = (project: unknown, actual: unknown, key: string, basis = criteria, physical = true, label = key) => {
     const status = (physical ? comparePhysicalMeasurement : compareMeasurement)(project, actual, key, basis);
     results.push(status);
     if (measurementNumber(actual) != null || (physical && measurementNumber(project) != null)) {
       measurements.push({ label, project: measurementNumber(project), actual: measurementNumber(actual),
-        criteria: basis, key, status });
+        criteria: useNormativeDimensions && basis?.effectiveOn && positions[key]
+          ? { ...basis, reference: sp70Reference(`5.18.3, табл. 5.12, поз. ${positions[key]}`, basis.effectiveOn) } : basis, key, status });
     }
   };
   const pair = (row: Record<string, unknown>, project: string, actual: string, key: string, label = key) => {
     const p = measurementNumber(row[project]);
     const a = measurementNumber(row[actual]);
-    const automaticSection = criteria?.normativeRule === `${RULESET}/monolithic` && (key === "section" || key === "thickness");
+    const automaticSection = useNormativeDimensions && criteria != null && (key === "section" || key === "thickness");
     const section = automaticSection ? sectionTolerance(p) : null;
-    const basis = section && criteria ? { ...criteria, limits: { [key]: section } } : criteria;
+    const basis = criteria && section ? { ...criteria, limits: { [key]: section } } : criteria;
     assess(p, a, key, basis, true, label);
   };
   const dimensions = (row: Record<string, unknown>, keys: string[]) => {
@@ -45,7 +50,7 @@ export function evaluateGeometryCheck(check: GeometryCheckRecord) {
     for (const key of keys) {
       const value = values?.[key];
       if (construction === "excavation" && (!value || (measurementNumber(value.project) === null && measurementNumber(value.actual) === null))) continue;
-      const automaticSpan = criteria?.normativeRule === `${RULESET}/monolithic` && ["length", "clearLength", "clearWidth"].includes(key);
+      const automaticSpan = useNormativeDimensions && criteria != null && ["length", "clearLength", "clearWidth"].includes(key);
       pair(value || {}, "project", "actual", automaticSpan ? "clearSpan" : "dimensions", key);
     }
   };

@@ -1,5 +1,5 @@
 import type { LinkedJournalWrite } from "../../../types/module-records.js";
-import { setInspectionHistoryMetadata } from "../inspection-form.js";
+import { inspectionOrigin, setInspectionHistoryMetadata } from "../inspection-form.js";
 import { markInspectionMode, canReplaceInspection, focusInspectionMode, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
 import { t } from "../../../shared/i18n/index.js";
 import { getConstructionLabel } from "../../../app/construction.js";
@@ -280,7 +280,7 @@ export function createStrengthActions({
         onOpen: () => loadCheck(id),
         onDelete: async () => { await deleteCheck(id); }
       });
-      setInspectionHistoryMetadata(row, check, evaluation.status);
+      setInspectionHistoryMetadata(row, check, evaluation.status, "strength");
       fragment.appendChild(row);
     });
     list.appendChild(fragment);
@@ -310,10 +310,9 @@ export function createStrengthActions({
     if (dom.result) {
       dom.result.style.display = "block";
       dom.result.className = evaluation.status === "ok" ? "result ok" : "result";
-      dom.result.textContent = t(evaluation.isCompliant == null ? "engineering_requires_review" : evaluation.isCompliant ? "engineering_conforms" : "engineering_nonconforms") +
-        (evaluation.isCompliant == null
-          ? ` · ${t("inspection_strength_pending")}`
-          : ` · ${t("inspection_strength_basis")} — ${draft.assessment?.reference}`);
+      dom.result.textContent = evaluation.isCompliant == null
+        ? t(evaluation.hasActual && evaluation.hasRequiredData ? "inspection_strength_pending" : "inspection_strength_measurements_missing")
+        : `${t(evaluation.isCompliant ? "engineering_conforms" : "engineering_nonconforms")} · ${t("inspection_strength_basis")} — ${draft.assessment?.reference}`;
     }
     inspectionState.strength = evaluation.isCompliant === true;
     inspectionChecked.strength = evaluation.isCompliant != null;
@@ -349,7 +348,7 @@ export function createStrengthActions({
     }
 
     const provisionalId = existingId || crypto.randomUUID();
-    const data = form.readCheck(existing);
+    const data = { ...form.readCheck(existing), ...inspectionOrigin("strength", existing) };
     const evaluation = evaluateStrengthCheck(data);
     data.status = evaluation.status;
     data.summaryText = evaluation.summaryText;
@@ -378,7 +377,7 @@ export function createStrengthActions({
           ...(journalPayload || {
             module: "Прочность", status: "pending", evaluationSchemaVersion: 2,
             context: buildStrengthJournalContext(data),
-            details: t("engineering_requires_review"), sourceId: finalId, construction: data.construction
+            details: t(evaluation.hasActual && evaluation.hasRequiredData ? "inspection_strength_pending" : "inspection_strength_measurements_missing"), sourceId: finalId, construction: data.construction
           }),
           projectId, sourceRecord: data, commitInspection
         });

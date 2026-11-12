@@ -113,6 +113,7 @@ export interface GeometryBeamRecord extends Record<string, unknown> {
 }
 
 export interface GeometryCheckRecord extends BimBindingCheckData {
+  repeatOf?: string | null;
   physicalDimensions?: PhysicalDimensions;
   acceptanceCriteria?: AcceptanceCriteria | null;
   floor?: string | null;

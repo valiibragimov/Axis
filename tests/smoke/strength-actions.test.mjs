@@ -243,7 +243,7 @@ test("strength action keeps check incomplete when actual strength is absent", as
 
   assert.equal(harness.inspectionState.strength, false);
   assert.equal(harness.inspectionChecked.strength, false);
-  assert.match(harness.result.textContent, /engineering_requires_review|Требует проверки/u);
+  assert.match(harness.result.textContent, /inspection_strength_measurements_missing|inspection_strength_pending|Укажите проектный класс|Нет подтверждённого заключения/u);
   assert.equal(harness.journals.length, 0);
 });
 

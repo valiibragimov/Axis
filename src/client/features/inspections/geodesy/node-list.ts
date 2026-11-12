@@ -127,7 +127,7 @@ export function renderGeoNodesList({
     const n = typedNodes.get(k);
 
     const requiresReview = n.coordinateUnit !== "m" || !n.acceptanceCriteria || n.status === "pending";
-    const reviewTag = '<span class="tag" data-i18n="engineering_requires_review">Требует проверки</span>';
+    const reviewTag = '<span class="tag" data-i18n="assessment_pending">Нет заключения</span>';
     if (n.type === "columns") {
       const colMark = n.columnMark ? safeValue(n.columnMark) : "Без маркировки";
       const floorPart = n.floor ? `, Этаж ${safeValue(n.floor)}` : "";
@@ -221,7 +221,7 @@ export function renderGeoNodesList({
           }
         }
       });
-      setInspectionHistoryMetadata(row, n, requiresReview ? "pending" : n.status);
+      setInspectionHistoryMetadata(row, n, requiresReview ? "pending" : n.status, "geo");
       listElement.appendChild(row);
       return;
     }
@@ -277,7 +277,7 @@ export function renderGeoNodesList({
           }
         }
       });
-      setInspectionHistoryMetadata(row, n, requiresReview ? "pending" : n.status);
+      setInspectionHistoryMetadata(row, n, requiresReview ? "pending" : n.status, "geo");
       listElement.appendChild(row);
       return;
     }
@@ -381,7 +381,7 @@ export function renderGeoNodesList({
           }
         }
       });
-      setInspectionHistoryMetadata(row, n, requiresReview ? "pending" : n.status);
+      setInspectionHistoryMetadata(row, n, requiresReview ? "pending" : n.status, "geo");
       listElement.appendChild(row);
       return;
     }
@@ -461,7 +461,7 @@ export function renderGeoNodesList({
         }
       }
     });
-    setInspectionHistoryMetadata(row, n, requiresReview ? "pending" : n.status);
+    setInspectionHistoryMetadata(row, n, requiresReview ? "pending" : n.status, "geo");
       listElement.appendChild(row);
   });
 }
