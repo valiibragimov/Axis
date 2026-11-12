@@ -825,3 +825,31 @@
     text-underline-offset: .15em;
   }
 }
+
+
+@layer design {
+  .module-title-row .module-help-toggle,
+  .module-help-toggle {
+    inline-size: 24px;
+    block-size: 24px;
+    min-inline-size: 24px;
+    min-block-size: 24px;
+    padding: 0;
+    border-radius: 50%;
+  }
+  select.ui-select { min-inline-size: 0; padding-inline-end: 2rem; text-overflow: ellipsis; }
+  @supports (appearance: base-select) {
+    select.ui-select { padding-inline-end: .75rem; }
+    select.ui-select::picker-icon { flex: none; margin-inline-start: .5rem; }
+    select.ui-select selectedcontent { min-inline-size: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  }
+  .node-header-controls .node-open-button { padding-inline: .4rem; }
+  .node-open-button .inspection-history-edit { margin: 0; }
+  .journal-construction-category { display: block; }
+  @media (min-width: 769px) {
+    .sidebar-account .account-menu { inset-inline-start: calc(100% + 12px); }
+  }
+  @media (max-width: 768px) {
+    .sidebar-account .account-menu { position: static; max-height: min(44dvh, 340px); }
+  }
+}

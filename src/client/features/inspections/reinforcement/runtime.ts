@@ -1,3 +1,4 @@
+import { inspectionLimitLabel } from "../limit-label.js";
 import { setInspectionHistoryMetadata } from "../inspection-form.js";
 import { markInspectionMode, canReplaceInspection, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
 import { comparePhysicalMeasurement, measurementNumber, type AcceptanceCriteria } from "../acceptance.js";
@@ -120,7 +121,7 @@ export function buildReinforcementMeasurementResults(measurements: Reinforcement
     const verdict = key === "diameter" ? p == null || a == null || p <= 0 || a <= 0 ? "incomplete" : p === a ? "ok" : "exceeded" : comparePhysicalMeasurement(p, a, key, criteria);
     const text = t(verdict === "ok" ? "engineering_conforms" : verdict === "exceeded" ? "engineering_nonconforms" : "engineering_requires_review");
     return [{ name, ok: verdict === "ok", regulatoryDoc: key === "diameter" ? "PROJECT_DESIGN" : criteria?.reference || "",
-      html: `<div>${escapeHtml(name)}: ${escapeHtml(p ?? "—")} / ${escapeHtml(a ?? "—")} mm; Δ=${p == null || a == null ? "—" : (a - p).toFixed(1)} mm — ${escapeHtml(text)}</div>` }];
+      html: `<div>${escapeHtml(name)}: ${escapeHtml(p ?? "—")} / ${escapeHtml(a ?? "—")} mm; Δ=${p == null || a == null ? "—" : (a - p).toFixed(1)} mm — ${escapeHtml(text)} · ${escapeHtml(key === "diameter" ? t("inspection_nominal_diameter") : inspectionLimitLabel(criteria, key))}</div>` }];
   });
 }
 
@@ -142,12 +143,10 @@ export function createReinforcementRuntime(
     notify,
     confirm,
     updateSummary,
-    addJournalEntry,
     upsertJournalEntry,
     notifyFirestoreSyncStatus
   } = dependencies;
   let initialized = false;
-  let skipJournalOnce = false;
   let form: ReinforcementForm;
   let rows: ReinforcementRowsRuntime;
 
@@ -272,7 +271,7 @@ export function createReinforcementRuntime(
         ? "В норме"
         : status === "exceeded"
           ? "Есть отклонения"
-          : "Не заполнено";
+          : evaluation.hasUnverifiedMeasurements ? t("assessment_no_applicable_limit") : t("assessment_pending");
       const statusClass = status === "ok"
         ? "status-ok"
         : status === "exceeded"
@@ -423,15 +422,8 @@ export function createReinforcementRuntime(
         ? state.checks.get(state.currentCheckId) || null
         : null
     );
-    const result = renderRunResult(check);
-    if (result.anyCheck) {
-      await addJournalEntry({
-        ...buildReinforcementJournalPayload(check),
-        status: result.evaluation.status
-      });
-      skipJournalOnce = true;
-    }
-    await saveCheck({ skipJournalOnce: result.anyCheck });
+    renderRunResult(check);
+    await saveCheck();
     updateSummary();
   }
 
@@ -487,9 +479,6 @@ export function createReinforcementRuntime(
     state.checks.set(provisionalId, candidate);
     saveLocalChecks();
     renderChecks();
-    const skipJournal =
-      skipJournalOption || skipJournalOnce;
-    skipJournalOnce = false;
     try {
       const result = existing
         ? await service.updateCheck(projectId, provisionalId, candidate)
@@ -502,10 +491,11 @@ export function createReinforcementRuntime(
         saveLocalChecks();
         renderChecks();
       }
-      if (!skipJournal && candidate.status !== "empty") {
-        await upsertJournalEntry(
-          buildReinforcementJournalPayload(candidate, finalId)
+      if (!skipJournalOption) {
+        const journalId = await upsertJournalEntry(
+          { ...buildReinforcementJournalPayload(candidate, finalId), projectId, sourceRecord: candidate }
         );
+        if (journalId === null) return;
       }
       state.currentCheckId = null;
       markInspectionMode("reinforcement", "saved");

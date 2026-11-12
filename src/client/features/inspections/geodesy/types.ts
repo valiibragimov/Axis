@@ -196,10 +196,12 @@ export interface GeodesyNodeRecord
 export interface GeodesyJournalPayload {
   evaluationSchemaVersion?: number;
   module: "Геодезия";
-  status: "ok" | "exceeded";
+  status: "ok" | "exceeded" | "pending";
   context: string;
   details: string;
   sourceId: string;
+  projectId?: string | null;
+  sourceRecord?: GeodesyNodeRecord;
   construction: string;
 }
 

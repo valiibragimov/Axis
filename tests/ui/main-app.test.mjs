@@ -24,7 +24,7 @@ test("charts and PDF load from the application under its real CSP", {timeout:450
 
 for (const theme of ["light", "dark"]) {
   test(`main application: responsive pages and account drawer in ${theme} theme`, {timeout:120000}, async () => {
-    const app = await startApp({theme,touch:true});
+    const app = await startApp({theme,touch:true,browserType:selectedBrowser});
     const {page} = app;
     try {
       assert.equal(await page.locator("#bottomNav").count(),0);
@@ -35,6 +35,21 @@ for (const theme of ["light", "dark"]) {
           assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${target} ${width}: overflow`);
           if (target==="geometry" && width<=768) await page.locator('#geometry [data-wizard-step="2"]').click();
           if ([1440,390].includes(width) && ["overview","geometry","summary"].includes(target)) await app.capture(`${target}-${theme}-${width}`);
+        }
+        if (width === 1440) {
+          const account = page.locator("#headerProfileButton");
+          await account.click();
+          const menu = page.locator("#accountMenu");
+          await menu.waitFor();
+          const bounds = await menu.boundingBox();
+          const sidebar = await page.locator("#workspaceSidebar").boundingBox();
+          assert.ok(bounds.x >= sidebar.x + sidebar.width, "The menu must open beside the desktop sidebar");
+          assert.equal(await menu.evaluate(element => {
+            const {x, y, width, height} = element.getBoundingClientRect();
+            return element.contains(document.elementFromPoint(x + width / 2, y + height / 2));
+          }), true, "The desktop menu must not be clipped or covered");
+          await app.capture(`account-${theme}-1440`);
+          await page.keyboard.press("Escape");
         }
         if (width<=768) {
           await page.locator('.sidebar-drawer').waitFor({state:'hidden'});
@@ -112,6 +127,12 @@ test("saved geometry uses real Firestore, keyboard actions and project isolation
     assert.equal((await app.read("geomChecks","saved-geometry")).factPlateHeight,500);
     assert.equal((await app.records("geomChecks")).length,1,"Updating a saved record must retain its identity");
     await page.locator('#geometry[data-inspection-mode="saved"]').waitFor();
+    await openSection(page, "journal");
+    const legacyRow = page.locator('#journalTable tbody tr[data-source-id="saved-geometry"]');
+    await legacyRow.waitFor();
+    assert.equal(await legacyRow.count(), 1);
+    assert.equal(await legacyRow.getAttribute("data-entry-id"), "saved-geometry-event");
+    await openSection(page, "geometry");
     await page.locator("#geomAxisNumberTo").selectOption("5");
     await page.locator("#factPlateHeight").fill("501");
     await page.locator("#btnGeom").click();
@@ -318,6 +339,7 @@ test("geodesy saves independent points, edits one ID and records repeat control 
     await name.fill("Point A");
     await fact.fill("10.01");
     await save();
+    assert.match(await page.locator("#geoResult").innerText(), /-5 … 0.*СП 70/u);
     const [original] = await app.records("geoNodes");
     assert.equal(original.status, "bad");
 
@@ -333,7 +355,10 @@ test("geodesy saves independent points, edits one ID and records repeat control 
 
     await page.locator("#geo [data-inspection-search]").fill("Point B");
     assert.equal(await page.locator("#nodesList .node:visible").count(), 1);
-    await page.locator("#nodesList .node:visible .node-open-button").click();
+    const card = page.locator("#nodesList .node:visible");
+    assert.equal(await card.locator(".node-title .node-open-button").count(), 0);
+    assert.equal(await card.locator(".node-title").innerText().then(text => text.split("Point B").length - 1), 1);
+    await card.locator(".node-open-button").click();
     await page.locator('#geo[data-inspection-mode="edit"]').waitFor();
     await fact.fill("9.997");
     page.once("dialog", dialog => dialog.dismiss());
@@ -344,6 +369,9 @@ test("geodesy saves independent points, edits one ID and records repeat control 
     assert.equal((await app.read("geoNodes", second.id)).factH, 9.997);
 
     await openSection(page, "journal");
+    const linkedRow = page.locator(`#journalTable tbody tr[data-source-id="${second.id}"]`);
+    await linkedRow.waitFor();
+    assert.equal(await linkedRow.count(), 1, "Editing updates the journal entry for the same inspection");
     await page.locator("#journalTable tbody tr").filter({ hasText: "Point A" }).locator(".journal-issue-btn").click();
     const repeatAction = page.locator(".journal-issue-card__repeat-action");
     await repeatAction.waitFor();
@@ -362,6 +390,15 @@ test("geodesy saves independent points, edits one ID and records repeat control 
     assert.equal((await app.read("geoNodes", original.id)).factH, 10.01);
     const repeat = afterRepeat.find(record => record.factH === 9.996);
     assert.equal((await app.read("issues", issue.id)).repeatControlInspectionId, repeat.id);
+    await name.fill("Point C");
+    await fact.fill("");
+    await save();
+    const pending = (await app.records("geoNodes")).find(record => record.pointLabel === "Point C");
+    assert.equal(pending.status, "pending");
+    await openSection(page, "journal");
+    const pendingRow = page.locator(`#journalTable tbody tr[data-source-id="${pending.id}"]`);
+    await pendingRow.locator(".journal-status-badge.pending").waitFor();
+    assert.match(await pendingRow.innerText(), /Point C/u);
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });

@@ -921,13 +921,16 @@ test("partially filled check auto-saves with empty status", async () => {
   assert.equal(state.checks.get("created-1")?.status, "empty");
 });
 
-test("empty auto-saved check does not create a journal entry", async () => {
-  const { dom, journals, runtime } = createRuntimeHarness();
+test("incomplete auto-saved check creates a linked pending journal entry", async () => {
+  const { dom, journals, runtime, state } = createRuntimeHarness();
   dom.factDia.value = "";
   dom.factStep.value = "";
   dom.factCover.value = "";
 
   await runtime.runCheck();
 
-  assert.deepEqual(journals, []);
+  assert.equal(journals.length, 1);
+  assert.equal(journals[0][0], "upsert");
+  assert.equal(journals[0][1].status, "pending");
+  assert.ok(state.checks.has(journals[0][1].sourceId));
 });

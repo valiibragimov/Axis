@@ -1,3 +1,4 @@
+import { inspectionLimitLabel } from "../../features/inspections/limit-label.js";
 import { setInspectionHistoryMetadata } from "../../features/inspections/inspection-form.js";
 import { markInspectionMode, canReplaceInspection, focusInspectionMode, startNewInspection, serializeInspectionSave } from "../../features/inspections/inspection-form.js";
 import { evaluateGeometryCheck as evaluateGeomCheck } from "../../features/inspections/geometry/evaluation.js";
@@ -167,6 +168,31 @@ function geometryVerdict(evaluation: ReturnType<typeof evaluateGeomCheck>) {
     evaluation.status === "exceeded" ? "engineering_nonconforms" :
     evaluation.hasUnverifiedMeasurements ? "assessment_no_applicable_limit" : "engineering_incomplete");
 }
+
+function renderGeometryResult(evaluation: ReturnType<typeof evaluateGeomCheck>) {
+  if (!geometryResult) return;
+  geometryResult.className = evaluation.status === "ok" ? "result ok" : evaluation.status === "exceeded" ? "result not-ok" : "result";
+  geometryResult.textContent = geometryVerdict(evaluation);
+  if (evaluation.status === "exceeded" && evaluation.hasIncompleteMeasurements) {
+    geometryResult.append(` — ${t("engineering_incomplete")}`);
+  }
+  for (const measurement of evaluation.measurements) {
+    const { label, key, project, actual, criteria, status } = measurement;
+    const line = document.createElement("div");
+    const labelKey = "dimension_" + label;
+    const translated = t(labelKey);
+    const name = translated === labelKey ? t({
+      thickness: "form_measured_element_thickness", vertical: "form_vertical_deviation",
+      flatness: "form_measured_slab_flatness", opening: "form_measured_opening_dimensions"
+    }[label] || "physical_dimensions") : translated;
+    const delta = project != null && actual != null ? (actual - project).toFixed(2) : "—";
+    const limit = status === "incomplete" ? t("engineering_incomplete") : inspectionLimitLabel(criteria, key);
+    const verdict = status === "ok" ? t("engineering_conforms") : status === "exceeded" ? t("engineering_nonconforms") : "";
+    line.textContent = [`${name} · ${project ?? "—"} / ${actual ?? "—"} ${t("form_mm")} · Δ ${delta}`, limit, verdict].filter(Boolean).join(" · ");
+    geometryResult.append(line);
+  }
+}
+
 
 let commonPhysicalDimensions: PhysicalDimensions = {};
 function renderCommonDimensions() {
@@ -2812,7 +2838,7 @@ function renderGeomChecks() {
     } else if (evaluation.status === "ok") {
       statusTag = '<span class="tag ok" data-i18n="saved_ok">в норме</span>';
     } else {
-      statusTag = d.construction === "excavation" ? `<span class="tag">${t("assessment_pending")}</span>` : '<span class="tag" data-i18n="saved_empty">не заполнено</span>';
+      statusTag = evaluation.hasUnverifiedMeasurements || d.construction === "excavation" ? `<span class="tag">${t("assessment_pending")}</span>` : '<span class="tag" data-i18n="saved_empty">не заполнено</span>';
     }
 
     row.innerHTML = `
@@ -3000,12 +3026,7 @@ function loadGeomCheck(id) {
   if (vertDev) vertDev.value = d.vertDev == null ? "" : String(d.vertDev);
   if (geomNoteEl) geomNoteEl.value = d.note || "";
 
-  if (geometryResult) {
-    const evaluation = evaluateGeomCheck(d);
-    geometryResult.className = evaluation.status === "ok" ? "result ok" : evaluation.status === "exceeded" ? "result not-ok" : "result";
-    geometryResult.textContent = geometryVerdict(evaluation);
-    if (evaluation.status === "exceeded" && evaluation.hasIncompleteMeasurements) geometryResult.append(` — ${t("engineering_incomplete")}`);
-  }
+  renderGeometryResult(evaluateGeomCheck(d));
 
   syncGeomBimSelectionFromCheck(d);
   // Restoring construction emits change and clears edit IDs; restore identity last.
@@ -3199,27 +3220,7 @@ async function persistGeomCheck(skipJournalOnce: boolean) {
   if (isFormwork) data.formworkResult = evaluation.summaryText;
   getState().geometry = evaluation.status === "ok";
   getChecked().geometry = evaluation.status !== "empty";
-  if (geometryResult) {
-    geometryResult.className = evaluation.status === "ok" ? "result ok" : evaluation.status === "exceeded" ? "result not-ok" : "result";
-    geometryResult.textContent = geometryVerdict(evaluation);
-    if (evaluation.status === "exceeded" && evaluation.hasIncompleteMeasurements) geometryResult.append(` — ${t("engineering_incomplete")}`);
-    const rows = [data, ...(data.columns || []), ...(data.walls || []), ...(data.beams || []), ...(data.stairs || [])];
-    for (const [index, row] of rows.entries()) {
-      const values = row.physicalDimensions || {};
-      for (const [key, pair] of Object.entries(values)) {
-        const line = document.createElement("div");
-        line.textContent = `${index || ""} ${t("dimension_" + key)}: ${pair.project || "—"} / ${pair.actual || "—"} mm`;
-        geometryResult.append(line);
-      }
-      for (const [project, actual] of [["projPlateHeight", "factPlateHeight"], ["projThick", "factThick"], ["projSize1", "factSize1"], ["projSize2", "factSize2"], ["projBeamWidth", "factBeamWidth"], ["projBeamHeight", "factBeamHeight"], ["projFlightWidth", "factFlightWidth"], ["projStepHeight", "factStepHeight"], ["projStepWidth", "factStepWidth"]]) {
-        if (row[project] == null && row[actual] == null) continue;
-        const line = document.createElement("div");
-        line.textContent = `${row[project] ?? "—"} / ${row[actual] ?? "—"} mm`;
-        geometryResult.append(line);
-      }
-    }
-
-  }
+  renderGeometryResult(evaluation);
   data.lastMsg = geometryResult ? (geometryResult.innerHTML || "") : "";
 
   data.projectId = getCurrentProjectId();
@@ -3242,13 +3243,12 @@ async function persistGeomCheck(skipJournalOnce: boolean) {
     const saved = await saveGeomInspection(projectId, id, data);
     notifyFirestoreSyncStatusSafe(saved.ref);
 
-    if (!skipJournal && data.status !== "empty") {
+    if (!skipJournal) {
       let context = "";
       if (floor) {
         context = `Этаж ${floor}`;
       }
-      const constructionValue = construction ? construction.value : "";
-      if (constructionValue === "Плита" && data.location) {
+      if (data.location) {
         context = floor ? `Этаж ${floor}, ${data.location}` : data.location;
       }
       if (isFormwork) {
@@ -3257,15 +3257,18 @@ async function persistGeomCheck(skipJournalOnce: boolean) {
       }
       if (!context) context = "Геометрия";
 
-      await upsertJournalEntrySafe({
+      const journalId = await upsertJournalEntrySafe({
         evaluationSchemaVersion: 2,
         module: "Геометрия",
-        status: data.status === "ok" ? "ok" : "exceeded",
+        status: data.status === "empty" ? "pending" : data.status,
+        projectId,
+        sourceRecord: data,
         context: context,
         details: evaluation.summaryText || "Проверка геометрии",
         sourceId: finalId,
         construction: data.construction || getSelectedConstructionKey()
       });
+      if (journalId === null) return;
     }
     setCurrentGeomCheckId(null);
     markInspectionMode("geometry", "saved");

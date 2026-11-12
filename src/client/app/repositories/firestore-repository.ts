@@ -554,7 +554,12 @@ export function watchDocSync(docRef: Parameters<typeof onSnapshot>[0], onData: (
   );
 }
 
-export async function addJournalEntryDoc(entry: FirestoreRecord) {
+export async function addJournalEntryDoc(entry: FirestoreRecord, id?: string) {
+  if (id) {
+    const ref = doc(db, JOURNAL_COLLECTION, id);
+    await setDoc(ref, entry, { merge: true });
+    return { id: ref.id, ref };
+  }
   const ref = await addDoc(collection(db, JOURNAL_COLLECTION), entry);
   return { id: ref.id, ref };
 }
@@ -569,6 +574,11 @@ export async function addJournalEntryDocs(entries: FirestoreRecord[]) {
   });
   await batch.commit();
   return entries.length;
+}
+
+export function getLinkedJournalEntriesSnapshot(projectId: string, sourceId: string) {
+  return getDocsFromServer(query(collection(db, JOURNAL_COLLECTION),
+    where("projectId", "==", projectId), where("sourceId", "==", sourceId)));
 }
 
 export async function getJournalEntriesSnapshot(projectId) {

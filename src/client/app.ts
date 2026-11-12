@@ -715,7 +715,7 @@ const appModuleBridge = createAppModuleBridge({
   },
   onJournalTabActivated: () => {
     appModuleBridge.setJournalFilters(null, null);
-    appModuleBridge.renderJournal();
+    void appModuleBridge.loadJournalFromFirestore();
   }
 });
 

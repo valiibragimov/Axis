@@ -11,14 +11,20 @@ export function measurementNumber(value: unknown): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
+export function confirmedMeasurementLimit(criteria: AcceptanceCriteria | null | undefined, key: string) {
+  const limits = criteria?.limits?.[key];
+  if (!criteria?.confirmed || typeof criteria.reference !== "string" || !criteria.reference.trim() || limits?.min == null || limits.max == null ||
+      !Number.isFinite(limits.min) || !Number.isFinite(limits.max) || limits.min > limits.max) return null;
+  return { min: limits.min, max: limits.max };
+}
+
 /** Limits are signed deviations in mm, explicitly supplied for this inspection. */
 export function compareMeasurement(project: unknown, actual: unknown, key: string, criteria?: AcceptanceCriteria | null) {
   const design = measurementNumber(project);
   const measured = measurementNumber(actual);
   if (design == null || measured == null) return "incomplete" as const;
-  const limits = criteria?.limits?.[key];
-  if (!criteria?.confirmed || !criteria.reference.trim() || limits?.min == null || limits.max == null ||
-      !Number.isFinite(limits.min) || !Number.isFinite(limits.max) || limits.min > limits.max) return "unverified" as const;
+  const limits = confirmedMeasurementLimit(criteria, key);
+  if (!limits) return "unverified" as const;
   const delta = measured - design;
   return delta >= limits.min - 1e-7 && delta <= limits.max + 1e-7 ? "ok" as const : "exceeded" as const;
 }

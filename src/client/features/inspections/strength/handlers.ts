@@ -309,7 +309,9 @@ export function createStrengthActions({
       dom.result.style.display = "block";
       dom.result.className = evaluation.status === "ok" ? "result ok" : "result";
       dom.result.textContent = t(evaluation.isCompliant == null ? "engineering_requires_review" : evaluation.isCompliant ? "engineering_conforms" : "engineering_nonconforms") +
-        (draft.assessment?.reference ? ": " + draft.assessment.reference : "");
+        (evaluation.isCompliant == null
+          ? ` · ${t("inspection_strength_pending")}`
+          : ` · ${t("inspection_strength_basis")} — ${draft.assessment?.reference}`);
     }
     inspectionState.strength = evaluation.isCompliant === true;
     inspectionChecked.strength = evaluation.isCompliant != null;
@@ -372,11 +374,19 @@ export function createStrengthActions({
         renderChecks();
       }
 
-      if (!skipJournal && data.status !== "empty") {
+      if (!skipJournal) {
         const journalPayload = buildStrengthJournalPayload(data, {
           sourceId: finalId
         });
-        if (journalPayload) await upsertJournalEntry(journalPayload);
+        const journalId = await upsertJournalEntry({
+          ...(journalPayload || {
+            module: "Прочность", status: "pending", evaluationSchemaVersion: 2,
+            context: [data.floor ? `Этаж ${data.floor}` : "", data.location || "", data.days ? `день=${data.days}` : ""].filter(Boolean).join(", "),
+            details: t("engineering_requires_review"), sourceId: finalId, construction: data.construction
+          }),
+          projectId, sourceRecord: data
+        });
+        if (journalId === null) return null;
       }
       setCurrentStrengthCheckId(state, null);
       markInspectionMode("strength", "saved");

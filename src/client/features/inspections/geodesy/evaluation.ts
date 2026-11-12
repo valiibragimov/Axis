@@ -1,4 +1,4 @@
-import type { AcceptanceCriteria } from "../acceptance.js";
+import { confirmedMeasurementLimit, type AcceptanceCriteria } from "../acceptance.js";
 import type {
   GeodesyColumnDraft,
   GeodesyCoordinateDraft,
@@ -92,7 +92,7 @@ export function buildColumnJournalPayload({
   columnMark: string;
   floor: string;
   columns: GeodesyColumnDraft[];
-  status: "ok" | "bad";
+  status: "ok" | "bad" | "empty";
 }): GeodesyJournalPayload {
   const details = columns
     .map((column, index) => {
@@ -116,7 +116,7 @@ export function buildColumnJournalPayload({
   return {
     evaluationSchemaVersion: 2,
     module: "Геодезия",
-    status: status === "ok" ? "ok" : "exceeded",
+    status: status === "ok" ? "ok" : status === "bad" ? "exceeded" : "pending",
     context: [columnMark, floor].filter(Boolean).join(", ") || "Колонны",
     details: details || "Проверка колонн",
     sourceId: key,
@@ -138,7 +138,7 @@ export function buildLinearJournalPayload({
   construction: string;
   floor: string;
   rows: GeodesyLinearDraft[];
-  status: "ok" | "bad";
+  status: "ok" | "bad" | "empty";
   entityLabel: string;
   entityPlural: string;
   emptyDetails: string;
@@ -177,7 +177,7 @@ export function buildLinearJournalPayload({
   return {
     evaluationSchemaVersion: 2,
     module: "Геодезия",
-    status: status === "ok" ? "ok" : "exceeded",
+    status: status === "ok" ? "ok" : status === "bad" ? "exceeded" : "pending",
     context: floor ? `Этаж ${floor}, ${entityPlural}` : entityPlural,
     details: details || emptyDetails,
     sourceId: key,
@@ -285,7 +285,5 @@ function buildCoordinateCheck(
 }
 
 export function getConfirmedGeoTolerance(criteria: AcceptanceCriteria | null | undefined, key: string): GeodesyTolerance {
-  const bounds = criteria?.limits[key];
-  return criteria?.confirmed && criteria.reference.trim() && bounds?.min != null && bounds.max != null &&
-    Number.isFinite(bounds.min) && Number.isFinite(bounds.max) && bounds.min <= bounds.max ? { min: bounds.min, max: bounds.max } : NaN;
+  return confirmedMeasurementLimit(criteria, key) ?? NaN;
 }

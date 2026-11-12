@@ -110,22 +110,31 @@ export function setInspectionHistoryMetadata(row: HTMLElement, record: { created
   row.dataset.inspectionStatus = ["ok", "exceeded", "bad"].includes(String(status))
     ? (status === "ok" ? "ok" : "exceeded") : "pending";
   const time = Number(record.createdAt);
-  const parts = [String(record.floor ?? "").trim(), String(record.location ?? "").trim()].filter(Boolean);
-  if (Number.isFinite(time) && time > 0 && time <= 8.64e15) parts.push(new Date(time).toLocaleDateString(row.ownerDocument.documentElement?.lang || "ru"));
   const title = row.querySelector(".node-title");
+  const titleText = row.textContent?.replace(/\s+/g, " ").trim().toLowerCase() || "";
+  const location = String(record.location ?? "").trim();
+  const parts = location && !titleText.includes(location.toLowerCase()) ? [location] : [];
+  const floor = String(record.floor ?? "").trim();
+  const floorText = floor ? `${t("form_floor")} ${floor}` : "";
+  if (floorText && !titleText.includes(floorText.toLowerCase())) parts.unshift(floorText);
+  if (Number.isFinite(time) && time > 0 && time <= 8.64e15) {
+    const date = new Date(time).toLocaleDateString(row.ownerDocument.documentElement?.lang || "ru");
+    if (!titleText.includes(date)) parts.push(date);
+  }
   if (parts.length) {
     const meta = row.ownerDocument.createElement("div");
     meta.className = "inspection-history-meta";
     meta.textContent = parts.join(", ");
     title?.append(meta);
   }
-  const open = title?.querySelector(".node-open-button");
+  const open = row.querySelector(".node-open-button");
   if (open) {
     const action = row.ownerDocument.createElement("span");
     action.className = "inspection-history-edit";
     action.dataset.i18n = "inspection_edit_action";
     action.textContent = t("inspection_edit_action");
-    open.append(action);
+    open.setAttribute("aria-label", [action.textContent, title?.textContent?.trim()].filter(Boolean).join(" · "));
+    open.replaceChildren(action);
   }
 }
 

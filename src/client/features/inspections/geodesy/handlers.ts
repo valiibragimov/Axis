@@ -1,3 +1,4 @@
+import { inspectionLimitLabel } from "../limit-label.js";
 import { markInspectionMode, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
 import { isNormativeBearingLevel } from "../normative-rules.js";
 import { t } from "../../../shared/i18n/index.js";
@@ -136,10 +137,11 @@ export function bindGeodesyHandlers({
   } = form;
 
   const saveProjectNode = (
+    projectId: string | null,
     nodeId: string,
     data: GeodesyNodeRecord
   ) => geodesyNodeActions.saveProjectNode(
-    getCurrentProjectId(),
+    projectId,
     nodeId,
     data
   );
@@ -154,16 +156,21 @@ export function bindGeodesyHandlers({
     geoResult.textContent = t(data.status === "ok" ? "engineering_conforms" : data.status === "bad" ? "engineering_nonconforms" :
       data.dataStatus === "checked" ? "assessment_no_applicable_limit" : "engineering_incomplete");
     if (data.status === "bad" && data.dataStatus !== "checked") geoResult.append(` — ${t("engineering_incomplete")}`);
-    const rows = data.columns || data.walls || data.beams || [data];
+    const rows = data.columns || data.walls || data.beams || [data, ...(data.openingPoints || [])];
     for (const [index, row] of rows.entries()) {
       const suffixes = row.bindingType === "number_letters" ? ["_num_let1", "_num_let2"] : row.bindingType === "letter_numbers" ? ["_let_num1", "_let_num2"] : [""];
       for (const suffix of suffixes) for (const axis of ["X", "Y", "H"]) {
         const p = row["proj" + axis + suffix], f = row["fact" + axis + suffix];
         if (p == null || f == null || p === "" || f === "") continue;
         const line = document.createElement("div");
-        line.textContent = `${index + 1} ${axis}${suffix ? " " + suffix.slice(-1) : ""}: ${p} / ${f} m; Δ=${((Number(f) - Number(p)) * 1000).toFixed(1)} mm`;
+        line.textContent = `${index + 1} ${axis}${suffix ? " " + suffix.slice(-1) : ""}: ${p} / ${f} m; Δ=${((Number(f) - Number(p)) * 1000).toFixed(1)} mm · ${inspectionLimitLabel(data.acceptanceCriteria, axis === "H" ? "geoHeight" : "geoPlan")}`;
         geoResult.append(line);
       }
+    }
+    if (data.plateFlatnessActual != null) {
+      const line = document.createElement("div");
+      line.textContent = `${t("form_measured_flatness_deviation_mm")} ${data.plateFlatnessActual} ${t("form_mm")} · ${inspectionLimitLabel(data.acceptanceCriteria, "geoFlatness")}`;
+      geoResult.append(line);
     }
     data.lastMsg = geoResult.innerHTML;
   }
@@ -176,7 +183,8 @@ export function bindGeodesyHandlers({
   }
 
   async function saveCheck() {
-    if (!validateProject(getCurrentProjectId())) return;
+    const projectId = getCurrentProjectId();
+    if (!validateProject(projectId)) return;
     if (geoResult.dataset.legacyUnits === "1") {
       showNotification("Единицы старой записи не определены. Исходная запись сохранена; создайте новую проверку после очистки формы.", "warning");
       return;
@@ -257,21 +265,22 @@ export function bindGeodesyHandlers({
       saveNodes();
 
       try {
-        await saveProjectNode(key, data);
+        const savedRows = columns.map(row => ({ ...row }));
+        await saveProjectNode(projectId, key, data);
         const skipJournal = geodesyNodeState.skipJournalOnce;
         if (geodesyNodeState.skipJournalOnce) {
           geodesyNodeState.skipJournalOnce = false;
         }
-        // Добавляем запись в журнал, если узел был проверен (не pending)
-        if (!skipJournal && evaluation.status !== "empty" && evaluation.hasAllData) {
-          await upsertJournalEntry(buildColumnJournalPayload({
+        if (!skipJournal) {
+          const journalId = await upsertJournalEntry({ ...buildColumnJournalPayload({
             key,
-            construction: getCurrentConstructionKey(),
+            construction: data.construction || "",
             columnMark,
             floor,
-            columns,
+            columns: savedRows,
             status: evaluation.status
-          }));
+          }), projectId, sourceRecord: data });
+          if (journalId === null) return;
         }
 
         // Обновляем вкладку "Итог"
@@ -424,23 +433,24 @@ export function bindGeodesyHandlers({
       saveNodes();
 
       try {
-        await saveProjectNode(key, data);
+        const savedRows = walls.map(row => ({ ...row }));
+        await saveProjectNode(projectId, key, data);
         const skipJournal = geodesyNodeState.skipJournalOnce;
         if (geodesyNodeState.skipJournalOnce) {
           geodesyNodeState.skipJournalOnce = false;
         }
-        // Добавляем запись в журнал, если узел был проверен
-        if (!skipJournal && evaluation.status !== "empty" && evaluation.hasAllData) {
-          await upsertJournalEntry(buildLinearJournalPayload({
+        if (!skipJournal) {
+          const journalId = await upsertJournalEntry({ ...buildLinearJournalPayload({
             key,
-            construction: getCurrentConstructionKey(),
+            construction: data.construction || "",
             floor,
-            rows: walls,
+            rows: savedRows,
             status: evaluation.status,
             entityLabel: wallEntityLabel,
             entityPlural: wallEntityPlural,
             emptyDetails: `Проверка ${wallEntityPluralGenitive}`
-          }));
+          }), projectId, sourceRecord: data });
+          if (journalId === null) return;
         }
 
         // Обновляем вкладку "Итог"
@@ -590,23 +600,24 @@ export function bindGeodesyHandlers({
       saveNodes();
 
       try {
-        await saveProjectNode(key, data);
+        const savedRows = beams.map(row => ({ ...row }));
+        await saveProjectNode(projectId, key, data);
         const skipJournal = geodesyNodeState.skipJournalOnce;
         if (geodesyNodeState.skipJournalOnce) {
           geodesyNodeState.skipJournalOnce = false;
         }
-        // Добавляем запись в журнал, если узел был проверен
-        if (!skipJournal && evaluation.status !== "empty" && evaluation.hasAllData) {
-          await upsertJournalEntry(buildLinearJournalPayload({
+        if (!skipJournal) {
+          const journalId = await upsertJournalEntry({ ...buildLinearJournalPayload({
             key,
-            construction: getCurrentConstructionKey(),
+            construction: data.construction || "",
             floor,
-            rows: beams,
+            rows: savedRows,
             status: evaluation.status,
             entityLabel: "Балка",
             entityPlural: "Балки",
             emptyDetails: "Проверка балок"
-          }));
+          }), projectId, sourceRecord: data });
+          if (journalId === null) return;
         }
 
         // Обновляем вкладку "Итог"
@@ -782,13 +793,12 @@ export function bindGeodesyHandlers({
     saveNodes();
 
     try {
-      await saveProjectNode(key, data);
+      await saveProjectNode(projectId, key, data);
       const skipJournal = geodesyNodeState.skipJournalOnce;
       if (geodesyNodeState.skipJournalOnce) {
         geodesyNodeState.skipJournalOnce = false;
       }
-      // Добавляем запись в журнал, если узел был проверен (не pending)
-      if (!skipJournal && finalEvaluationStatus !== "empty" && evaluation.hasAllData && (!plateFlatnessData || plateFlatnessComplete)) {
+      if (!skipJournal) {
         const allOk = finalEvaluationStatus === "ok";
         const contextLabel = (heightOnly ? pointLabel : "") || axisState.location || axisState.nodeLabel || "узел";
         const context = floor ? `${floor}-${contextLabel}` : contextLabel;
@@ -800,15 +810,18 @@ export function bindGeodesyHandlers({
           detailsParts.push(`Плоскостность=${plateFlatnessData.actual.toFixed(1)} мм при допуске ${plateFlatnessData.tolerance.toFixed(1)} мм`);
         }
 
-        await upsertJournalEntry({
+        const journalId = await upsertJournalEntry({
           evaluationSchemaVersion: 2,
           module: "Геодезия",
-          status: allOk ? "ok" : "exceeded",
+          status: allOk ? "ok" : finalEvaluationStatus === "bad" ? "exceeded" : "pending",
+          projectId,
+          sourceRecord: data,
           context: context,
           details: detailsParts.join("; ") || "Проверка узла",
           sourceId: key,
           construction: data.construction || getCurrentConstructionKey()
         });
+        if (journalId === null) return;
       }
 
       // Обновляем вкладку "Итог"

@@ -1,5 +1,5 @@
 import { beginRepeatInspection, canReplaceInspectionProject, getInspectionMode } from "../../features/inspections/inspection-form.js";
-import { t, translateStatus } from "../../shared/i18n/index.js";
+import { t, translateStatus, translateEngineeringLabel } from "../../shared/i18n/index.js";
 import { refreshPendingProjectAnalytics } from "../services/analytics-current.js";
 import type { WorkspaceContext } from "../workspace-context.js";
 let workspace: Pick<WorkspaceContext, "getProjectId" | "selectProject" | "construction" | "geometryChecks" | "geometryCheckId" | "setConstruction" | "inspectionState" | "inspectionChecked">;
@@ -22,6 +22,7 @@ import {
 } from "../repositories/firestore-repository.js";
 import {
   getConstructionCategoryKey,
+  getConstructionCategoryLabel,
   getConstructionLabel,
   normalizeConstructionKey
 } from "../construction.js";
@@ -63,6 +64,7 @@ let journalInitialized = false;
 let checkSelector = null;
 let journalTableBody = null;
 let journalStatusFilter = "all";
+let journalWriteVersion = 0;
 let journalStatusFilterButtons = [];
 let journalStatTotalEl = null;
 let journalStatExceededEl = null;
@@ -271,9 +273,9 @@ journalIssueOverdueCountEl = document.getElementById("journalIssueOverdueCount")
 
 function normalizeJournalStatus(status) {
   const value = (status || "").toString().trim().toLowerCase();
-  if (value === "pending") return "pending";
+  if (["pending", "empty", "incomplete"].includes(value)) return "pending";
   if (value === "ok" || value === "в норме" || value === "соответствует") return "ok";
-  if (value === "exceeded" || value === "превышено" || value === "недобор") return "exceeded";
+  if (value === "bad" || value === "exceeded" || value === "превышено" || value === "недобор") return "exceeded";
   return "";
 }
 
@@ -853,7 +855,8 @@ if (checkSelector) {
  * Загружает записи журнала из Firestore
  */
 async function loadJournalFromFirestore() {
-  if (!workspace.getProjectId()) {
+  const projectId = workspace.getProjectId();
+  if (!projectId) {
     journalEntries = [];
     journalFilteredEntries = [];
     issueRecords = [];
@@ -862,7 +865,9 @@ async function loadJournalFromFirestore() {
   }
 
   try {
-    const entries = await loadJournalEntries(workspace.getProjectId());
+    const version = journalWriteVersion;
+    const entries = await loadJournalEntries(projectId);
+    if (projectId !== workspace.getProjectId() || version !== journalWriteVersion) return;
     journalEntries = Array.isArray(entries) ? entries : [];
     console.log(
       `[Journal] Загружено ${journalEntries.length} записей из Firestore (full set)`
@@ -911,19 +916,13 @@ function fmtDate(ts) {
  * @param {string} params.construction - Конструкция (опционально, если не указана, берется из DOM)
  * @returns {Promise<string|null>} ID созданной записи или null
  */
-async function upsertJournalEntry({ module, status, context = "", details = "", exceededCount = 0, sourceId = null, construction: providedConstruction = null, evaluationSchemaVersion = null }) {
-  if (!workspace.getProjectId()) {
+async function upsertJournalEntry({ module, status, context = "", details = "", exceededCount = 0, sourceId = null, construction: providedConstruction = null, evaluationSchemaVersion = null, projectId = workspace.getProjectId(), sourceRecord = null }) {
+  if (!projectId) {
     console.warn("[Journal] Нельзя добавить запись без выбранного проекта");
     return null;
   }
 
-  // Преобразуем старый формат статуса в новый
-  let normalizedStatus = status;
-  if (status === "в норме" || status === "соответствует") {
-    normalizedStatus = "ok";
-  } else if (status === "превышено" || status === "недобор") {
-    normalizedStatus = "exceeded";
-  }
+  const normalizedStatus = normalizeJournalStatus(status);
 
   try {
     // Используем переданную конструкцию или получаем из DOM
@@ -932,19 +931,19 @@ async function upsertJournalEntry({ module, status, context = "", details = "", 
       ""
     );
     const currentConstructionLabel =
-      workspace.construction?.dataset?.displayLabel ||
+      sourceRecord?.constructionLabel ||
       getConstructionLabel(currentConstruction, providedConstruction || workspace.construction?.value || "");
     const currentConstructionCategory =
-      workspace.construction?.dataset?.categoryKey || getConstructionCategoryKey(currentConstruction, "");
-    const currentConstructionSubtype = workspace.construction?.dataset?.subtypeKey || "";
-    const currentConstructionSubtypeLabel = workspace.construction?.dataset?.subtypeLabel || "";
+      sourceRecord?.constructionCategory || getConstructionCategoryKey(currentConstruction, "");
+    const currentConstructionSubtype = sourceRecord?.constructionSubtype || "";
+    const currentConstructionSubtypeLabel = sourceRecord?.constructionSubtypeLabel || "";
     
     if (!currentConstruction) {
       console.warn("[Journal] Конструкция не указана для записи журнала");
     }
     
     const entry = createJournalEntry({
-      projectId: workspace.getProjectId(),
+      projectId,
       module,
       construction: currentConstruction,
       constructionCategory: currentConstructionCategory,
@@ -960,22 +959,12 @@ async function upsertJournalEntry({ module, status, context = "", details = "", 
 
     if (evaluationSchemaVersion === 2) entry.evaluationSchemaVersion = 2;
 
-    // Сохраняем в Firestore
     const entryId = await addJournalEntryToFirestore(entry);
     entry.id = entryId;
-    
-    console.log("[Journal] upsertJournalEntry: добавлена запись", {
-      id: entryId,
-      module,
-      construction: currentConstruction,
-      constructionLabel: currentConstructionLabel,
-      sourceId,
-      journalEntriesLengthBefore: journalEntries.length
-    });
+    if (projectId !== workspace.getProjectId()) return entryId;
+    journalWriteVersion++;
+    journalEntries = [entry, ...journalEntries.filter(item => item.id !== entryId)];
 
-    // Оптимистично добавляем в локальный массив journalEntries (основной источник правды)
-    journalEntries.unshift(entry);
-    
     // Применяем текущий UI-фильтр к представлению
     applyJournalFilter();
     
@@ -1185,22 +1174,16 @@ async function clearAllModuleChecksForProject() {
 }
 
 async function deleteModuleCheckFromEntry(entry) {
-  if (!workspace.getProjectId() || !entry) return;
-
-  const moduleName = entry.module || "";
-  let sourceId = entry.sourceId || null;
-  const entryTime = resolveJournalTimestampMs(entry.timestamp ?? entry.ts);
-  const moduleKey = moduleName.toLowerCase();
-  const normalizeMatchValue = (value) =>
-    String(value || "").toLowerCase().replace(/\s+/g, "");
+  const projectId = workspace.getProjectId();
+  const sourceId = String(entry?.sourceId || "").trim();
+  if (!projectId || entry?.projectId !== projectId || !sourceId) return;
+  const moduleKey = String(entry.module || "").toLowerCase();
 
   try {
     if (moduleKey.includes("геодез")) {
       const geodesy = getGeodesyApi();
-      if (!sourceId) sourceId = findGeoNodeKeyForJournalEntry(entry);
 
-      if (!sourceId) return;
-      await deleteInspectionSourceDocs(workspace.getProjectId(), "geoNodes", [sourceId]);
+      await deleteInspectionSourceDocs(projectId, "geoNodes", [sourceId]);
       await refreshPendingProjectAnalytics(workspace.getProjectId());
       if (geodesy.nodes.has(sourceId)) {
         geodesy.nodes.delete(sourceId);
@@ -1214,35 +1197,7 @@ async function deleteModuleCheckFromEntry(entry) {
 
     if (moduleKey.includes("арм")) {
       const reinforcement = getReinforcementApi();
-      if (!sourceId) {
-        let bestMatch = null;
-        let bestTimeDiff = Infinity;
-        for (const [id, check] of reinforcement.checks.entries()) {
-          if (!check) continue;
-          if (entry.construction && check.construction && !matchesConstructionValue(check.construction, entry.construction)) continue;
-
-          const checkTime = Number(check.createdAt || 0);
-          const timeDiff = Math.abs(checkTime - entryTime);
-          const checkContext = normalizeMatchValue(check.location || check.marking || "");
-          const entryContext = normalizeMatchValue(entry.context || "");
-
-          if (entryContext && checkContext && (
-            checkContext.includes(entryContext) || entryContext.includes(checkContext)
-          )) {
-            if (timeDiff < bestTimeDiff) {
-              bestMatch = id;
-              bestTimeDiff = timeDiff;
-            }
-          } else if (!entryContext && timeDiff < bestTimeDiff && timeDiff < 60000) {
-            bestMatch = id;
-            bestTimeDiff = timeDiff;
-          }
-        }
-        sourceId = bestMatch;
-      }
-
-      if (!sourceId) return;
-      await reinforcement.deleteCheck(workspace.getProjectId(), sourceId);
+      await reinforcement.deleteCheck(projectId, sourceId);
       if (reinforcement.checks.has(sourceId)) {
         reinforcement.checks.delete(sourceId);
         reinforcement.saveChecks();
@@ -1256,39 +1211,7 @@ async function deleteModuleCheckFromEntry(entry) {
     }
 
     if (moduleKey.includes("геометр")) {
-      if (!sourceId) {
-        let bestMatch = null;
-        let bestTimeDiff = Infinity;
-        for (const [id, check] of workspace.geometryChecks.entries()) {
-          if (!check) continue;
-          if (entry.construction && check.construction && !matchesConstructionValue(check.construction, entry.construction)) continue;
-
-          const checkTime = Number(check.createdAt || 0);
-          const timeDiff = Math.abs(checkTime - entryTime);
-          const formworkContext = [
-            check.formworkElementName || check.formworkArea || "",
-            check.floor ? `этаж ${check.floor}` : ""
-          ].filter(Boolean).join("");
-          const checkContext = normalizeMatchValue(check.location || check.stairName || formworkContext || "");
-          const entryContext = normalizeMatchValue(entry.context || "");
-
-          if (entryContext && checkContext && (
-            checkContext.includes(entryContext) || entryContext.includes(checkContext)
-          )) {
-            if (timeDiff < bestTimeDiff) {
-              bestMatch = id;
-              bestTimeDiff = timeDiff;
-            }
-          } else if (!entryContext && timeDiff < bestTimeDiff && timeDiff < 60000) {
-            bestMatch = id;
-            bestTimeDiff = timeDiff;
-          }
-        }
-        sourceId = bestMatch;
-      }
-
-      if (!sourceId) return;
-      await deleteInspectionSourceDocs(workspace.getProjectId(), "geomChecks", [sourceId]);
+      await deleteInspectionSourceDocs(projectId, "geomChecks", [sourceId]);
       await refreshPendingProjectAnalytics(workspace.getProjectId());
       if (workspace.geometryChecks.has(sourceId)) {
         workspace.geometryChecks.delete(sourceId);
@@ -1303,25 +1226,7 @@ async function deleteModuleCheckFromEntry(entry) {
 
     if (moduleKey.includes("проч")) {
       const strength = getStrengthApi();
-      if (!sourceId) {
-        let bestMatch = null;
-        let bestTimeDiff = Infinity;
-        for (const [id, check] of strength.checks.entries()) {
-          if (!check) continue;
-          if (entry.construction && check.construction && !matchesConstructionValue(check.construction, entry.construction)) continue;
-
-          const checkTime = Number(check.createdAt || 0);
-          const timeDiff = Math.abs(checkTime - entryTime);
-          if (timeDiff < bestTimeDiff && timeDiff < 60000) {
-            bestMatch = id;
-            bestTimeDiff = timeDiff;
-          }
-        }
-        sourceId = bestMatch;
-      }
-
-      if (!sourceId) return;
-      await strength.deleteCheck(workspace.getProjectId(), sourceId);
+      await strength.deleteCheck(projectId, sourceId);
       if (strength.checks.has(sourceId)) {
         strength.checks.delete(sourceId);
         strength.saveChecks();
@@ -1343,7 +1248,7 @@ async function deleteModuleCheckFromEntry(entry) {
 /**
  * Обработчик клика по строке журнала для навигации к соответствующей проверке
  */
-async function onJournalRowClick(entry, { exact = false } = {}) {
+async function onJournalRowClick(entry, { exact = Boolean(entry?.sourceId) } = {}) {
   if (isNavigatingToEntry) {
     console.log("[Journal] Навигация уже выполняется, пропускаем");
     return;
@@ -1679,7 +1584,7 @@ function renderJournal() {
 
   entriesToRender.forEach((e, idx) => {
     const entryId = e.id || `entry_${idx}`;
-    const timestamp = e.timestamp?.toMillis?.() || e.ts || Date.now();
+    const timestamp = resolveJournalTimestampMs(e.timestamp ?? e.ts);
     
     // Формируем полную запись со всеми полями для передачи в onJournalRowClick
     // Обрабатываем как записи из Firestore (с timestamp объектом), так и legacy из localStorage
@@ -1703,6 +1608,7 @@ function renderJournal() {
     const tr = document.createElement("tr");
     tr.dataset.idx = String(idx);
     tr.dataset.entryId = entryId;
+    if (fullEntry.sourceId) tr.dataset.sourceId = fullEntry.sourceId;
     tr.className = "journal-row-clickable";
     tr.style.cursor = "pointer";
     tr.style.position = "relative";
@@ -1721,6 +1627,13 @@ function renderJournal() {
 
     const tdConstr = document.createElement("td");
     tdConstr.textContent = getEntryConstructionLabel(fullEntry);
+    const category = getConstructionCategoryLabel(fullEntry.constructionCategory || fullEntry.construction);
+    if (category) {
+      const label = document.createElement("span");
+      label.className = "caption journal-construction-category";
+      label.textContent = translateEngineeringLabel(category);
+      tdConstr.prepend(label);
+    }
 
     const tdNode = document.createElement("td");
     tdNode.textContent = fullEntry.context || "—";
