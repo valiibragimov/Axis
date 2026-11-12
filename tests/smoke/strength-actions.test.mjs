@@ -355,7 +355,7 @@ test("strength chart destroys the previous instance before recreating it", () =>
 test("strength journal payload keeps result context and source id", () => {
   const payload = buildStrengthJournalPayload(
     {
-      floor: "4",
+      floor: "4", location: "А–Б, 1–2",
       construction: "floor_slab", assessment: { reference: "Laboratory 17", responsible: "Lab engineer", date: "2026-10-20", confirmed: true, verdict: "conforms" },
       markValue: 30,
       days: 28,
@@ -368,7 +368,7 @@ test("strength journal payload keeps result context and source id", () => {
     evaluationSchemaVersion: 2,
     module: "Прочность",
     status: "ok",
-    context: "Этаж 4, день=28",
+    context: "Этаж 4, А–Б, 1–2, день=28",
     details: "основание=Laboratory 17; факт=31.0 МПа",
     construction: "floor_slab",
     sourceId: "check-4"

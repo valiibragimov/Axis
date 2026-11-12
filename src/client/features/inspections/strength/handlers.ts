@@ -5,6 +5,7 @@ import { t } from "../../../shared/i18n/index.js";
 import { getConstructionLabel } from "../../../app/construction.js";
 import { setupNodeCardInteractions } from "../../../app/ui/node-card-interactions.js";
 import {
+  buildStrengthJournalContext,
   buildStrengthJournalPayload,
   buildStrengthResultSeries,
   evaluateStrengthCheck
@@ -376,7 +377,7 @@ export function createStrengthActions({
         const journalId = await upsertJournalEntry({
           ...(journalPayload || {
             module: "Прочность", status: "pending", evaluationSchemaVersion: 2,
-            context: [data.floor ? `Этаж ${data.floor}` : "", data.location || "", data.days ? `день=${data.days}` : ""].filter(Boolean).join(", "),
+            context: buildStrengthJournalContext(data),
             details: t("engineering_requires_review"), sourceId: finalId, construction: data.construction
           }),
           projectId, sourceRecord: data, commitInspection

@@ -354,6 +354,15 @@ function issueMatchesRepeatEntry(issue: IssueRecord, entry: JournalEntryRecord) 
   const context = !/^(?:этаж|floor)\s/iu.test(String(issue.context || ""))
     ? withoutFloor(entry.context || entry.node) : entry.context || entry.node;
   const entryContext = normalizeJournalMatchText(stableContext(context));
+  const legacyStrengthContext = issue.module === "Прочность" && issueSourceId &&
+    /^(?:этаж [^,]+|Прочность бетона)$/iu.test(String(stableContext(issue.context)));
+  const strengthSource = legacyStrengthContext
+    ? getStrengthApi().checks.get(issueSourceId)
+    : null;
+  const sourceLocation = strengthSource?.location || strengthSource?.marking || strengthSource?.stairName;
+  const legacyStrengthLocation = sourceLocation
+    ? normalizeJournalMatchText([strengthSource.floor ? `Этаж ${strengthSource.floor}` : "", sourceLocation].filter(Boolean).join(", "))
+    : "";
   const constructionMatches = matchesConstructionValue(issue.construction, entry.construction);
 
   return Boolean(
@@ -363,7 +372,7 @@ function issueMatchesRepeatEntry(issue: IssueRecord, entry: JournalEntryRecord) 
     constructionMatches &&
     issueContext &&
     entryContext &&
-    issueContext === entryContext
+    (issueContext === entryContext || legacyStrengthLocation === entryContext)
   );
 }
 
