@@ -1,3 +1,5 @@
+import type { LinkedJournalWrite } from "../../../types/module-records.js";
+import { inspectionLimitLabel } from "../limit-label.js";
 import { markInspectionMode, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
 import { isNormativeBearingLevel } from "../normative-rules.js";
 import { t } from "../../../shared/i18n/index.js";
@@ -136,12 +138,15 @@ export function bindGeodesyHandlers({
   } = form;
 
   const saveProjectNode = (
+    projectId: string | null,
     nodeId: string,
-    data: GeodesyNodeRecord
+    data: GeodesyNodeRecord,
+    journal?: LinkedJournalWrite
   ) => geodesyNodeActions.saveProjectNode(
-    getCurrentProjectId(),
+    projectId,
     nodeId,
-    data
+    data,
+    journal
   );
 
   btnGeo?.addEventListener("click", () => btnSaveNode?.click());
@@ -154,21 +159,30 @@ export function bindGeodesyHandlers({
     geoResult.textContent = t(data.status === "ok" ? "engineering_conforms" : data.status === "bad" ? "engineering_nonconforms" :
       data.dataStatus === "checked" ? "assessment_no_applicable_limit" : "engineering_incomplete");
     if (data.status === "bad" && data.dataStatus !== "checked") geoResult.append(` — ${t("engineering_incomplete")}`);
-    const rows = data.columns || data.walls || data.beams || [data];
+    const rows = data.columns || data.walls || data.beams || [data, ...(data.openingPoints || [])];
     for (const [index, row] of rows.entries()) {
       const suffixes = row.bindingType === "number_letters" ? ["_num_let1", "_num_let2"] : row.bindingType === "letter_numbers" ? ["_let_num1", "_let_num2"] : [""];
       for (const suffix of suffixes) for (const axis of ["X", "Y", "H"]) {
         const p = row["proj" + axis + suffix], f = row["fact" + axis + suffix];
         if (p == null || f == null || p === "" || f === "") continue;
         const line = document.createElement("div");
-        line.textContent = `${index + 1} ${axis}${suffix ? " " + suffix.slice(-1) : ""}: ${p} / ${f} m; Δ=${((Number(f) - Number(p)) * 1000).toFixed(1)} mm`;
+        line.textContent = `${index + 1} ${axis}${suffix ? " " + suffix.slice(-1) : ""}: ${p} / ${f} m; Δ=${((Number(f) - Number(p)) * 1000).toFixed(1)} mm · ${inspectionLimitLabel(data.acceptanceCriteria, axis === "H" ? "geoHeight" : "geoPlan")}`;
         geoResult.append(line);
       }
+    }
+    if (data.plateFlatnessActual != null) {
+      const line = document.createElement("div");
+      line.textContent = `${t("form_measured_flatness_deviation_mm")} ${data.plateFlatnessActual} ${t("form_mm")} · ${inspectionLimitLabel(data.acceptanceCriteria, "geoFlatness")}`;
+      geoResult.append(line);
     }
     data.lastMsg = geoResult.innerHTML;
   }
 
+  let pendingNode: { key: string; projectId: string | null; construction: string; heightOnly: boolean } | null = null;
+
   function editableNodeKey(key: string | null | undefined, heightOnly: boolean) {
+    if (pendingNode && pendingNode.key === key && pendingNode.projectId === getCurrentProjectId() &&
+        pendingNode.construction === getCurrentConstructionKey() && pendingNode.heightOnly === heightOnly) return pendingNode.key;
     const node = key ? nodes.get(key) : undefined;
     return key && node?.coordinateUnit === "m" &&
       (!node.construction || node.construction === getCurrentConstructionKey()) &&
@@ -176,7 +190,8 @@ export function bindGeodesyHandlers({
   }
 
   async function saveCheck() {
-    if (!validateProject(getCurrentProjectId())) return;
+    const projectId = getCurrentProjectId();
+    if (!validateProject(projectId)) return;
     if (geoResult.dataset.legacyUnits === "1") {
       showNotification("Единицы старой записи не определены. Исходная запись сохранена; создайте новую проверку после очистки формы.", "warning");
       return;
@@ -251,32 +266,37 @@ export function bindGeodesyHandlers({
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
-    nodes.set(key, data);
+    pendingNode = { key, projectId, construction: getCurrentConstructionKey(), heightOnly: false };
       geodesyNodeState.currentNodeKeys.column = key; // Сохраняем ключ для возможного следующего обновления
-      renderNodes();
-      saveNodes();
+
 
       try {
-        await saveProjectNode(key, data);
+        const savedRows = columns.map(row => ({ ...row }));
         const skipJournal = geodesyNodeState.skipJournalOnce;
-        if (geodesyNodeState.skipJournalOnce) {
-          geodesyNodeState.skipJournalOnce = false;
-        }
-        // Добавляем запись в журнал, если узел был проверен (не pending)
-        if (!skipJournal && evaluation.status !== "empty" && evaluation.hasAllData) {
-          await upsertJournalEntry(buildColumnJournalPayload({
+        geodesyNodeState.skipJournalOnce = false;
+        if (skipJournal) {
+          await saveProjectNode(projectId, key, data);
+        } else {
+          const journalId = await upsertJournalEntry({ ...buildColumnJournalPayload({
             key,
-            construction: getCurrentConstructionKey(),
+            construction: data.construction || "",
             columnMark,
             floor,
-            columns,
+            columns: savedRows,
             status: evaluation.status
-          }));
+          }), projectId, sourceRecord: data,
+            commitInspection: (journal: LinkedJournalWrite) => saveProjectNode(projectId, key, data, journal)
+          });
+          if (!journalId) return;
         }
 
         // Обновляем вкладку "Итог"
         updateSummaryTab();
 
+        if (getCurrentProjectId() !== projectId) return;
+        nodes.set(key, data);
+        saveNodes();
+        renderNodes();
         finishSave(key);
         console.log("Колонны сохранены в Firebase:", key);
         const projCount = columns.filter(col => {
@@ -418,34 +438,39 @@ export function bindGeodesyHandlers({
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
-    nodes.set(key, data);
+    pendingNode = { key, projectId, construction: getCurrentConstructionKey(), heightOnly: false };
       geodesyNodeState.currentNodeKeys.wall = key;
-      renderNodes();
-      saveNodes();
+
 
       try {
-        await saveProjectNode(key, data);
+        const savedRows = walls.map(row => ({ ...row }));
         const skipJournal = geodesyNodeState.skipJournalOnce;
-        if (geodesyNodeState.skipJournalOnce) {
-          geodesyNodeState.skipJournalOnce = false;
-        }
-        // Добавляем запись в журнал, если узел был проверен
-        if (!skipJournal && evaluation.status !== "empty" && evaluation.hasAllData) {
-          await upsertJournalEntry(buildLinearJournalPayload({
+        geodesyNodeState.skipJournalOnce = false;
+        if (skipJournal) {
+          await saveProjectNode(projectId, key, data);
+        } else {
+          const journalId = await upsertJournalEntry({ ...buildLinearJournalPayload({
             key,
-            construction: getCurrentConstructionKey(),
+            construction: data.construction || "",
             floor,
-            rows: walls,
+            rows: savedRows,
             status: evaluation.status,
             entityLabel: wallEntityLabel,
             entityPlural: wallEntityPlural,
             emptyDetails: `Проверка ${wallEntityPluralGenitive}`
-          }));
+          }), projectId, sourceRecord: data,
+            commitInspection: (journal: LinkedJournalWrite) => saveProjectNode(projectId, key, data, journal)
+          });
+          if (!journalId) return;
         }
 
         // Обновляем вкладку "Итог"
         updateSummaryTab();
 
+        if (getCurrentProjectId() !== projectId) return;
+        nodes.set(key, data);
+        saveNodes();
+        renderNodes();
         finishSave(key);
         console.log(`${wallEntityPlural} сохранены в Firebase:`, key);
         const projCount = walls.filter(wall => {
@@ -584,34 +609,39 @@ export function bindGeodesyHandlers({
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
-    nodes.set(key, data);
+    pendingNode = { key, projectId, construction: getCurrentConstructionKey(), heightOnly: false };
       geodesyNodeState.currentNodeKeys.beam = key;
-      renderNodes();
-      saveNodes();
+
 
       try {
-        await saveProjectNode(key, data);
+        const savedRows = beams.map(row => ({ ...row }));
         const skipJournal = geodesyNodeState.skipJournalOnce;
-        if (geodesyNodeState.skipJournalOnce) {
-          geodesyNodeState.skipJournalOnce = false;
-        }
-        // Добавляем запись в журнал, если узел был проверен
-        if (!skipJournal && evaluation.status !== "empty" && evaluation.hasAllData) {
-          await upsertJournalEntry(buildLinearJournalPayload({
+        geodesyNodeState.skipJournalOnce = false;
+        if (skipJournal) {
+          await saveProjectNode(projectId, key, data);
+        } else {
+          const journalId = await upsertJournalEntry({ ...buildLinearJournalPayload({
             key,
-            construction: getCurrentConstructionKey(),
+            construction: data.construction || "",
             floor,
-            rows: beams,
+            rows: savedRows,
             status: evaluation.status,
             entityLabel: "Балка",
             entityPlural: "Балки",
             emptyDetails: "Проверка балок"
-          }));
+          }), projectId, sourceRecord: data,
+            commitInspection: (journal: LinkedJournalWrite) => saveProjectNode(projectId, key, data, journal)
+          });
+          if (!journalId) return;
         }
 
         // Обновляем вкладку "Итог"
         updateSummaryTab();
 
+        if (getCurrentProjectId() !== projectId) return;
+        nodes.set(key, data);
+        saveNodes();
+        renderNodes();
         finishSave(key);
         console.log("Балки сохранены в Firebase:", key);
         const projCount = beams.filter(beam => {
@@ -777,18 +807,15 @@ export function bindGeodesyHandlers({
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
-    nodes.set(key, data);
-    renderNodes();
-    saveNodes();
+    pendingNode = { key, projectId, construction: getCurrentConstructionKey(), heightOnly };
+
 
     try {
-      await saveProjectNode(key, data);
       const skipJournal = geodesyNodeState.skipJournalOnce;
-      if (geodesyNodeState.skipJournalOnce) {
-        geodesyNodeState.skipJournalOnce = false;
-      }
-      // Добавляем запись в журнал, если узел был проверен (не pending)
-      if (!skipJournal && finalEvaluationStatus !== "empty" && evaluation.hasAllData && (!plateFlatnessData || plateFlatnessComplete)) {
+      geodesyNodeState.skipJournalOnce = false;
+      if (skipJournal) {
+        await saveProjectNode(projectId, key, data);
+      } else {
         const allOk = finalEvaluationStatus === "ok";
         const contextLabel = (heightOnly ? pointLabel : "") || axisState.location || axisState.nodeLabel || "узел";
         const context = floor ? `${floor}-${contextLabel}` : contextLabel;
@@ -800,20 +827,28 @@ export function bindGeodesyHandlers({
           detailsParts.push(`Плоскостность=${plateFlatnessData.actual.toFixed(1)} мм при допуске ${plateFlatnessData.tolerance.toFixed(1)} мм`);
         }
 
-        await upsertJournalEntry({
+        const journalId = await upsertJournalEntry({
           evaluationSchemaVersion: 2,
           module: "Геодезия",
-          status: allOk ? "ok" : "exceeded",
+          status: allOk ? "ok" : finalEvaluationStatus === "bad" ? "exceeded" : "pending",
+          projectId,
+          sourceRecord: data,
+          commitInspection: (journal: LinkedJournalWrite) => saveProjectNode(projectId, key, data, journal),
           context: context,
           details: detailsParts.join("; ") || "Проверка узла",
           sourceId: key,
           construction: data.construction || getCurrentConstructionKey()
         });
+        if (!journalId) return;
       }
 
       // Обновляем вкладку "Итог"
       updateSummaryTab();
 
+      if (getCurrentProjectId() !== projectId) return;
+      nodes.set(key, data);
+      saveNodes();
+      renderNodes();
       finishSave(key);
       console.log("Узел сохранён в Firebase:", key);
         const hasProj = heightOnly ? !isNaN(pH) : !isNaN(pX) && !isNaN(pY);
@@ -834,6 +869,7 @@ export function bindGeodesyHandlers({
   }
 
   function finishSave(key: string) {
+    if (pendingNode?.key === key) pendingNode = null;
     if (geoResult.dataset.loadedKey !== key) return;
     delete geoResult.dataset.loadedKey;
     for (const type of ["column", "wall", "beam"] as const) {
@@ -847,6 +883,7 @@ export function bindGeodesyHandlers({
   });
 
   function clearForm() {
+    pendingNode = null;
     delete geoResult.dataset.legacyUnits;
     delete geoResult.dataset.loadedKey;
     restoreAcceptanceCriteria(document.getElementById("geo"));

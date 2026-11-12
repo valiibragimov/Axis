@@ -88,13 +88,14 @@ test("geodesy service loads active nodes and excludes soft-deleted records", asy
 
 test("geodesy service persists the source node before its inspection projection", async () => {
   const { repository, calls } = createRepository();
+  const journal = { id: "journal-1", entry: { projectId: "project-1" } };
   const service = createGeodesyService(repository);
   const payload = { status: "ok", floor: "2" };
 
-  await service.saveNode("project-1", "node-A-1", payload);
+  await service.saveNode("project-1", "node-A-1", payload, journal);
 
   assert.deepEqual(calls, [
-    ["saveNode", "project-1", "node-A-1", payload],
+    ["saveNode", "project-1", "node-A-1", payload, journal],
     ["refreshAnalytics", "project-1"]
   ]);
 });

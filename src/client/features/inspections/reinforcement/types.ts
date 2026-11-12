@@ -134,6 +134,7 @@ export interface ReinforcementState {
 }
 
 export interface ReinforcementEvaluation {
+  hasUnverifiedMeasurements: boolean;
   hasIncompleteMeasurements: boolean;
   status: ReinforcementStatus;
   summaryText: string;
@@ -145,7 +146,7 @@ export interface ReinforcementEvaluation {
 export interface ReinforcementJournalPayload
   extends Record<string, unknown> {
   module: "Армирование";
-  status: "empty" | "ok" | "exceeded";
+  status: "pending" | "ok" | "exceeded";
   context: string;
   details: string;
   construction: string;

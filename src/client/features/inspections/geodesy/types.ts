@@ -1,3 +1,4 @@
+import type { LinkedJournalWrite } from "../../../types/module-records.js";
 import type { AcceptanceCriteria } from "../acceptance.js";
 import type { BimElement, GeoPrefill } from "../../../types/domain.js";
 
@@ -196,10 +197,13 @@ export interface GeodesyNodeRecord
 export interface GeodesyJournalPayload {
   evaluationSchemaVersion?: number;
   module: "Геодезия";
-  status: "ok" | "exceeded";
+  status: "ok" | "exceeded" | "pending";
   context: string;
   details: string;
   sourceId: string;
+  projectId?: string | null;
+  sourceRecord?: GeodesyNodeRecord;
+  commitInspection?(journal: LinkedJournalWrite): Promise<unknown>;
   construction: string;
 }
 

@@ -5,23 +5,40 @@ import { getInspectionStatus } from "../../../app/inspection-registry.js";
 import type { GeometryCheckRecord } from "../../../types/module-records.js";
 import { commonDimensionKeys, elementDimensionKeys, type PhysicalDimensions } from "./dimensions.js";
 
+interface GeometryMeasurement {
+  label: string;
+  project: number | null;
+  actual: number | null;
+  criteria: GeometryCheckRecord["acceptanceCriteria"];
+  key: string;
+  status: ReturnType<typeof compareMeasurement>;
+}
+
 export function evaluateGeometryCheck(check: GeometryCheckRecord) {
   const construction = normalizeConstructionKey(check.construction || check.constructionType, "");
   const applicable = getInspectionStatus(construction, "geometry", check.constructionSubtype || "", check.constructionPileElement || "");
-  if (applicable !== "object") return summarizeMeasurements([]);
+  const measurements: GeometryMeasurement[] = [];
+  if (applicable !== "object") return { ...summarizeMeasurements([]), measurements };
   const savedCriteria = check.acceptanceCriteria;
   const criteria = savedCriteria?.normativeRule === `${RULESET}/monolithic`
     ? resolveNormativeCriteria("geometry", construction, "monolithic")
     : savedCriteria;
   const results: Array<ReturnType<typeof compareMeasurement>> = [];
-  const pair = (row: Record<string, unknown>, project: string, actual: string, key: string, optional = false) => {
-    if (optional && row[project] == null && row[actual] == null) return;
+  const assess = (project: unknown, actual: unknown, key: string, basis = criteria, physical = true, label = key) => {
+    const status = (physical ? comparePhysicalMeasurement : compareMeasurement)(project, actual, key, basis);
+    results.push(status);
+    if (measurementNumber(actual) != null || (physical && measurementNumber(project) != null)) {
+      measurements.push({ label, project: measurementNumber(project), actual: measurementNumber(actual),
+        criteria: basis, key, status });
+    }
+  };
+  const pair = (row: Record<string, unknown>, project: string, actual: string, key: string, label = key) => {
     const p = measurementNumber(row[project]);
     const a = measurementNumber(row[actual]);
     const automaticSection = criteria?.normativeRule === `${RULESET}/monolithic` && (key === "section" || key === "thickness");
     const section = automaticSection ? sectionTolerance(p) : null;
     const basis = section && criteria ? { ...criteria, limits: { [key]: section } } : criteria;
-    results.push(comparePhysicalMeasurement(p, a, key, basis));
+    assess(p, a, key, basis, true, label);
   };
   const dimensions = (row: Record<string, unknown>, keys: string[]) => {
     const values = row.physicalDimensions as PhysicalDimensions | undefined;
@@ -29,11 +46,11 @@ export function evaluateGeometryCheck(check: GeometryCheckRecord) {
       const value = values?.[key];
       if (construction === "excavation" && (!value || (measurementNumber(value.project) === null && measurementNumber(value.actual) === null))) continue;
       const automaticSpan = criteria?.normativeRule === `${RULESET}/monolithic` && ["length", "clearLength", "clearWidth"].includes(key);
-      pair(value || {}, "project", "actual", automaticSpan ? "clearSpan" : "dimensions");
+      pair(value || {}, "project", "actual", automaticSpan ? "clearSpan" : "dimensions", key);
     }
   };
   dimensions(check, commonDimensionKeys(construction, String(check.constructionPileElement || "")));
-  if (construction === "excavation") return summarizeMeasurements(results);
+  if (construction === "excavation") return { ...summarizeMeasurements(results), measurements };
   const profile = getConstructionProfile(construction, "geometry");
   const rows = profile === "column" ? check.columns : profile === "wall" ? check.walls : profile === "beam" ? check.beams : profile === "stair" ? check.stairs : null;
   const kind = profile === "column" ? "columns" : profile === "wall" ? "walls" : profile === "beam" ? "beams" : "stairs";
@@ -56,9 +73,9 @@ export function evaluateGeometryCheck(check: GeometryCheckRecord) {
           pair(row, "projStepWidth", "factStepWidth", "step");
         }
       }
-      if (profile === "wall" || profile === "column") results.push(compareMeasurement(0, row.vertDev, "vertical", criteria));
+      if (profile === "wall" || profile === "column") assess(0, row.vertDev, "vertical", criteria, false);
       if (profile === "wall") {
-        results.push(compareMeasurement(0, row.factWallFlatness, "flatness", criteria));
+        assess(0, row.factWallFlatness, "flatness", criteria, false);
         // Opening position elevations are historical fields, not geometry dimensions.
         openings(row);
       }
@@ -67,10 +84,10 @@ export function evaluateGeometryCheck(check: GeometryCheckRecord) {
     pair(check, "formworkProjHeight", "formworkFactHeight", "dimensions");
     pair(check, "formworkProjWidth", "formworkFactWidth", "dimensions");
     pair(check, "formworkProjThickness", "formworkFactThickness", "thickness");
-    results.push(compareMeasurement(0, check.formworkVerticalDeviation, "vertical", criteria));
+    assess(0, check.formworkVerticalDeviation, "vertical", criteria, false);
   } else {
     pair(check, "projPlateHeight", "factPlateHeight", "thickness");
-    if (getConstructionModuleBehavior(construction, "geometry", check.constructionSubtype || "", check.constructionPileElement || "").showPlateFlatness) results.push(compareMeasurement(0, check.factPlateFlatness, "flatness", criteria));
+    if (getConstructionModuleBehavior(construction, "geometry", check.constructionSubtype || "", check.constructionPileElement || "").showPlateFlatness) assess(0, check.factPlateFlatness, "flatness", criteria, false);
     openings(check);
   }
   function openings(row: Record<string, unknown>) {
@@ -84,8 +101,8 @@ export function evaluateGeometryCheck(check: GeometryCheckRecord) {
     project.forEach((item, index) => {
       const measured = actual[index];
       if (item.length !== 2 || !measured || measured.length !== 2) { results.push("incomplete"); return; }
-      for (let i = 0; i < 2; i++) results.push(comparePhysicalMeasurement(item[i], measured[i], "opening", criteria));
+      for (let i = 0; i < 2; i++) assess(item[i], measured[i], "opening", criteria);
     });
   }
-  return summarizeMeasurements(results);
+  return { ...summarizeMeasurements(results), measurements };
 }

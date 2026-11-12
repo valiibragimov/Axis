@@ -78,8 +78,8 @@ export function createFirestoreGeodesyService(
       return getProjectCollectionSnapshot(projectId, "elements");
     },
 
-    async saveNode(projectId, nodeId, data) {
-      return saveInspectionSourceDoc(projectId, "geoNodes", nodeId, data, await buildInspection(projectId, nodeId, data));
+    async saveNode(projectId, nodeId, data, journal) {
+      return saveInspectionSourceDoc(projectId, "geoNodes", nodeId, data, await buildInspection(projectId, nodeId, data), { journal });
     },
 
     markNodeDeleted(projectId, nodeId) {

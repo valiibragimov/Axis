@@ -1,9 +1,11 @@
+import type { LinkedJournalWrite } from "../../../types/module-records.js";
 import { setInspectionHistoryMetadata } from "../inspection-form.js";
 import { markInspectionMode, canReplaceInspection, focusInspectionMode, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
 import { t } from "../../../shared/i18n/index.js";
 import { getConstructionLabel } from "../../../app/construction.js";
 import { setupNodeCardInteractions } from "../../../app/ui/node-card-interactions.js";
 import {
+  buildStrengthJournalContext,
   buildStrengthJournalPayload,
   buildStrengthResultSeries,
   evaluateStrengthCheck
@@ -309,7 +311,9 @@ export function createStrengthActions({
       dom.result.style.display = "block";
       dom.result.className = evaluation.status === "ok" ? "result ok" : "result";
       dom.result.textContent = t(evaluation.isCompliant == null ? "engineering_requires_review" : evaluation.isCompliant ? "engineering_conforms" : "engineering_nonconforms") +
-        (draft.assessment?.reference ? ": " + draft.assessment.reference : "");
+        (evaluation.isCompliant == null
+          ? ` · ${t("inspection_strength_pending")}`
+          : ` · ${t("inspection_strength_basis")} — ${draft.assessment?.reference}`);
     }
     inspectionState.strength = evaluation.isCompliant === true;
     inspectionChecked.strength = evaluation.isCompliant != null;
@@ -344,7 +348,7 @@ export function createStrengthActions({
       return null;
     }
 
-    const provisionalId = existing && existingId || crypto.randomUUID();
+    const provisionalId = existingId || crypto.randomUUID();
     const data = form.readCheck(existing);
     const evaluation = evaluateStrengthCheck(data);
     data.status = evaluation.status;
@@ -355,29 +359,35 @@ export function createStrengthActions({
     data.createdAt = existing?.createdAt || now();
     data.id = provisionalId;
     setCurrentStrengthCheckId(state, provisionalId);
-    state.checks.set(provisionalId, data);
-    saveLocalChecks();
-    renderChecks();
-
-    try {
+    let finalId = provisionalId;
+    const commitInspection = async (journal?: LinkedJournalWrite) => {
       const result = existing
-        ? await service.updateCheck(projectId, provisionalId, data)
-        : await service.createCheck(projectId, data);
+        ? await service.updateCheck(projectId, provisionalId, data, journal)
+        : await service.createCheck(projectId, data, journal);
       notifyFirestoreSyncStatus(result.ref);
-      const finalId = result.id;
-      if (finalId !== provisionalId) {
-        state.checks.delete(provisionalId);
-        state.checks.set(finalId, { ...data, id: finalId });
-        saveLocalChecks();
-        renderChecks();
-      }
-
-      if (!skipJournal && data.status !== "empty") {
+      finalId = result.id;
+    };
+    try {
+      if (skipJournal) {
+        await commitInspection();
+      } else {
         const journalPayload = buildStrengthJournalPayload(data, {
           sourceId: finalId
         });
-        if (journalPayload) await upsertJournalEntry(journalPayload);
+        const journalId = await upsertJournalEntry({
+          ...(journalPayload || {
+            module: "Прочность", status: "pending", evaluationSchemaVersion: 2,
+            context: buildStrengthJournalContext(data),
+            details: t("engineering_requires_review"), sourceId: finalId, construction: data.construction
+          }),
+          projectId, sourceRecord: data, commitInspection
+        });
+        if (!journalId) return null;
       }
+      if (getCurrentProjectId() !== projectId) return finalId;
+      state.checks.set(finalId, { ...data, id: finalId });
+      saveLocalChecks();
+      renderChecks();
       setCurrentStrengthCheckId(state, null);
       markInspectionMode("strength", "saved");
       updateSummary();

@@ -1,3 +1,5 @@
+import type { LinkedJournalWrite } from "../../../types/module-records.js";
+import { inspectionLimitLabel } from "../limit-label.js";
 import { setInspectionHistoryMetadata } from "../inspection-form.js";
 import { markInspectionMode, canReplaceInspection, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
 import { comparePhysicalMeasurement, measurementNumber, type AcceptanceCriteria } from "../acceptance.js";
@@ -120,7 +122,7 @@ export function buildReinforcementMeasurementResults(measurements: Reinforcement
     const verdict = key === "diameter" ? p == null || a == null || p <= 0 || a <= 0 ? "incomplete" : p === a ? "ok" : "exceeded" : comparePhysicalMeasurement(p, a, key, criteria);
     const text = t(verdict === "ok" ? "engineering_conforms" : verdict === "exceeded" ? "engineering_nonconforms" : "engineering_requires_review");
     return [{ name, ok: verdict === "ok", regulatoryDoc: key === "diameter" ? "PROJECT_DESIGN" : criteria?.reference || "",
-      html: `<div>${escapeHtml(name)}: ${escapeHtml(p ?? "—")} / ${escapeHtml(a ?? "—")} mm; Δ=${p == null || a == null ? "—" : (a - p).toFixed(1)} mm — ${escapeHtml(text)}</div>` }];
+      html: `<div>${escapeHtml(name)}: ${escapeHtml(p ?? "—")} / ${escapeHtml(a ?? "—")} mm; Δ=${p == null || a == null ? "—" : (a - p).toFixed(1)} mm — ${escapeHtml(text)} · ${escapeHtml(key === "diameter" ? t("inspection_nominal_diameter") : inspectionLimitLabel(criteria, key))}</div>` }];
   });
 }
 
@@ -142,12 +144,10 @@ export function createReinforcementRuntime(
     notify,
     confirm,
     updateSummary,
-    addJournalEntry,
     upsertJournalEntry,
     notifyFirestoreSyncStatus
   } = dependencies;
   let initialized = false;
-  let skipJournalOnce = false;
   let form: ReinforcementForm;
   let rows: ReinforcementRowsRuntime;
 
@@ -272,7 +272,7 @@ export function createReinforcementRuntime(
         ? "В норме"
         : status === "exceeded"
           ? "Есть отклонения"
-          : "Не заполнено";
+          : evaluation.hasUnverifiedMeasurements ? t("assessment_no_applicable_limit") : t("assessment_pending");
       const statusClass = status === "ok"
         ? "status-ok"
         : status === "exceeded"
@@ -423,15 +423,8 @@ export function createReinforcementRuntime(
         ? state.checks.get(state.currentCheckId) || null
         : null
     );
-    const result = renderRunResult(check);
-    if (result.anyCheck) {
-      await addJournalEntry({
-        ...buildReinforcementJournalPayload(check),
-        status: result.evaluation.status
-      });
-      skipJournalOnce = true;
-    }
-    await saveCheck({ skipJournalOnce: result.anyCheck });
+    renderRunResult(check);
+    await saveCheck();
     updateSummary();
   }
 
@@ -470,9 +463,7 @@ export function createReinforcementRuntime(
       isSameReinforcementCheckIdentity(current, candidate)
         ? current
         : null;
-    const provisionalId = existing
-      ? String(currentId)
-      : crypto.randomUUID();
+    const provisionalId = currentId && (!current || existing) ? currentId : crypto.randomUUID();
     const evaluation = evaluateReinforcementCheck(candidate);
     candidate.status = evaluation.status;
     candidate.summaryText = evaluation.summaryText;
@@ -484,29 +475,27 @@ export function createReinforcementRuntime(
     candidate.id = provisionalId;
     state.currentCheckId = provisionalId;
 
-    state.checks.set(provisionalId, candidate);
-    saveLocalChecks();
-    renderChecks();
-    const skipJournal =
-      skipJournalOption || skipJournalOnce;
-    skipJournalOnce = false;
-    try {
+    let finalId = provisionalId;
+    const commitInspection = async (journal?: LinkedJournalWrite) => {
       const result = existing
-        ? await service.updateCheck(projectId, provisionalId, candidate)
-        : await service.createCheck(projectId, candidate);
-      const finalId = result.id;
+        ? await service.updateCheck(projectId, provisionalId, candidate, journal)
+        : await service.createCheck(projectId, candidate, journal);
+      finalId = result.id;
       notifyFirestoreSyncStatus(result.ref);
-      if (finalId !== provisionalId) {
-        state.checks.delete(provisionalId);
-        state.checks.set(finalId, { ...candidate, id: finalId });
-        saveLocalChecks();
-        renderChecks();
-      }
-      if (!skipJournal && candidate.status !== "empty") {
-        await upsertJournalEntry(
-          buildReinforcementJournalPayload(candidate, finalId)
+    };
+    try {
+      if (skipJournalOption) {
+        await commitInspection();
+      } else {
+        const journalId = await upsertJournalEntry(
+          { ...buildReinforcementJournalPayload(candidate, finalId), projectId, sourceRecord: candidate, commitInspection }
         );
+        if (!journalId) return;
       }
+      if (getCurrentProjectId() !== projectId) return;
+      state.checks.set(finalId, { ...candidate, id: finalId });
+      saveLocalChecks();
+      renderChecks();
       state.currentCheckId = null;
       markInspectionMode("reinforcement", "saved");
     } catch (error) {

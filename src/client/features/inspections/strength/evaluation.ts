@@ -73,6 +73,11 @@ export function buildStrengthResultSeries(
   return { labels: [days], normative: [], actual: [actual] };
 }
 
+export function buildStrengthJournalContext(check: StrengthCheckRecord) {
+  return [check.floor ? `Этаж ${check.floor}` : "", check.location || check.marking || check.stairName,
+    check.days ? `день=${check.days}` : ""].filter(Boolean).join(", ") || "Прочность бетона";
+}
+
 export function buildStrengthJournalPayload(
   check: StrengthCheckRecord,
   options: {
@@ -90,9 +95,6 @@ export function buildStrengthJournalPayload(
     return null;
   }
 
-  const contextParts: string[] = [];
-  if (check.floor) contextParts.push(`Этаж ${check.floor}`);
-  if (check.days) contextParts.push(`день=${check.days}`);
   const payload: StrengthJournalPayload = {
     evaluationSchemaVersion: 2,
     module: "Прочность",
@@ -103,7 +105,7 @@ export function buildStrengthJournalPayload(
       : evaluation.isCompliant
         ? "ok"
         : "exceeded",
-    context: contextParts.join(", ") || "Прочность бетона",
+    context: buildStrengthJournalContext(check),
     details:
       `основание=${check.assessment?.reference || ""}; ` +
       `факт=${evaluation.actual.toFixed(1)} МПа`,

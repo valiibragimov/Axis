@@ -1,3 +1,4 @@
+import type { LinkedJournalWrite } from "../../../types/module-records.js";
 import { saveGeoNodesToStorage } from "./node-list.js";
 import {
   resetGeodesyCurrentNodeKeys,
@@ -52,10 +53,11 @@ export function createGeodesyNodeActions({
     async saveProjectNode(
       projectId: string | null,
       nodeId: string,
-      data: Record<string, unknown>
+      data: Record<string, unknown>,
+      journal?: LinkedJournalWrite
     ) {
       if (!projectId) throw new Error("PROJECT_ID_REQUIRED");
-      await service.saveNode(projectId, nodeId, data);
+      await service.saveNode(projectId, nodeId, data, journal);
     },
 
     async deleteProjectNode(projectId: string | null, nodeId: string) {

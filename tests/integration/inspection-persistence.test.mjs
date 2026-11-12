@@ -13,7 +13,7 @@ if (!/^(127\.0\.0\.1|localhost):\d+$/.test(address)) throw new Error("A loopback
 test("inspection persistence is atomic, recoverable and revision guarded in Firestore", { timeout: 120000 }, async t => {
   const [host, port] = address.split(":");
   const environment = await initializeTestEnvironment({ projectId: "demo-inspection-consistency", firestore: { host, port: Number(port), rules: await readFile("firestore.rules", "utf8") } });
-  let failRefresh = false, readGate = null, fullScans = 0, loseAcknowledgement = false;
+  let failRefresh = false, readGate = null, fullScans = 0, loseAcknowledgement = false, transactions = 0;
   const db = environment.authenticatedContext("owner").firestore();
   const sdk = {
     ...firestore,
@@ -29,7 +29,7 @@ test("inspection persistence is atomic, recoverable and revision guarded in Fire
       };
       return batch;
     },
-    async runTransaction(...args) { if (failRefresh) { failRefresh = false; throw new Error("synthetic analytics interruption"); } return firestore.runTransaction(...args); },
+    async runTransaction(...args) { transactions++; if (failRefresh) { failRefresh = false; throw new Error("synthetic analytics interruption"); } return firestore.runTransaction(...args); },
     async getDocs(reference) { const result = await firestore.getDocs(reference); if (readGate) await readGate(reference.path); return result; }
   };
   sdk.getDocsFromServer = async reference => {
@@ -94,6 +94,28 @@ test("inspection persistence is atomic, recoverable and revision guarded in Fire
       globalThis.integrationInspectionDb = db;
       assert.equal((await runtime.getProjectCollectionDocSnapshot(fastProject, "strengthChecks", "denied-new")).exists(), false);
       assert.equal((await runtime.getProjectDocSnapshot(fastProject)).data().analyticsCurrent.totalChecks, 8);
+    });
+    await t.test("a denied journal write cannot commit inspection evidence", async () => {
+      const linkedProject = "journal-linked";
+      await firestore.setDoc(firestore.doc(db, "projects", linkedProject), { ownerUid: "owner" });
+      const inaccessibleJournal = firestore.doc(db, "journal", "foreign-journal");
+      await environment.withSecurityRulesDisabled(context => firestore.setDoc(
+        firestore.doc(context.firestore(), inaccessibleJournal.path), { projectId: "foreign-project" }));
+      for (const id of ["batch", "transaction"]) {
+        const source = { id, status: "ok", evaluationSchemaVersion: 2 };
+        const entry = { projectId: linkedProject, sourceId: id, module: "Прочность", status: "ok" };
+        const before = (await runtime.getProjectDocSnapshot(linkedProject)).data();
+        const attempts = transactions;
+        await assertFails(service.createCheck(linkedProject, source, { id: inaccessibleJournal.id, entry }));
+        assert.equal(transactions - attempts, id === "transaction" ? 1 : 0);
+        assert.deepEqual((await runtime.getProjectDocSnapshot(linkedProject)).data(), before);
+        assert.equal((await runtime.getProjectCollectionDocSnapshot(linkedProject, "strengthChecks", id)).exists(), false);
+        assert.equal((await runtime.getProjectCollectionDocSnapshot(linkedProject, "inspections", `strengthChecks_${id}`)).exists(), false);
+        await service.createCheck(linkedProject, source, { id: `journal-${id}`, entry });
+        assert.equal((await runtime.getProjectCollectionDocSnapshot(linkedProject, "strengthChecks", id)).exists(), true);
+        assert.equal((await runtime.getProjectCollectionDocSnapshot(linkedProject, "inspections", `strengthChecks_${id}`)).exists(), true);
+        assert.equal((await firestore.getDoc(firestore.doc(db, "journal", `journal-${id}`))).data().sourceId, id);
+      }
     });
     await t.test("server transforms rebuild analytics from committed values", async () => {
       const transformProject = "transform-project";

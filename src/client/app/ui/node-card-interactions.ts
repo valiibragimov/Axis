@@ -46,8 +46,8 @@ export function setupNodeCardInteractions(
     openButton.type = "button";
     openButton.className = "node-open-button";
     if (title) {
-      openButton.append(...title.childNodes);
-      title.append(openButton);
+      openButton.textContent = title.textContent?.trim() || "—";
+      (interactiveRow.querySelector(".node-header-controls") || interactiveRow).append(openButton);
     }
     else {
       openButton.textContent = interactiveRow.getAttribute("aria-label") || interactiveRow.textContent?.trim() || "—";

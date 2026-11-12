@@ -181,6 +181,8 @@ export function renderGeoNodesList({
         statusTag = '<span class="tag bad">превышено</span>';
       } else if (evaluation.status === "ok") {
         statusTag = '<span class="tag ok">в норме</span>';
+      } else if (n.status === "pending" && n.dataStatus === "checked") {
+        statusTag = '<span class="tag" data-i18n="assessment_no_applicable_limit">Нет применимого допуска</span>';
       } else if (evaluation.hasProjXY && !evaluation.hasFactXY) {
         statusTag = '<span class="tag" style="background: #fbbf24; color: #1f2937; font-weight: 600;">только проектные</span>';
       } else if (!evaluation.hasProjXY && evaluation.hasFactXY) {
@@ -235,6 +237,8 @@ export function renderGeoNodesList({
         statusTag = '<span class="tag bad">превышено</span>';
       } else if (evaluation.status === "ok") {
         statusTag = '<span class="tag ok">в норме</span>';
+      } else if (n.status === "pending" && n.dataStatus === "checked") {
+        statusTag = '<span class="tag" data-i18n="assessment_no_applicable_limit">Нет применимого допуска</span>';
       } else if (evaluation.hasProjXY && !evaluation.hasFactXY) {
         statusTag = '<span class="tag" style="background: #fbbf24; color: #1f2937; font-weight: 600;">только проектные</span>';
       } else if (!evaluation.hasProjXY && evaluation.hasFactXY) {
@@ -337,6 +341,8 @@ export function renderGeoNodesList({
         statusTag = '<span class="tag bad">превышено</span>';
       } else if (evaluation.status === "ok") {
         statusTag = '<span class="tag ok">в норме</span>';
+      } else if (n.status === "pending" && n.dataStatus === "checked") {
+        statusTag = '<span class="tag" data-i18n="assessment_no_applicable_limit">Нет применимого допуска</span>';
       } else if (evaluation.hasProjXY && !evaluation.hasFactXY) {
         statusTag = '<span class="tag" style="background: #fbbf24; color: #1f2937; font-weight: 600;">только проектные</span>';
       } else if (!evaluation.hasProjXY && evaluation.hasFactXY) {
@@ -398,7 +404,9 @@ export function renderGeoNodesList({
       statusTag = '<span class="tag bad">превышено</span>';
     } else if (evaluation.status === "ok") {
       statusTag = '<span class="tag ok">в норме</span>';
-    } else if (evaluation.hasProjXY && !evaluation.hasFactXY) {
+    } else if (n.status === "pending" && n.dataStatus === "checked") {
+        statusTag = '<span class="tag" data-i18n="assessment_no_applicable_limit">Нет применимого допуска</span>';
+      } else if (evaluation.hasProjXY && !evaluation.hasFactXY) {
       statusTag = '<span class="tag" style="background: #fbbf24; color: #1f2937; font-weight: 600;">только проектные</span>';
     } else if (!evaluation.hasProjXY && evaluation.hasFactXY) {
       statusTag = '<span class="tag" style="background: #93c5fd; color: #1f2937; font-weight: 600;">только фактические</span>';

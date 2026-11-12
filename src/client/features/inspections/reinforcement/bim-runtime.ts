@@ -965,7 +965,7 @@ export function renderReinfWalls() { runtime?.rows.renderWalls(); }
 export async function loadReinfChecks() { await runtime?.loadChecks(); }
 export function saveReinfChecks() { runtime?.saveChecks(); }
 export function renderReinfChecks() { runtime?.renderChecks(); }
-export function loadReinfCheck(id: string) { runtime?.loadCheck(id); }
+export function loadReinfCheck(id: string) { return runtime?.loadCheck(id); }
 export async function saveReinfCheck(options: { skipJournalOnce?: boolean } = {}) {
   await runtime?.saveCheck(options);
 }

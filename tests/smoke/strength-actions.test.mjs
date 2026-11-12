@@ -109,7 +109,7 @@ function createHarness({
     },
     async createCheck(projectId, payload) {
       calls.push(["create", projectId, payload]);
-      return { id: "server-check", ref: { path: "created" } };
+      return { id: payload.id, ref: { path: "created" } };
     },
     async updateCheck(projectId, checkId, payload) {
       calls.push(["update", projectId, checkId, payload]);
@@ -180,7 +180,10 @@ function createHarness({
       journals.push(["add", payload]);
     },
     async upsertJournalEntry(payload) {
+      const id = `journal-${payload.sourceId}`;
+      await payload.commitInspection({ id, entry: { projectId: payload.projectId, sourceId: payload.sourceId } });
       journals.push(["upsert", payload]);
+      return id;
     },
     notifyFirestoreSyncStatus(ref) {
       calls.push(["sync", ref]);
@@ -244,17 +247,17 @@ test("strength action keeps check incomplete when actual strength is absent", as
   assert.equal(harness.journals.length, 0);
 });
 
-test("strength action saves a new check and replaces its provisional id", async () => {
+test("strength action saves a new check and links its id to the journal", async () => {
   const harness = createHarness();
 
   const checkId = await harness.actions.saveCheck();
 
-  assert.equal(checkId, "server-check");
+  assert.equal(checkId, harness.calls[0][2].id);
   assert.equal(harness.state.currentCheckId, null);
-  assert.equal(harness.state.checks.has("server-check"), true);
+  assert.equal(harness.state.checks.has(checkId), true);
   assert.equal(harness.calls[0][0], "create");
   assert.equal(harness.journals[0][0], "upsert");
-  assert.equal(harness.journals[0][1].sourceId, "server-check");
+  assert.equal(harness.journals[0][1].sourceId, checkId);
 });
 
 test("strength action updates the current check", async () => {
@@ -352,7 +355,7 @@ test("strength chart destroys the previous instance before recreating it", () =>
 test("strength journal payload keeps result context and source id", () => {
   const payload = buildStrengthJournalPayload(
     {
-      floor: "4",
+      floor: "4", location: "А–Б, 1–2",
       construction: "floor_slab", assessment: { reference: "Laboratory 17", responsible: "Lab engineer", date: "2026-10-20", confirmed: true, verdict: "conforms" },
       markValue: 30,
       days: 28,
@@ -365,7 +368,7 @@ test("strength journal payload keeps result context and source id", () => {
     evaluationSchemaVersion: 2,
     module: "Прочность",
     status: "ok",
-    context: "Этаж 4, день=28",
+    context: "Этаж 4, А–Б, 1–2, день=28",
     details: "основание=Laboratory 17; факт=31.0 МПа",
     construction: "floor_slab",
     sourceId: "check-4"

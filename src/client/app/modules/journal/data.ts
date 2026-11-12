@@ -1,3 +1,4 @@
+import type { LinkedJournalWrite } from "../../../types/module-records.js";
 /**
  * Модуль для работы с журналом проверок
  * Журнал является единым источником данных для итогового заключения
@@ -10,6 +11,7 @@ import {
   clearJournalEntriesByProject,
   deleteJournalEntryDoc,
   getJournalEntriesFilteredSnapshot,
+  getLinkedJournalEntriesSnapshot,
   getJournalEntriesSnapshot
 } from "../../repositories/firestore-repository.js";
 import { Timestamp } from "../../../infrastructure/firebase/firestore.js";
@@ -29,7 +31,7 @@ const JOURNAL_COLLECTION = "journal";
  * @param {string} params.module - Модуль (Геодезия, Армирование, Геометрия, Прочность)
  * @param {string} params.construction - Конструкция (Плита, Колонна, Стена, Лестница, Балка)
  * @param {string} params.context - Контекст (узел, стена, плита, номер проверки)
- * @param {string} params.status - Статус ("ok" или "exceeded")
+ * @param {string} params.status - Статус ("ok", "exceeded" или "pending")
  * @param {number} params.exceededCount - Количество превышений
  * @param {string} params.details - Подробности проверки
  * @param {string} params.sourceId - ID исходной проверки в модуле (опционально)
@@ -58,8 +60,8 @@ export function createJournalEntry({
   if (!construction) {
     throw new Error("construction обязателен для создания записи журнала");
   }
-  if (status !== "ok" && status !== "exceeded") {
-    throw new Error("status должен быть 'ok' или 'exceeded'");
+  if (status !== "ok" && status !== "exceeded" && status !== "pending") {
+    throw new Error("Недопустимый статус записи журнала");
   }
 
   return {
@@ -89,14 +91,26 @@ export function createJournalEntry({
  * @returns {Promise<string>} ID созданной записи
  */
 export async function addJournalEntry(entry) {
-  try {
-    const created = await addJournalEntryDoc(entry);
-    console.log("[Journal] Запись добавлена в журнал:", created.id);
-    return created.id;
-  } catch (error) {
-    console.error("[Journal] Ошибка добавления записи в журнал:", error);
-    throw error;
+  if (!entry.sourceId) return (await addJournalEntryDoc(entry)).id;
+
+  const write = await prepareLinkedJournalWrite(entry);
+  return (await addJournalEntryDoc(write.entry, write.id)).id;
+}
+
+export async function prepareLinkedJournalWrite(entry): Promise<LinkedJournalWrite> {
+  // Legacy entries have random IDs referenced by existing issues.
+  const snapshot = await getLinkedJournalEntriesSnapshot(entry.projectId, entry.sourceId);
+  const existing = snapshot.docs
+    .filter(record => record.data().module === entry.module)
+    .sort((a, b) => (b.data().timestamp?.toMillis?.() || 0) - (a.data().timestamp?.toMillis?.() || 0))[0];
+  if (existing) {
+    entry.timestamp = existing.data().timestamp || entry.timestamp;
+    return { id: existing.id, entry };
   }
+  const identity = JSON.stringify([entry.projectId, entry.module, entry.sourceId]);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(identity));
+  const id = "inspection_" + Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+  return { id, entry };
 }
 
 /**
@@ -133,23 +147,8 @@ export async function loadJournalEntries(projectId) {
     return [];
   }
 
-  try {
-    const querySnapshot = await getJournalEntriesSnapshot(projectId);
-    const entries = [];
-
-    querySnapshot.forEach((doc) => {
-      entries.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-
-    console.log(`[Journal] Загружено ${entries.length} записей для проекта ${projectId}`);
-    return entries;
-  } catch (error) {
-    console.error("[Journal] Ошибка загрузки записей журнала:", error);
-    return [];
-  }
+  const querySnapshot = await getJournalEntriesSnapshot(projectId);
+  return querySnapshot.docs.map(record => ({ ...record.data(), id: record.id }));
 }
 
 /**

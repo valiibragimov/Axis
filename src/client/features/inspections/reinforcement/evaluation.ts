@@ -83,7 +83,7 @@ export function buildReinforcementJournalPayload(
   return {
     evaluationSchemaVersion: 2,
     module: "Армирование",
-    status: evaluation.status === "ok" ? "ok" : evaluation.status === "empty" ? "empty" : "exceeded",
+    status: evaluation.status === "ok" ? "ok" : evaluation.status === "empty" ? "pending" : "exceeded",
     context,
     details: details.join("; ") ||
       evaluation.summaryText ||
