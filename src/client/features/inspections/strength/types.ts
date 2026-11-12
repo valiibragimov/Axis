@@ -17,6 +17,7 @@ export interface StrengthBimFields extends Record<string, unknown> {
 
 export interface StrengthCheckRecord
   extends StrengthBimFields, Record<string, unknown> {
+  repeatOf?: string | null;
   labReadings?: number[];
   assessment?: {
     reference: string;

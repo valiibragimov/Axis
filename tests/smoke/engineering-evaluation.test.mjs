@@ -57,3 +57,20 @@ test("nonphysical reinforcement measurements and opening dimensions cannot pass"
   assert.notEqual(evaluateReinforcementCheck({construction:"floor_slab",projDia:12,factDia:12,projStep:0,factStep:0,projCover:-30,factCover:-30,acceptanceCriteria}).status,"ok");
   assert.notEqual(evaluateGeometryCheck({construction:"floor_slab",physicalDimensions:{length:{project:6000,actual:6000},width:{project:4000,actual:4000}},projPlateHeight:200,factPlateHeight:200,factPlateFlatness:0,projOpeningSizes:"-100x-200",factOpeningSizes:"-100x-200",acceptanceCriteria}).status,"ok");
 });
+
+
+test("SP 70 uses the edition on the inspection date and evaluates tied bar spacing, cover and stirrups", async () => {
+  const { resolveNormativeCriteria } = await import("../../dist/features/inspections/normative-rules.js");
+  const before = resolveNormativeCriteria("reinforcement", "column", "tied-longitudinal", "2027-02-28");
+  const after = resolveNormativeCriteria("reinforcement", "column", "tied-longitudinal", "2027-03-01");
+  assert.doesNotMatch(before.reference, /изм\. № 8/u);
+  assert.match(after.reference, /изм\. № 8/u);
+  assert.equal(resolveNormativeCriteria("geo", "wall", "precast-base", "2027-03-01"), null);
+  const row = { projDia: 16, factDia: 16, projStep: 240, factStep: 290, projCover: 20, factCover: 17, projHoopsStep: 100, factHoopsStep: 112 };
+  for (const basis of [before, after]) {
+    const record = { construction: "column", columns: [row], acceptanceCriteria: { ...basis, coverSectionMm: 300, hoopsSectionMm: 300 } };
+    assert.equal(evaluateReinforcementCheck(record).status, "ok");
+    assert.equal(evaluateReinforcementCheck({ ...record, columns: [{ ...row, factCover: 16 }] }).status, "exceeded");
+    assert.equal(evaluateReinforcementCheck({ ...record, acceptanceCriteria: basis }).status, "empty");
+  }
+});

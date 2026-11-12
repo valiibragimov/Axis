@@ -1,6 +1,6 @@
 import type { LinkedJournalWrite } from "../../../types/module-records.js";
 import { inspectionLimitLabel } from "../limit-label.js";
-import { markInspectionMode, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
+import { inspectionOrigin, markInspectionMode, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
 import { isNormativeBearingLevel } from "../normative-rules.js";
 import { t } from "../../../shared/i18n/index.js";
 import {
@@ -236,6 +236,7 @@ export function bindGeodesyHandlers({
                          (evaluation.hasFactXY ? "fact_only" : "empty"));
 
       const data: GeodesyNodeRecord = {
+      ...inspectionOrigin("geo", nodes.get(key)),
         acceptanceCriteria: readAcceptanceCriteria(document.getElementById("geo")),
         evaluationSchemaVersion: 2,
         coordinateUnit: "m", deviationUnit: "mm", measurementSchemaVersion: 2,
@@ -358,6 +359,7 @@ export function bindGeodesyHandlers({
                          (evaluation.hasFactXY ? "fact_only" : "empty"));
 
       const data: GeodesyNodeRecord = {
+      ...inspectionOrigin("geo", nodes.get(key)),
         acceptanceCriteria: readAcceptanceCriteria(document.getElementById("geo")),
         evaluationSchemaVersion: 2,
         coordinateUnit: "m", deviationUnit: "mm", measurementSchemaVersion: 2,
@@ -544,6 +546,7 @@ export function bindGeodesyHandlers({
                          (evaluation.hasFactXY ? "fact_only" : "empty"));
 
       const data: GeodesyNodeRecord = {
+      ...inspectionOrigin("geo", nodes.get(key)),
         acceptanceCriteria: readAcceptanceCriteria(document.getElementById("geo")),
         evaluationSchemaVersion: 2,
         coordinateUnit: "m", deviationUnit: "mm", measurementSchemaVersion: 2,
@@ -756,6 +759,7 @@ export function bindGeodesyHandlers({
                        (evaluation.hasProjXY ? "project_only" :
                        (evaluation.hasFactXY ? "fact_only" : "empty"));
     const data: GeodesyNodeRecord = {
+      ...inspectionOrigin("geo", nodes.get(key)),
       ...nodes.get(key),
         acceptanceCriteria: readAcceptanceCriteria(document.getElementById("geo")),
         evaluationSchemaVersion: 2,

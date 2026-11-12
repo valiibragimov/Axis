@@ -43,7 +43,9 @@ for (const theme of ["light", "dark"]) {
           await menu.waitFor();
           const bounds = await menu.boundingBox();
           const sidebar = await page.locator("#workspaceSidebar").boundingBox();
-          assert.ok(bounds.x >= sidebar.x + sidebar.width, "The menu must open beside the desktop sidebar");
+          const trigger = await account.boundingBox();
+          assert.ok(bounds.x >= sidebar.x && bounds.x + bounds.width <= sidebar.x + sidebar.width + 1);
+          assert.ok(bounds.y + bounds.height <= trigger.y, "The menu must open above the trigger");
           assert.equal(await menu.evaluate(element => {
             const {x, y, width, height} = element.getBoundingClientRect();
             return element.contains(document.elementFromPoint(x + width / 2, y + height / 2));
@@ -358,7 +360,8 @@ test("geodesy saves independent points, edits one ID and records repeat control 
     await page.locator("#geo [data-inspection-search]").fill("Point B");
     assert.equal(await page.locator("#nodesList .node:visible").count(), 1);
     const card = page.locator("#nodesList .node:visible");
-    assert.equal(await card.locator(".node-title .node-open-button").count(), 0);
+    assert.equal(await card.locator(".node-title .node-open-button").count(), 1);
+    assert.doesNotMatch(await card.innerText(), /Редактировать/u);
     assert.equal(await card.locator(".node-title").innerText().then(text => text.split("Point B").length - 1), 1);
     await card.locator(".node-open-button").click();
     await page.locator('#geo[data-inspection-mode="edit"]').waitFor();
@@ -392,6 +395,7 @@ test("geodesy saves independent points, edits one ID and records repeat control 
     assert.equal((await app.read("geoNodes", original.id)).factH, 10.01);
     const repeat = afterRepeat.find(record => record.factH === 9.996);
     assert.equal((await app.read("issues", issue.id)).repeatControlInspectionId, repeat.id);
+    assert.equal(repeat.repeatOf, original.id);
     await name.fill("Point C");
     await fact.fill("");
     await save();
@@ -437,6 +441,33 @@ test("reinforcement repeat control waits for the source to load and saves new ev
     assert.equal(Number(repeated.factDia), 16);
     await openSection(page, "journal");
     await page.locator(`#journalTable tbody tr[data-source-id="${repeated.id}"]`).waitFor();
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});
+
+
+test("knowledge catalog keeps filters and keyboard focus on return from an article", { timeout: 60000 }, async () => {
+  const app = await startApp({ browserType: selectedBrowser });
+  const { page } = app;
+  try {
+    await openSection(page, "knowledge");
+    const cards = page.locator("#knowledgeArticlesGrid .knowledge-article-card");
+    await cards.first().waitFor();
+    const total = await cards.count();
+    await page.locator("#knowledgeModuleFilter").selectOption("geometry");
+    assert.ok(await cards.count() > 0 && await cards.count() < total);
+    const first = cards.first();
+    const title = await first.locator(".knowledge-article-title").textContent();
+    await first.press("Enter");
+    const article = page.locator("#articleViewTitle");
+    await article.waitFor();
+    assert.equal(await article.textContent(), title);
+    assert.equal(await article.evaluate(element => element === document.activeElement), true);
+    await page.locator("#btnBackToArticles").click();
+    assert.equal(await page.locator("#knowledgeModuleFilter").inputValue(), "geometry");
+    assert.equal(await first.evaluate(element => element === document.activeElement), true);
+    await page.setViewportSize({ width: 390, height: 840 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });

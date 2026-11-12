@@ -460,16 +460,16 @@ async function startRepeatControlForIssue(issue: IssueRecord) {
   // A repeat inspection is a new measurement, never an edit of the source evidence.
   if (entry.module === "Геометрия") {
     workspace.geometryCheckId = null;
-    beginRepeatInspection("geometry");
+    beginRepeatInspection("geometry", entry.sourceId);
   } else if (entry.module === "Армирование") {
     getReinforcementApi().setCurrentCheckId(null);
-    beginRepeatInspection("reinforcement");
+    beginRepeatInspection("reinforcement", entry.sourceId);
   } else if (entry.module === "Прочность") {
     getStrengthApi().setCurrentCheckId(null);
-    beginRepeatInspection("strength");
+    beginRepeatInspection("strength", entry.sourceId);
   } else if (entry.module === "Геодезия") {
     getGeodesyApi().resetCurrentNodeKeys();
-    beginRepeatInspection("geo");
+    beginRepeatInspection("geo", entry.sourceId);
   }
   showNotification("Открыта исходная проверка. Выполните повторный контроль и сохраните результат.", "info");
 }

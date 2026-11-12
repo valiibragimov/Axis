@@ -1076,5 +1076,5 @@ void initializeLocalization().then(() => {
   const geo = document.querySelector<HTMLElement>("#geo [data-step='2']");
   if (geo) mountAcceptanceCriteria(geo, [{ key: "geoPlan", label: "X/Y (mm)" }, { key: "geoHeight", label: "H (mm)" }, { key: "geoFlatness", label: "Плоскостность / Flatness (mm)" }], { module: "geo", construction: () => getCurrentConstructionKey() || "" });
   const reinf = document.querySelector<HTMLElement>("#reinforcement [data-step='2']");
-  if (reinf) mountAcceptanceCriteria(reinf, [{ key: "step", label: "Шаг / Spacing (mm)" }, { key: "cover", label: "Защитный слой / Cover (mm)" }, { key: "hoopsStep", label: "Хомуты / Stirrups (mm)" }]);
+  if (reinf) mountAcceptanceCriteria(reinf, [{ key: "step", label: "Шаг / Spacing (mm)" }, { key: "cover", label: "Защитный слой / Cover (mm)" }, { key: "hoopsStep", label: "Хомуты / Stirrups (mm)" }], { module: "reinforcement", construction: () => getCurrentConstructionKey() || "" });
 });

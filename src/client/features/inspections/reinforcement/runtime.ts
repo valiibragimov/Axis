@@ -1,6 +1,7 @@
+import { reinforcementMeasurementCriteria } from "../normative-rules.js";
 import type { LinkedJournalWrite } from "../../../types/module-records.js";
 import { inspectionLimitLabel } from "../limit-label.js";
-import { setInspectionHistoryMetadata } from "../inspection-form.js";
+import { inspectionOrigin, setInspectionHistoryMetadata } from "../inspection-form.js";
 import { markInspectionMode, canReplaceInspection, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
 import { comparePhysicalMeasurement, measurementNumber, type AcceptanceCriteria } from "../acceptance.js";
 import { t } from "../../../shared/i18n/index.js";
@@ -119,10 +120,11 @@ export function buildReinforcementMeasurementResults(measurements: Reinforcement
   return fields.flatMap(([name, project, actual, key]) => {
     const p = measurementNumber(measurements[project]), a = measurementNumber(measurements[actual]);
     if (p == null && a == null) return [];
-    const verdict = key === "diameter" ? p == null || a == null || p <= 0 || a <= 0 ? "incomplete" : p === a ? "ok" : "exceeded" : comparePhysicalMeasurement(p, a, key, criteria);
-    const text = t(verdict === "ok" ? "engineering_conforms" : verdict === "exceeded" ? "engineering_nonconforms" : "engineering_requires_review");
+    const basis = reinforcementMeasurementCriteria(criteria, key, p);
+    const verdict = key === "diameter" ? p == null || a == null || p <= 0 || a <= 0 ? "incomplete" : p === a ? "ok" : "exceeded" : comparePhysicalMeasurement(p, a, key, basis);
+    const text = t(verdict === "ok" ? "engineering_conforms" : verdict === "exceeded" ? "engineering_nonconforms" : verdict === "incomplete" ? "engineering_incomplete" : "assessment_no_applicable_limit");
     return [{ name, ok: verdict === "ok", regulatoryDoc: key === "diameter" ? "PROJECT_DESIGN" : criteria?.reference || "",
-      html: `<div>${escapeHtml(name)}: ${escapeHtml(p ?? "—")} / ${escapeHtml(a ?? "—")} mm; Δ=${p == null || a == null ? "—" : (a - p).toFixed(1)} mm — ${escapeHtml(text)} · ${escapeHtml(key === "diameter" ? t("inspection_nominal_diameter") : inspectionLimitLabel(criteria, key))}</div>` }];
+      html: `<div>${escapeHtml(name)}: ${escapeHtml(p ?? "—")} / ${escapeHtml(a ?? "—")} mm; Δ=${p == null || a == null ? "—" : (a - p).toFixed(1)} mm — ${escapeHtml(text)} · ${escapeHtml(key === "diameter" ? t("inspection_nominal_diameter") : inspectionLimitLabel(basis, key))}</div>` }];
   });
 }
 
@@ -311,7 +313,7 @@ export function createReinforcementRuntime(
           updateSummary();
         }
       });
-      setInspectionHistoryMetadata(row, check, status);
+      setInspectionHistoryMetadata(row, check, status, "reinforcement");
       list.appendChild(row);
     });
   }
@@ -360,7 +362,7 @@ export function createReinforcementRuntime(
             <b style="margin-top: 12px; display: block;">
               ${
                 allOk
-                  ? "Армирование соответствует проекту и нормативным требованиям."
+                  ? t("inspection_parameters_within_limits")
                   : "Есть несоответствия, требуется корректировка."
               }
             </b>
@@ -372,7 +374,7 @@ export function createReinforcementRuntime(
               helpTargetId: "reinfHelpContent"
             })}
           `
-          : `${rendered.join("")}<b>${t("engineering_requires_review")}</b>${renderRegulatoryBasisHtml({ moduleKey: "reinforcement", checkKind: construction, subtype })}`
+          : `${rendered.join("")}<b>${t(evaluation.hasUnverifiedMeasurements ? "assessment_no_applicable_limit" : "engineering_incomplete")}</b>${renderRegulatoryBasisHtml({ moduleKey: "reinforcement", checkKind: construction, subtype })}`
       );
     }
     inspectionState.reinforcement = anyCheck && allOk;
@@ -464,6 +466,7 @@ export function createReinforcementRuntime(
         ? current
         : null;
     const provisionalId = currentId && (!current || existing) ? currentId : crypto.randomUUID();
+    Object.assign(candidate, inspectionOrigin("reinforcement", existing));
     const evaluation = evaluateReinforcementCheck(candidate);
     candidate.status = evaluation.status;
     candidate.summaryText = evaluation.summaryText;

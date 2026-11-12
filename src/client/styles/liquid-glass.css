@@ -512,14 +512,6 @@
   .summary-text-placeholder, #knowledgeArticlesCount { color: var(--text-muted); }
   .normative-assistant__eyebrow { color: var(--text-muted); }
   .knowledge-construction-card__action { color: var(--accent); }
-  @supports (appearance: base-select) {
-    select.ui-select, select.ui-select::picker(select) { appearance: base-select; }
-    select.ui-select { align-items: center; }
-    select.ui-select::picker(select) { width: anchor-size(width); max-width: calc(100vw - 32px); max-height: 320px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); padding: 4px; box-shadow: 0 8px 24px #0002; }
-    select.ui-select option { min-width: 0; padding: 8px; white-space: normal; overflow-wrap: anywhere; border-radius: 4px; }
-    select.ui-select option:checked { background: var(--accent-subtle); color: var(--text); }
-    select.ui-select option:hover { background: var(--surface-hover); }
-  }
   .profile-feed-item-type, .profile-feed-item-type[data-category] { color: var(--text); background: var(--surface-hover); border-color: var(--border); }
   /* Legacy summary/result surfaces must use the active theme as well. */
   .summary-meta-value, .summary-card-value, .summary-value, .summary-module-stat-value,
@@ -837,19 +829,43 @@
     padding: 0;
     border-radius: 50%;
   }
-  select.ui-select { min-inline-size: 0; padding-inline-end: 2rem; text-overflow: ellipsis; }
-  @supports (appearance: base-select) {
-    select.ui-select { padding-inline-end: .75rem; }
-    select.ui-select::picker-icon { flex: none; margin-inline-start: .5rem; }
-    select.ui-select selectedcontent { min-inline-size: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  select:not([multiple]):not([size]) {
+    appearance: none;
+    padding-inline-end: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23878e97' stroke-width='1.35' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right .85rem center;
+    background-size: 16px;
   }
-  .node-header-controls .node-open-button { padding-inline: .4rem; }
-  .node-open-button .inspection-history-edit { margin: 0; }
+  @media (forced-colors: active) {
+    select:not([multiple]):not([size]) { appearance: auto; background-image: none; }
+  }
+  .node-title .node-open-button { font: inherit; padding: 0; text-decoration: none; }
+  .node-title .node-open-button:focus-visible { outline-offset: 3px; }
+  .node-card-compact { cursor: pointer; }
   .journal-construction-category { display: block; }
-  @media (min-width: 769px) {
-    .sidebar-account .account-menu { inset-inline-start: calc(100% + 12px); }
+  .sidebar-account .account-menu {
+    inset-inline: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - 110px);
   }
-  @media (max-width: 768px) {
-    .sidebar-account .account-menu { position: static; max-height: min(44dvh, 340px); }
-  }
+  .tabs[data-collapsed="true"]:has(.account-menu:not([hidden])) { width: var(--sidebar-width, 240px); }
+  .knowledge-catalog-filters { display: grid; grid-template-columns: minmax(0, 1.45fr) repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .knowledge-catalog-filters label { display: grid; gap: 6px; align-content: start; color: var(--text-muted); }
+  .knowledge-catalog-filters :is(input, select) { width: 100%; }
+  #knowledgeArticlesCount { margin: 16px 0 10px; font-size: .875rem; }
+  #knowledgeArticlesGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }
+  #knowledgeArticlesGrid .knowledge-article-card { display: grid; align-content: start; gap: 5px; padding: 16px; text-align: start; white-space: normal; }
+  #knowledgeArticlesGrid .knowledge-article-title { margin: 0; }
+  #knowledgeArticlesGrid .knowledge-article-card__meta { margin: 0; color: var(--text-muted); overflow-wrap: anywhere; }
+  #normativeAssistant { margin-top: 24px; }
+  #normativeAssistant > summary { cursor: pointer; font-weight: 600; }
+  #normativeAssistant[open] > summary { margin-bottom: 14px; }
+  .knowledge-article-view { max-width: 920px; margin-inline: auto; }
+  .knowledge-table-scroll { max-width: 100%; overflow: auto; margin-block: 1rem; }
+  .knowledge-table-scroll table { margin: 0; }
+  @media (max-width: 900px) { .knowledge-catalog-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 420px) { .knowledge-catalog-filters { grid-template-columns: minmax(0, 1fr); } }
+
 }

@@ -1,16 +1,12 @@
 import { REGULATORY_DOCS } from "../../config.js";
-import { escapeHtml, sanitizeHtml, showNotification } from "../../utils.js";
+import { escapeHtml, sanitizeHtml } from "../../utils.js";
 import type {
-  KnowledgeArticle,
-  KnowledgeConstructionCard,
-  KnowledgeModuleItem,
-  KnowledgeSubcategory
+  KnowledgeArticle
 } from "../../types/module-records.js";
 import {
   KNOWLEDGE_CATEGORIES,
   KNOWLEDGE_MODULES,
-  KNOWLEDGE_SCROLL_TOP_THRESHOLD,
-  getKnowledgeConstructionCard
+  KNOWLEDGE_SCROLL_TOP_THRESHOLD
 } from "./knowledge-catalog.js";
 import {
   buildExpandedKnowledgeSections,
@@ -24,345 +20,48 @@ import { KNOWLEDGE_ARTICLES } from "./knowledge-articles.js";
 //  База знаний
 // ============================
 
-let currentKnowledgeCategory: string | null = null;
-let currentKnowledgeSubcategory: string | null = null;
-let currentKnowledgeSubcategoryKey: string | null = null;
 let knowledgeArticles: KnowledgeArticle[] = [];
-let filteredArticles: KnowledgeArticle[] = [];
 let knowledgeScrollTopBound = false;
 let normativeAssistantBound = false;
+let articleTrigger: HTMLElement | null = null;
 
-type KnowledgeItemControlStatus = "object_control" | "factory_control" | "not_applicable";
+function populateKnowledgeFilter(select: HTMLSelectElement, items: Map<string, string>) {
+  for (const [key, label] of [...items].sort((a, b) => a[1].localeCompare(b[1], "ru"))) {
+    select.add(new Option(label, key));
+  }
+}
 
-// Константы статей базы знаний (хранятся в коде, не в Firebase)
-// Static article metadata lives in knowledge-articles.ts.
-
-// Инициализация базы знаний
 function initKnowledgeBase() {
-  // Автоматически выбираем категорию "Конструкции"
-  selectKnowledgeCategory('structures');
-
-  // Обработчики поиска
-  const btnKnowledgeSearch = document.getElementById('btnKnowledgeSearch');
-  const btnCategorySearch = document.getElementById('btnCategorySearch');
-  const knowledgeSearchInput = document.getElementById('knowledgeSearchInput');
-  const knowledgeCategorySearch = document.getElementById('knowledgeCategorySearch');
-
-  if (btnKnowledgeSearch) {
-    btnKnowledgeSearch.addEventListener('click', handleKnowledgeSearch);
+  knowledgeArticles = KNOWLEDGE_ARTICLES.map(article => ({ ...article, content: resolveKnowledgeArticleContent(article) }));
+  const search = document.querySelector<HTMLInputElement>("#knowledgeSearchInput");
+  const category = document.querySelector<HTMLSelectElement>("#knowledgeCategoryFilter");
+  const module = document.querySelector<HTMLSelectElement>("#knowledgeModuleFilter");
+  const construction = document.querySelector<HTMLSelectElement>("#knowledgeConstructionFilter");
+  if (!search || !category || !module || !construction) return;
+  const categories = new Map<string, string>();
+  const constructions = new Map<string, string>();
+  for (const article of knowledgeArticles) {
+    if (article.constructionCategoryKey && article.constructionCategory) categories.set(article.constructionCategoryKey, article.constructionCategory);
+    if (article.constructionKey && article.construction) constructions.set(article.constructionKey, article.construction);
   }
-  if (btnCategorySearch) {
-    btnCategorySearch.addEventListener('click', handleCategorySearch);
-  }
-  if (knowledgeSearchInput) {
-    knowledgeSearchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') handleKnowledgeSearch();
-    });
-  }
-  if (knowledgeCategorySearch) {
-    knowledgeCategorySearch.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') handleCategorySearch();
-    });
-  }
-
-  // Обработчики вида
-  const btnGridView = document.getElementById('btnGridView');
-  const btnListView = document.getElementById('btnListView');
-  const articlesGrid = document.getElementById('knowledgeArticlesGrid');
-
-  if (btnGridView) {
-    btnGridView.addEventListener('click', () => {
-      if (articlesGrid) articlesGrid.classList.remove('list-view');
-      btnGridView.classList.add('active');
-      if (btnListView) btnListView.classList.remove('active');
-    });
-  }
-  if (btnListView) {
-    btnListView.addEventListener('click', () => {
-      if (articlesGrid) articlesGrid.classList.add('list-view');
-      if (btnGridView) btnGridView.classList.remove('active');
-      btnListView.classList.add('active');
-    });
-  }
-
-  document.getElementById("btnAllArticles")?.addEventListener("click", showAllArticles);
-
-  // Загрузка статей (синхронно, так как они в коде)
-  loadKnowledgeArticles();
+  populateKnowledgeFilter(category, categories);
+  populateKnowledgeFilter(module, new Map(KNOWLEDGE_MODULES.map(item => [item.key, item.label])));
+  populateKnowledgeFilter(construction, constructions);
+  const render = () => {
+    const constructionKey = construction.value;
+    const results = knowledgeArticles.filter(article =>
+      (!category.value || article.constructionCategoryKey === category.value) &&
+      (!module.value || article.moduleKey === module.value) &&
+      (!constructionKey || article.constructionKey === constructionKey) && articleMatchesQuery(article, search.value));
+    renderArticles(results);
+    const count = document.getElementById("knowledgeArticlesCount");
+    if (count) count.textContent = `Статей найдено: ${results.length}`;
+  };
+  search.addEventListener("input", render);
+  [category, module, construction].forEach(select => select.addEventListener("change", render));
+  document.getElementById("btnBackToArticles")?.addEventListener("click", showKnowledgeMainPage);
+  render();
   initNormativeAssistant();
-}
-
-function selectKnowledgeCategory(categoryKey) {
-  currentKnowledgeCategory = categoryKey;
-  const category = KNOWLEDGE_CATEGORIES[categoryKey];
-  if (!category) return;
-
-  // Отображение подкатегорий
-  renderSubcategories(category.subcategories);
-}
-
-function renderBreadcrumbs(container, items: KnowledgeBreadcrumbItem[]) {
-  if (!container) return;
-  container.textContent = "";
-  items.forEach((item, index) => {
-    if (index > 0) {
-      container.appendChild(document.createTextNode(" > "));
-    }
-    if (typeof item.onClick === "function") {
-      const link = document.createElement("a");
-      link.href = "#";
-      link.textContent = item.label;
-      link.addEventListener("click", (event) => {
-        event.preventDefault();
-        item.onClick();
-      });
-      container.appendChild(link);
-    } else {
-      const span = document.createElement("span");
-      span.textContent = item.label;
-      container.appendChild(span);
-    }
-  });
-}
-
-function renderSubcategories(subcategories: Record<string, KnowledgeSubcategory>) {
-  const container = document.getElementById('knowledgeSubcategories');
-  if (!container) return;
-
-  if (Object.keys(subcategories).length === 0) {
-    container.textContent = "";
-    return;
-  }
-
-  container.textContent = "";
-  const fragment = document.createDocumentFragment();
-  Object.entries(subcategories).forEach(([key, subcat]) => {
-    const group = document.createElement("div");
-    group.className = "knowledge-subcategory-group";
-
-    const heading = document.createElement("h3");
-    const icon = document.createElement("span");
-    icon.textContent = subcat.icon || "";
-    heading.appendChild(icon);
-    heading.appendChild(document.createTextNode(` ${subcat.title || ""}`));
-
-    group.appendChild(heading);
-
-    if (subcat.constructions?.length) {
-      const cards = document.createElement("div");
-      cards.className = "knowledge-construction-cards";
-      subcat.constructions.forEach((construction) => {
-        cards.appendChild(renderKnowledgeConstructionCard(construction));
-      });
-      group.appendChild(cards);
-    } else {
-      const list = document.createElement("ul");
-      list.className = "knowledge-subcategory-list";
-      (subcat.items || []).forEach((item) => {
-        const normalizedItem = normalizeKnowledgeModuleItem(item);
-        const li = document.createElement("li");
-        li.textContent = normalizedItem.label;
-        li.addEventListener("click", () => openKnowledgeSubcategory(key, normalizedItem.label));
-        list.appendChild(li as unknown as Node);
-      });
-      group.appendChild(list);
-    }
-
-    fragment.appendChild(group);
-  });
-  container.appendChild(fragment);
-}
-
-function normalizeKnowledgeModuleItem(item: string | KnowledgeModuleItem): KnowledgeModuleItem {
-  return typeof item === "string" ? { label: item, status: "active" } : item;
-}
-
-function renderKnowledgeConstructionCard(construction: KnowledgeConstructionCard) {
-  const card = document.createElement("article");
-  card.className = "knowledge-construction-card";
-  card.tabIndex = 0;
-  card.setAttribute("role", "button");
-  card.setAttribute("aria-label", `Открыть статьи: ${construction.title}`);
-  card.addEventListener("click", () => openKnowledgeSubcategory(construction.key, construction.title));
-  card.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      openKnowledgeSubcategory(construction.key, construction.title);
-    }
-  });
-
-  const header = document.createElement("div");
-  header.className = "knowledge-construction-card__header";
-
-  const title = document.createElement("h4");
-  if (construction.icon) {
-    const icon = document.createElement("span");
-    icon.className = "knowledge-construction-card__icon";
-    icon.textContent = construction.icon;
-    title.appendChild(icon);
-  }
-  const titleText = document.createElement("span");
-  titleText.className = "knowledge-construction-card__title";
-  titleText.textContent = construction.title;
-  title.appendChild(titleText);
-  header.appendChild(title);
-
-  const chevron = document.createElement("span");
-  chevron.className = "knowledge-construction-card__chevron";
-  chevron.textContent = "›";
-  chevron.setAttribute("aria-hidden", "true");
-  header.appendChild(chevron);
-  card.appendChild(header);
-
-  const subtitle = document.createElement("p");
-  subtitle.className = "knowledge-construction-card__subtitle";
-  subtitle.textContent = getKnowledgeConstructionSubtitle(construction);
-  card.appendChild(subtitle);
-
-  const footer = document.createElement("div");
-  footer.className = "knowledge-construction-card__footer";
-  const count = document.createElement("span");
-  count.className = "knowledge-construction-card__count";
-  count.textContent = getKnowledgeConstructionArticleSummary(construction);
-  const action = document.createElement("span");
-  action.className = "knowledge-construction-card__action";
-  action.textContent = "Открыть";
-  footer.appendChild(count);
-  footer.appendChild(action);
-  card.appendChild(footer);
-
-  return card;
-}
-
-function getKnowledgeItemControlStatus(item: KnowledgeModuleItem): KnowledgeItemControlStatus {
-  if (item.status === "factory_control") return "factory_control";
-  if (item.status === "not_applicable") return "not_applicable";
-  return "object_control";
-}
-
-function getKnowledgeConstructionArticles(constructionKey: string) {
-  const source = knowledgeArticles.length ? knowledgeArticles : KNOWLEDGE_ARTICLES;
-  return source.filter((article) => article.constructionKey === constructionKey);
-}
-
-function getKnowledgeConstructionArticleSummary(construction: KnowledgeConstructionCard) {
-  const count = getKnowledgeConstructionArticles(construction.key).length || construction.items?.length || 0;
-  if (!count) return "Статья готовится";
-  const notApplicableCount = construction.items?.filter((item) => item.status === "not_applicable").length || 0;
-  return [
-    `${count} ${getRussianArticleWord(count)}`,
-    notApplicableCount ? `${notApplicableCount} не применяется` : ""
-  ].filter(Boolean).join(" · ");
-}
-
-function getRussianArticleWord(count: number) {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return "статья";
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "статьи";
-  return "статей";
-}
-
-function getKnowledgeConstructionSubtitle(construction: KnowledgeConstructionCard) {
-  const objectModules = construction.items
-    ?.filter((item) => item.status === "object_control")
-    .map((item) => item.label) || [];
-  const factoryModules = construction.items
-    ?.filter((item) => item.status === "factory_control")
-    .map((item) => item.label) || [];
-  const notApplicableModules = construction.items
-    ?.filter((item) => item.status === "not_applicable")
-    .map((item) => item.label) || [];
-  const parts = [
-    objectModules.length ? `Объектовый контроль: ${objectModules.join(", ")}.` : "",
-    factoryModules.length ? `Заводской контроль: ${factoryModules.join(", ")}.` : "",
-    notApplicableModules.length ? `Не применяется: ${notApplicableModules.join(", ")}.` : ""
-  ].filter(Boolean);
-  if (parts.length) return parts.join(" ");
-  if (construction.categoryTitle) {
-    return `Статьи по проверкам конструкции в категории “${construction.categoryTitle}”.`;
-  }
-  return "Статьи по контрольным проверкам конструкции.";
-}
-
-function openKnowledgeSubcategory(subcategoryKey, itemName) {
-  currentKnowledgeSubcategory = itemName;
-  currentKnowledgeSubcategoryKey = subcategoryKey;
-  
-  // Скрыть главную страницу, показать страницу категории
-  const mainPage = document.getElementById('knowledgeMainPage');
-  const categoryPage = document.getElementById('knowledgeCategoryPage');
-  if (mainPage) mainPage.style.display = 'none';
-  if (categoryPage) categoryPage.style.display = 'block';
-
-  const category = KNOWLEDGE_CATEGORIES[currentKnowledgeCategory];
-  const constructionCard = getKnowledgeConstructionCard(subcategoryKey);
-  const constructionName = constructionCard?.title || null;
-
-  const breadcrumbs = document.getElementById('knowledgeBreadcrumbs');
-  if (breadcrumbs && category) {
-    renderBreadcrumbs(breadcrumbs, [
-      { label: "База знаний", onClick: showKnowledgeMainPage },
-      { label: category.title },
-      ...(constructionCard?.categoryTitle ? [{ label: constructionCard.categoryTitle }] : []),
-      ...(constructionName ? [{ label: constructionName }] : [])
-    ]);
-  }
-
-  const categoryTitle = document.getElementById('knowledgeCategoryTitle');
-  if (categoryTitle) categoryTitle.textContent = constructionName || itemName;
-  
-  loadArticlesForCategory(itemName, constructionName, subcategoryKey);
-}
-
-function showKnowledgeMainPage() {
-  const mainPage = document.getElementById('knowledgeMainPage');
-  const categoryPage = document.getElementById('knowledgeCategoryPage');
-  const articlePage = document.getElementById('knowledgeArticlePage');
-  if (mainPage) mainPage.style.display = 'block';
-  if (categoryPage) categoryPage.style.display = 'none';
-  if (articlePage) articlePage.style.display = 'none';
-  currentKnowledgeSubcategory = null;
-  currentKnowledgeSubcategoryKey = null;
-  updateKnowledgeScrollTopVisibility();
-}
-
-function showAllArticles() {
-  const mainPage = document.getElementById('knowledgeMainPage');
-  const categoryPage = document.getElementById('knowledgeCategoryPage');
-  const articlePage = document.getElementById('knowledgeArticlePage');
-  
-  if (mainPage) mainPage.style.display = 'none';
-  if (articlePage) articlePage.style.display = 'none';
-  if (categoryPage) categoryPage.style.display = 'block';
-  
-  // Сбрасываем состояние подкатегории при показе всех статей
-  currentKnowledgeSubcategory = null;
-  currentKnowledgeSubcategoryKey = null;
-  updateKnowledgeScrollTopVisibility();
-  
-  const breadcrumbs = document.getElementById('knowledgeBreadcrumbs');
-  if (breadcrumbs) {
-    renderBreadcrumbs(breadcrumbs, [
-      { label: "База знаний", onClick: showKnowledgeMainPage },
-      { label: "Все статьи" }
-    ]);
-  }
-  
-  const categoryTitle = document.getElementById('knowledgeCategoryTitle');
-  if (categoryTitle) categoryTitle.textContent = 'Все статьи';
-  loadAllArticles();
-}
-
-function loadKnowledgeArticles() {
-  // Загружаем статьи из константы и заполняем контент через registry builders
-  knowledgeArticles = KNOWLEDGE_ARTICLES.map(article => ({
-    ...article,
-    content: resolveKnowledgeArticleContent(article)
-  }));
-    
-    updateKnowledgeStats();
-    updateFilters();
 }
 
 function normalizeKnowledgeSearchText(value: unknown) {
@@ -593,163 +292,42 @@ function initNormativeAssistant() {
   renderNormativeAssistant();
 }
 
-function loadArticlesForCategory(categoryName, constructionName = null, constructionKey = null) {
-  const constructionCard = constructionKey ? getKnowledgeConstructionCard(constructionKey) : null;
-  filteredArticles = knowledgeArticles.filter(article => {
-    if (constructionCard && constructionKey) {
-      return article.constructionKey === constructionKey;
-    }
-
-    if (constructionKey || constructionName) {
-      return article.construction === constructionName ||
-        article.constructionType === constructionName ||
-        article.constructionKey === constructionKey;
-    }
-
-    return article.category === categoryName ||
-      article.subcategory === categoryName ||
-      articleMatchesQuery(article, categoryName);
-  });
-  
-  renderArticles(filteredArticles);
-  updateArticlesCount(filteredArticles.length);
-}
-
-function loadAllArticles() {
-  filteredArticles = [...knowledgeArticles];
-  renderArticles(filteredArticles);
-  updateArticlesCount(filteredArticles.length);
-}
-
-function renderArticles(articles) {
-  const container = document.getElementById('knowledgeArticlesGrid');
-  if (!container) {
-    console.warn('Контейнер knowledgeArticlesGrid не найден');
-    return;
-  }
-
-  if (!articles || articles.length === 0) {
-    container.innerHTML = '<p style="color: #94a3b8; padding: 20px; text-align: center;">Статьи не найдены</p>';
-    return;
-  }
-
-  container.textContent = "";
+function renderArticles(articles: KnowledgeArticle[]) {
+  const container = document.getElementById("knowledgeArticlesGrid");
+  if (!container) return;
   const fragment = document.createDocumentFragment();
-
-  articles.forEach((article) => {
-    const articleId = article.id || "unknown";
-    const card = document.createElement("div");
+  if (!articles.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "Статьи не найдены. Измените запрос или фильтры.";
+    fragment.append(empty);
+  }
+  for (const article of articles) {
+    if (!article.id) continue;
+    const card = document.createElement("button");
+    card.type = "button";
     card.className = "knowledge-article-card";
-    card.tabIndex = 0;
-    card.setAttribute("role", "button");
-    card.addEventListener("click", () => openArticle(articleId));
-    card.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        openArticle(articleId);
-      }
-    });
-
-    const title = document.createElement("div");
+    const category = document.createElement("span");
+    category.className = "knowledge-article-card__meta";
+    category.textContent = article.constructionCategory || "";
+    const title = document.createElement("strong");
     title.className = "knowledge-article-title";
     title.textContent = article.title || "Без названия";
-
-    const meta = document.createElement("div");
-    meta.className = "knowledge-article-card__meta";
-    meta.textContent = getKnowledgeArticleCardDescription(article);
-
-    const status = document.createElement("div");
-    status.className = "knowledge-article-card__status";
-    status.textContent = getKnowledgeArticleControlStatusLabel(article);
-
-    card.appendChild(title);
-    card.appendChild(meta);
-    card.appendChild(status);
-    fragment.appendChild(card);
-  });
-  container.appendChild(fragment);
-}
-
-function getKnowledgeArticleCardDescription(article: KnowledgeArticle) {
-  if (article.controlStatus === "factory_control") {
-    return "Заводской контроль: справка о документах, паспортах и входном контроле.";
+    const description = document.createElement("span");
+    description.className = "knowledge-article-card__meta";
+    const fields = article.fields?.slice(0, 3).map(field => field.label).join(", ");
+    description.textContent = article.controlNote || fields || article.infoMessage || "Порядок проверки и нормативные ссылки";
+    card.append(category, title, description);
+    card.addEventListener("click", () => openArticle(article.id));
+    fragment.append(card);
   }
-  if (article.controlStatus === "not_applicable") {
-    return "Не применяется: справка по границам технического контроля.";
-  }
-  return "Объектовый контроль: полноценная статья с методикой проверки.";
-}
-
-function getKnowledgeArticleControlStatusLabel(article: KnowledgeArticle) {
-  if (article.controlStatusLabel) {
-    return `Статус контроля: ${article.controlStatusLabel}`;
-  }
-  if (article.controlStatus === "factory_control") {
-    return "Статус контроля: заводской контроль";
-  }
-  if (article.controlStatus === "not_applicable") {
-    return "Статус контроля: не применяется";
-  }
-  return "Статус контроля: объектовый контроль";
-}
-
-function handleKnowledgeSearch() {
-  const searchInput = document.getElementById('knowledgeSearchInput') as HTMLInputElement | null;
-  if (!searchInput) return;
-  
-  const query = normalizeKnowledgeSearchText(searchInput.value);
-  // Переходим на страницу "Все статьи" перед поиском
-  showAllArticles();
-
-  if (!query) {
-    filteredArticles = [...knowledgeArticles];
-    renderArticles(filteredArticles);
-    updateArticlesCount(filteredArticles.length);
-    return;
-  }
-
-  filteredArticles = knowledgeArticles.filter(article => articleMatchesQuery(article, query));
-
-  renderArticles(filteredArticles);
-  updateArticlesCount(filteredArticles.length);
-}
-
-function handleCategorySearch() {
-  const searchInput = document.getElementById('knowledgeCategorySearch') as HTMLInputElement | null;
-  if (!searchInput) return;
-  
-  const query = normalizeKnowledgeSearchText(searchInput.value);
-  if (!query) {
-    renderArticles(filteredArticles);
-    updateArticlesCount(filteredArticles.length);
-    return;
-  }
-
-  const filtered = filteredArticles.filter(article => articleMatchesQuery(article, query));
-
-  renderArticles(filtered);
-  updateArticlesCount(filtered.length);
-}
-
-function updateKnowledgeStats() {
-  const articlesCount = document.getElementById('knowledgeArticlesCount');
-  if (articlesCount) articlesCount.textContent = `${knowledgeArticles.length} статей`;
-}
-
-function updateArticlesCount(count) {
-  const badge = document.getElementById('knowledgeArticlesCountBadge');
-  if (badge) badge.textContent = `${count} статей`;
-}
-
-function updateFilters() {
-  // Фильтры удалены, функция оставлена для совместимости
+  container.replaceChildren(fragment);
 }
 
 function isKnowledgeArticleOpen() {
   const knowledgeSection = document.getElementById('knowledge');
   const articlePage = document.getElementById('knowledgeArticlePage');
   const isKnowledgeTabActive = !!knowledgeSection && knowledgeSection.classList.contains('active');
-  return isKnowledgeTabActive && !!articlePage && articlePage.style.display !== 'none';
+  return isKnowledgeTabActive && !!articlePage && !articlePage.hidden;
 }
 
 function updateKnowledgeScrollTopVisibility() {
@@ -777,99 +355,42 @@ function initKnowledgeScrollTopButton() {
   updateKnowledgeScrollTopVisibility();
 }
 
-function openArticle(articleId) {
-  const article = knowledgeArticles.find(a => a.id === articleId);
-  if (!article) {
-    showNotification('Статья не найдена', 'error');
-    return;
+function openArticle(articleId: string) {
+  const article = knowledgeArticles.find(item => item.id === articleId);
+  const catalog = document.getElementById("knowledgeMainPage");
+  const page = document.getElementById("knowledgeArticlePage");
+  const title = document.getElementById("articleViewTitle");
+  const content = document.getElementById("articleViewContent");
+  if (!article || !catalog || !page || !title || !content) return;
+  articleTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  catalog.hidden = true;
+  page.hidden = false;
+  title.textContent = article.title || "";
+  content.innerHTML = sanitizeHtml(article.content || resolveKnowledgeArticleContent(article));
+  for (const table of content.querySelectorAll("table")) {
+    const scroll = document.createElement("div");
+    scroll.className = "knowledge-table-scroll";
+    scroll.tabIndex = 0;
+    scroll.setAttribute("role", "region");
+    scroll.setAttribute("aria-label", table.caption?.textContent || "Таблица статьи");
+    table.before(scroll);
+    scroll.append(table);
   }
-
-  // Просмотры больше не сохраняются в Firebase
-  
-  // Скрыть другие страницы
-  const mainPage = document.getElementById('knowledgeMainPage');
-  const categoryPage = document.getElementById('knowledgeCategoryPage');
-  const articlePage = document.getElementById('knowledgeArticlePage');
-  
-  if (mainPage) mainPage.style.display = 'none';
-  if (categoryPage) categoryPage.style.display = 'none';
-  if (articlePage) articlePage.style.display = 'block';
+  title.focus();
+  page.scrollIntoView({ block: "start" });
   updateKnowledgeScrollTopVisibility();
-  
-  // Установить заголовок и содержимое
-  const titleEl = document.getElementById('articleViewTitle');
-  const contentEl = document.getElementById('articleViewContent');
-  const breadcrumbsEl = document.getElementById('articleBreadcrumbs');
-  
-  if (titleEl) {
-    titleEl.textContent = article.title || 'Без названия';
-  }
-  
-  if (contentEl) {
-    contentEl.innerHTML = sanitizeHtml(article.content || resolveKnowledgeArticleContent(article));
-  }
-  
-  // Обновить хлебные крошки
-  if (breadcrumbsEl) {
-    const items: KnowledgeBreadcrumbItem[] = [{ label: "База знаний", onClick: showKnowledgeMainPage }];
-    if (currentKnowledgeSubcategory && currentKnowledgeSubcategoryKey) {
-      items.push({ label: currentKnowledgeSubcategory, onClick: showKnowledgeCategoryPage });
-    }
-    items.push({ label: article.title || "Без названия" });
-    renderBreadcrumbs(breadcrumbsEl, items);
-  }
-  
-  // Обработчик кнопки "Назад" - устанавливаем каждый раз при открытии статьи
-  const btnBack = document.getElementById('btnBackToArticles');
-  if (btnBack) {
-    // Удаляем все старые обработчики, заменяя кнопку
-    const newBtnBack = btnBack.cloneNode(true);
-    btnBack.parentNode.replaceChild(newBtnBack, btnBack);
-    
-    // Устанавливаем новый обработчик
-    const finalBtnBack = document.getElementById('btnBackToArticles');
-    if (finalBtnBack) {
-      finalBtnBack.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (currentKnowledgeSubcategory) {
-          showKnowledgeCategoryPage();
-        } else {
-          showKnowledgeMainPage();
-        }
-        return false;
-      });
-    }
-  }
 }
 
-function showKnowledgeCategoryPage() {
-  const mainPage = document.getElementById('knowledgeMainPage');
-  const categoryPage = document.getElementById('knowledgeCategoryPage');
-  const articlePage = document.getElementById('knowledgeArticlePage');
-  
-  if (mainPage) mainPage.style.display = 'none';
-  if (articlePage) articlePage.style.display = 'none';
-  if (categoryPage) categoryPage.style.display = 'block';
+function showKnowledgeMainPage() {
+  const catalog = document.getElementById("knowledgeMainPage");
+  const page = document.getElementById("knowledgeArticlePage");
+  if (!catalog || !page) return;
+  page.hidden = true;
+  catalog.hidden = false;
+  articleTrigger?.focus();
   updateKnowledgeScrollTopVisibility();
-
-  // Восстанавливаем состояние - загружаем статьи для текущей подкатегории
-  if (currentKnowledgeSubcategory) {
-    const constructionCard = currentKnowledgeSubcategoryKey
-      ? getKnowledgeConstructionCard(currentKnowledgeSubcategoryKey)
-      : null;
-    const constructionName = constructionCard?.title || null;
-    loadArticlesForCategory(currentKnowledgeSubcategory, constructionName, currentKnowledgeSubcategoryKey);
-  } else {
-    // Если нет подкатегории, показываем все статьи
-    loadAllArticles();
-  }
 }
 
-// Функция удалена - просмотры больше не отслеживаются
-
-
-// Функция для генерации контента статьи о геодезической привязке плиты
 function getPlateArticleContent() {
   return `
     <div class="article-table-of-contents">
@@ -4526,11 +4047,6 @@ function resolveKnowledgeArticleContent(article: Partial<KnowledgeArticle> = {})
 // Функции удалены - статьи хранятся в коде, не требуют создания/инициализации в Firebase
 
 let knowledgeInitialized = false;
-
-interface KnowledgeBreadcrumbItem {
-  label: string;
-  onClick?: () => void;
-}
 
 export function initKnowledgeModule() {
   if (knowledgeInitialized) return;

@@ -1,4 +1,4 @@
-import { NORMATIVE_OPTIONS, RULESET, resolveNormativeCriteria, type NormativeModule } from "../../features/inspections/normative-rules.js";
+import { localInspectionDate, NORMATIVE_OPTIONS, RULESET, resolveNormativeCriteria, type NormativeModule } from "../../features/inspections/normative-rules.js";
 import type { AcceptanceCriteria } from "../../features/inspections/acceptance.js";
 import { measurementNumber } from "../../features/inspections/acceptance.js";
 import { t } from "../../shared/i18n/index.js";
@@ -70,16 +70,52 @@ export function mountAcceptanceCriteria(root: HTMLElement, keys: Array<{ key: st
       context.add(new Option(english ? option.en : option.ru, option.id));
     }
     context.add(new Option(english ? "Special requirements from the project" : "Специальные требования проекта", "project"));
+    const dateLabel = document.createElement("label");
+    dateLabel.append(t("assessment_inspection_date"));
+    const date = document.createElement("input");
+    date.type = "date";
+    date.dataset.normativeDate = "";
+    date.value = localInspectionDate();
+    date.max = date.value;
+    dateLabel.append(date);
+    const dimensions = document.createElement("div");
+    const addDimension = (key: string, label: string) => {
+      const field = document.createElement("label");
+      field.append(label);
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "1";
+      input.dataset[key] = "";
+      field.append(input);
+      dimensions.append(field);
+      return field;
+    };
+    const coverSize = automatic.module === "reinforcement" ? addDimension("coverSectionMm", t("assessment_cover_section")) : null;
+    const hoopsSize = automatic.module === "reinforcement" ? addDimension("hoopsSectionMm", t("assessment_hoops_section")) : null;
     const guidance = document.createElement("p");
     guidance.setAttribute("aria-live", "polite");
     const refresh = () => {
       for (const child of manualFields) child.toggleAttribute("hidden", context.value !== "project");
-      const criteria = resolveNormativeCriteria(automatic.module, automatic.construction(), context.value);
-      guidance.textContent = context.value === "project" ? "" : criteria?.reference || (english ? "Select an applicable condition for this construction." : "Укажите применимое условие для выбранной конструкции.");
+      const construction = automatic.construction();
+      const tied = context.value === "tied-longitudinal";
+      dateLabel.hidden = !context.value || context.value === "project";
+      if (coverSize) coverSize.hidden = !tied;
+      if (hoopsSize) hoopsSize.hidden = !tied || !["column", "beam", "foundation_slab", "floor_slab"].includes(construction);
+      const criteria = date.value <= localInspectionDate() ? resolveNormativeCriteria(automatic.module, construction, context.value, date.value) : null;
+      guidance.textContent = context.value === "project" ? "" : criteria?.reference || t("assessment_conditions_missing");
     };
     context.addEventListener("change", refresh);
+    date.addEventListener("change", refresh);
     document.getElementById("construction")?.addEventListener("change", refresh);
-    panel.append(context, guidance);
+    panel.append(context, dateLabel, guidance);
+    if (dimensions.childElementCount) panel.append(dimensions);
+    if (automatic.module === "geo") {
+      const accuracy = document.createElement("p");
+      accuracy.className = "caption";
+      accuracy.dataset.i18n = "assessment_survey_accuracy";
+      accuracy.textContent = t("assessment_survey_accuracy");
+      panel.append(accuracy);
+    }
     refresh();
   }
   const heading = root.querySelector(".inspection-form-title");
@@ -92,8 +128,14 @@ export function readAcceptanceCriteria(root: ParentNode | null): AcceptanceCrite
   const automatic = panel && automated.get(panel);
   const context = panel?.querySelector<HTMLSelectElement>("[data-normative-context]");
   if (automatic && context?.value && context.value !== "project") {
-    const resolved = resolveNormativeCriteria(automatic.module, automatic.construction(), context.value);
-    return resolved ?? { reference: "", confirmed: false, limits: {} };
+    const effectiveOn = panel?.querySelector<HTMLInputElement>("[data-normative-date]")?.value;
+    const resolved = effectiveOn && effectiveOn <= localInspectionDate()
+      ? resolveNormativeCriteria(automatic.module, automatic.construction(), context.value, effectiveOn) : null;
+    if (!resolved) return { reference: "", confirmed: false, limits: {} };
+    const coverSectionMm = measurementNumber(panel?.querySelector<HTMLInputElement>("[data-cover-section-mm]")?.value);
+    const hoopsSection = panel?.querySelector<HTMLInputElement>("[data-hoops-section-mm]");
+    const hoopsSectionMm = hoopsSection?.closest("label")?.hidden ? null : measurementNumber(hoopsSection?.value);
+    return { ...resolved, ...(coverSectionMm && { coverSectionMm }), ...(hoopsSectionMm && { hoopsSectionMm }) };
   }
   if (automatic && !context?.value) return { reference: "", confirmed: false, limits: {} };
   const limits: AcceptanceCriteria["limits"] = {};
@@ -110,6 +152,12 @@ export function readAcceptanceCriteria(root: ParentNode | null): AcceptanceCrite
 export function restoreAcceptanceCriteria(root: ParentNode | null, criteria?: AcceptanceCriteria | null) {
   const panel = root?.querySelector("[data-acceptance]");
   const context = panel?.querySelector<HTMLSelectElement>("[data-normative-context]");
+  const date = panel?.querySelector<HTMLInputElement>("[data-normative-date]");
+  if (date) date.value = criteria?.effectiveOn || localInspectionDate();
+  const cover = panel?.querySelector<HTMLInputElement>("[data-cover-section-mm]");
+  if (cover) cover.value = String(criteria?.coverSectionMm ?? "");
+  const hoops = panel?.querySelector<HTMLInputElement>("[data-hoops-section-mm]");
+  if (hoops) hoops.value = String(criteria?.hoopsSectionMm ?? "");
   if (context) {
     context.value = criteria?.normativeRule?.startsWith(`${RULESET}/`) ? criteria.normativeRule.slice(RULESET.length + 1) : criteria?.reference ? "project" : "";
     context.dispatchEvent(new Event("change", { bubbles: true }));

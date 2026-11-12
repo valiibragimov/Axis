@@ -1,4 +1,6 @@
-import { t } from "../../shared/i18n/index.js";
+import { localInspectionDate } from "./normative-rules.js";
+import { getConstructionCategoryLabel, getConstructionLabel } from "../../app/construction.js";
+import { t, translateEngineeringLabel } from "../../shared/i18n/index.js";
 
 const sections = ["geo", "geometry", "reinforcement", "strength"] as const;
 export type InspectionSection = typeof sections[number];
@@ -11,6 +13,7 @@ export function markInspectionMode(id: InspectionSection, mode: Mode) {
   const section = getSection(id);
   if (!section) return;
   section.dataset.inspectionMode = mode;
+  if (mode !== "repeat") delete section.dataset.repeatSourceId;
   delete section.dataset.inspectionDirty;
 }
 
@@ -52,7 +55,7 @@ function actualFields(form: Element | null | undefined) {
     .filter(isActualField);
 }
 
-export function beginRepeatInspection(id: InspectionSection) {
+export function beginRepeatInspection(id: InspectionSection, sourceId: string) {
   const section = getSection(id);
   if (!section) return;
   const form = section.querySelector('[data-step="2"]');
@@ -61,11 +64,17 @@ export function beginRepeatInspection(id: InspectionSection) {
     else input.value = "";
     input.dispatchEvent(new Event("input", { bubbles: true }));
   }
+  const date = form?.querySelector<HTMLInputElement>("[data-normative-date]");
+  if (date) {
+    date.value = localInspectionDate();
+    date.dispatchEvent(new Event("change"));
+  }
   const result = form?.querySelector<HTMLElement>(".result");
   if (result) result.textContent = "";
   const assessment = form?.querySelector<HTMLSelectElement>("#strengthAssessmentVerdict");
   if (assessment) assessment.value = "";
   markInspectionMode(id, "repeat");
+  section.dataset.repeatSourceId = sourceId;
 }
 
 export function focusInspectionMode(id: InspectionSection) {
@@ -106,36 +115,50 @@ export async function serializeInspectionSave<T>(id: InspectionSection, save: ()
   }
 }
 
-export function setInspectionHistoryMetadata(row: HTMLElement, record: { createdAt?: unknown; floor?: unknown; location?: unknown }, status: unknown) {
+interface InspectionHistoryRecord {
+  createdAt?: unknown;
+  floor?: unknown;
+  location?: unknown;
+  construction?: unknown;
+  constructionCategory?: unknown;
+  constructionType?: unknown;
+  constructionLabel?: unknown;
+  measurementScope?: unknown;
+  repeatOf?: unknown;
+}
+
+export function inspectionOrigin(section: InspectionSection, previous?: InspectionHistoryRecord | null): { repeatOf?: string | null } {
+  const sourceId = getSection(section)?.dataset.repeatSourceId;
+  if (sourceId) return { repeatOf: sourceId };
+  if (!previous) return { repeatOf: null };
+  if (typeof previous.repeatOf === "string") return { repeatOf: previous.repeatOf };
+  return previous.repeatOf === null ? { repeatOf: null } : {};
+}
+
+export function setInspectionHistoryMetadata(row: HTMLElement, record: InspectionHistoryRecord, status: unknown, section: InspectionSection) {
   row.dataset.inspectionStatus = ["ok", "exceeded", "bad"].includes(String(status))
     ? (status === "ok" ? "ok" : "exceeded") : "pending";
-  const time = Number(record.createdAt);
   const title = row.querySelector(".node-title");
-  const titleText = row.textContent?.replace(/\s+/g, " ").trim().toLowerCase() || "";
+  if (!title) return;
+  const time = Number(record.createdAt);
+  const currentText = row.textContent?.replace(/\s+/g, " ").trim().toLowerCase() || "";
+  const kind = section === "geo" ? (record.measurementScope === "height" ? "history_bearing_level" : "history_coordinates") :
+    section === "geometry" ? "history_geometry" : section === "reinforcement" ? "history_reinforcement" : "history_strength";
+  const constructionKey = String(record.construction || record.constructionType || "");
+  const construction = translateEngineeringLabel(String(record.constructionLabel || getConstructionLabel(constructionKey) || ""));
+  const category = translateEngineeringLabel(getConstructionCategoryLabel(String(record.constructionCategory || constructionKey)) || "");
   const location = String(record.location ?? "").trim();
-  const parts = location && !titleText.includes(location.toLowerCase()) ? [location] : [];
-  const floor = String(record.floor ?? "").trim();
-  const floorText = floor ? `${t("form_floor")} ${floor}` : "";
-  if (floorText && !titleText.includes(floorText.toLowerCase())) parts.unshift(floorText);
-  if (Number.isFinite(time) && time > 0 && time <= 8.64e15) {
-    const date = new Date(time).toLocaleDateString(row.ownerDocument.documentElement?.lang || "ru");
-    if (!titleText.includes(date)) parts.push(date);
-  }
-  if (parts.length) {
-    const meta = row.ownerDocument.createElement("div");
-    meta.className = "inspection-history-meta";
-    meta.textContent = parts.join(", ");
-    title?.append(meta);
-  }
-  const open = row.querySelector(".node-open-button");
-  if (open) {
-    const action = row.ownerDocument.createElement("span");
-    action.className = "inspection-history-edit";
-    action.dataset.i18n = "inspection_edit_action";
-    action.textContent = t("inspection_edit_action");
-    open.setAttribute("aria-label", [action.textContent, title?.textContent?.trim()].filter(Boolean).join(" · "));
-    open.replaceChildren(action);
-  }
+  const floor = record.floor ? `${t("form_floor")} ${record.floor}` : "";
+  const date = Number.isFinite(time) && time > 0 && time <= 8.64e15
+    ? new Date(time).toLocaleDateString(row.ownerDocument.documentElement?.lang || "ru") : "";
+  const origin = record.repeatOf ? t("history_repeat") : record.repeatOf === null ? t("history_primary") : "";
+  const meta = row.ownerDocument.createElement("div");
+  meta.className = "inspection-history-meta";
+  const parts = [...new Set([construction, category, floor, location, date].filter(value => value && !currentText.includes(value.toLowerCase())))];
+  meta.textContent = [t(kind), ...parts, origin].filter(Boolean).join(" · ");
+  const button = title.querySelector(".node-open-button");
+  if (button) button.setAttribute("aria-label", [button.textContent?.trim(), meta.textContent].filter(Boolean).join(" · "));
+  title.append(meta);
 }
 
 export function bindInspectionForms() {

@@ -153,6 +153,7 @@ export interface GeodesyBimApi {
 
 export interface GeodesyNodeRecord
   extends GeodesyBimNodeData, Record<string, unknown> {
+  repeatOf?: string | null;
   measurementScope?: "height" | "coordinates";
   pointLabel?: string | null;
   acceptanceCriteria?: AcceptanceCriteria | null;

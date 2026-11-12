@@ -1,6 +1,6 @@
 import type { LinkedJournalWrite } from "../../types/module-records.js";
 import { inspectionLimitLabel } from "../../features/inspections/limit-label.js";
-import { setInspectionHistoryMetadata } from "../../features/inspections/inspection-form.js";
+import { inspectionOrigin, setInspectionHistoryMetadata } from "../../features/inspections/inspection-form.js";
 import { markInspectionMode, canReplaceInspection, focusInspectionMode, startNewInspection, serializeInspectionSave } from "../../features/inspections/inspection-form.js";
 import { evaluateGeometryCheck as evaluateGeomCheck } from "../../features/inspections/geometry/evaluation.js";
 import { commonDimensionKeys, elementDimensionKeys, type PhysicalDimensions } from "../../features/inspections/geometry/dimensions.js";
@@ -2881,7 +2881,7 @@ function renderGeomChecks() {
         }
       }
     });
-    setInspectionHistoryMetadata(row, d, d.status);
+    setInspectionHistoryMetadata(row, d, d.status, "geometry");
     list.appendChild(row);
   });
 }
@@ -3091,6 +3091,7 @@ async function persistGeomCheck(skipJournalOnce: boolean) {
     : null;
 
   const data: GeometryCheckRecord = {
+    ...inspectionOrigin("geometry", existing),
     ...existing,
     evaluationSchemaVersion: 2,
     physicalDimensions: structuredClone(commonPhysicalDimensions),

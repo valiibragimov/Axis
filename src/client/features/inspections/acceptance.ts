@@ -2,6 +2,9 @@ export interface AcceptanceCriteria {
   reference: string;
   confirmed: boolean;
   normativeRule?: string;
+  effectiveOn?: string;
+  hoopsSectionMm?: number;
+  coverSectionMm?: number;
   limits: Record<string, { min: number | null; max: number | null }>;
 }
 
