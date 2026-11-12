@@ -280,10 +280,24 @@ test("browser Firestore retries and channel cancellation remain consistent acros
       let denied = 0;
       try {
         for (let cycle = 0; cycle < 5; cycle += 1) {
-          await sdk.getDocsFromServer(sdk.collection(db, "projects", "inspection-project", "inspections")).catch(error => {
-            if (error.code !== "permission-denied") throw error;
-            denied += 1;
-          });
+          const protectedCollection = sdk.collection(db, "projects", "inspection-project", "inspections");
+          // Enabling the SDK network does not wait for the server channel to reconnect.
+          // Every cycle must still receive a real permission denial from the emulator.
+          for (let attempt = 0; ; attempt += 1) {
+            try {
+              await sdk.getDocsFromServer(protectedCollection);
+              throw new Error(`Foreign read unexpectedly succeeded in cycle ${cycle + 1}`);
+            } catch (error) {
+              if (error.code === "permission-denied") {
+                denied += 1;
+                break;
+              }
+              if (error.code !== "unavailable" || attempt === 4) {
+                throw new Error(`Permission probe failed in cycle ${cycle + 1}: ${error.code || error.message}`, { cause: error });
+              }
+              await new Promise(resolve => setTimeout(resolve, 100 * 2 ** attempt));
+            }
+          }
           await sdk.disableNetwork(db);
           await sdk.enableNetwork(db);
         }
