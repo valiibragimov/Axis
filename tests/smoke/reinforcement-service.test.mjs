@@ -234,17 +234,18 @@ test("reinforcement service loads active documents only", async () => {
 
 test("reinforcement service creates and updates with dual-write", async () => {
   const { repository, calls } = createRepository();
+  const journal = { id: "journal-1", entry: { projectId: "project-1" } };
   const service = createReinforcementService(repository);
   const created = { status: "ok" };
   const updated = { status: "exceeded" };
 
-  await service.createCheck("project-1", created);
-  await service.updateCheck("project-1", "check-1", updated);
+  await service.createCheck("project-1", created, journal);
+  await service.updateCheck("project-1", "check-1", updated, journal);
 
   assert.deepEqual(calls, [
-    ["createCheck", "project-1", created],
+    ["createCheck", "project-1", created, journal],
     ["refreshAnalytics", "project-1"],
-    ["updateCheck", "project-1", "check-1", updated],
+    ["updateCheck", "project-1", "check-1", updated, journal],
     ["refreshAnalytics", "project-1"]
   ]);
 });

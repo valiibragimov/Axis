@@ -1,3 +1,4 @@
+import type { LinkedJournalWrite } from "../../../types/module-records.js";
 import { setInspectionHistoryMetadata } from "../inspection-form.js";
 import { markInspectionMode, canReplaceInspection, focusInspectionMode, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
 import { t } from "../../../shared/i18n/index.js";
@@ -361,12 +362,13 @@ export function createStrengthActions({
     saveLocalChecks();
     renderChecks();
 
-    try {
+    let finalId = provisionalId;
+    const commitInspection = async (journal?: LinkedJournalWrite) => {
       const result = existing
-        ? await service.updateCheck(projectId, provisionalId, data)
-        : await service.createCheck(projectId, data);
+        ? await service.updateCheck(projectId, provisionalId, data, journal)
+        : await service.createCheck(projectId, data, journal);
       notifyFirestoreSyncStatus(result.ref);
-      const finalId = result.id;
+      finalId = result.id;
       if (finalId !== provisionalId) {
         state.checks.delete(provisionalId);
         state.checks.set(finalId, { ...data, id: finalId });
@@ -374,7 +376,11 @@ export function createStrengthActions({
         renderChecks();
       }
 
-      if (!skipJournal) {
+    };
+    try {
+      if (skipJournal) {
+        await commitInspection();
+      } else {
         const journalPayload = buildStrengthJournalPayload(data, {
           sourceId: finalId
         });
@@ -384,9 +390,9 @@ export function createStrengthActions({
             context: [data.floor ? `Этаж ${data.floor}` : "", data.location || "", data.days ? `день=${data.days}` : ""].filter(Boolean).join(", "),
             details: t("engineering_requires_review"), sourceId: finalId, construction: data.construction
           }),
-          projectId, sourceRecord: data
+          projectId, sourceRecord: data, commitInspection
         });
-        if (journalId === null) return null;
+        if (!journalId) return null;
       }
       setCurrentStrengthCheckId(state, null);
       markInspectionMode("strength", "saved");

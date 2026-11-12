@@ -1,3 +1,4 @@
+import type { LinkedJournalWrite } from "../../types/module-records.js";
 import { getProjectBimSnapshot, hideProjectBimModels } from "./bim-repository.js";
 import { db } from "../../firebase.js";
 import { appendNewInspectionAnalytics } from "../inspection-analytics.js";
@@ -238,8 +239,13 @@ export async function saveInspectionSourceDoc(
   sourceId: string,
   source: FirestoreRecord,
   inspection: FirestoreRecord,
-  options: { merge?: boolean } = {}
+  options: { merge?: boolean; journal?: LinkedJournalWrite } = {}
 ) {
+  const { journal, ...sourceOptions } = options;
+  if (journal && (journal.entry.projectId !== projectId || journal.entry.sourceId !== sourceId)) {
+    throw new Error("Journal entry does not match the inspection source.");
+  }
+  const journalRef = journal ? doc(db, JOURNAL_COLLECTION, journal.id) : null;
   // Capture the revision BEFORE the alias queries. Any cooperating writer
   // invalidates this observation; the ordinary pending/recovery path remains.
   const before = await getProjectDocSnapshot(projectId);
@@ -251,7 +257,7 @@ export async function saveInspectionSourceDoc(
     if (inspections.docs.some(document => document.id === registryId)) throw new Error("Inspection registry identity is already occupied.");
     registryIds.push(registryId);
   }
-  if (registryIds.length > 498) throw new Error("Too many inspection aliases for an atomic save.");
+  if (registryIds.length > (journal ? 497 : 498)) throw new Error("Too many inspection aliases for an atomic save.");
   const ref = getProjectCollectionDocRef(projectId, sourceCollection, sourceId);
   const beforeSync = before.data()?.inspectionSync;
   if (inspections.docs.length === 0 && beforeSync?.version === 1 && beforeSync.pending === false &&
@@ -270,7 +276,8 @@ export async function saveInspectionSourceDoc(
       const analyticsCurrent = appendNewInspectionAnalytics(project.data()?.analyticsCurrent, inspection);
       if (!analyticsCurrent) return false;
       const revision = crypto.randomUUID();
-      transaction.set(ref, source, options);
+      transaction.set(ref, source, sourceOptions);
+      if (journal && journalRef) transaction.set(journalRef, journal.entry, { merge: true });
       transaction.set(registryRef, inspection, { merge: true });
       transaction.set(projectRef, { analyticsCurrent,
         inspectionSync: { version: 1, revision, analyticsRevision: revision, pending: false } }, { merge: true });
@@ -279,7 +286,8 @@ export async function saveInspectionSourceDoc(
     if (saved) return { id: sourceId, ref };
   }
   const batch = writeBatch(db);
-  batch.set(ref, source, options);
+  batch.set(ref, source, sourceOptions);
+  if (journal && journalRef) batch.set(journalRef, journal.entry, { merge: true });
   for (const registryId of registryIds) {
     batch.set(getProjectCollectionDocRef(projectId, "inspections", registryId), inspection, { merge: true });
   }

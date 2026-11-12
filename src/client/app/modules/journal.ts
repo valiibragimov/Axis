@@ -48,11 +48,12 @@ import {
   createJournalEntry,
   addJournalEntry as addJournalEntryToFirestore,
   loadJournalEntries,
+  prepareLinkedJournalWrite,
   clearJournal,
   formatJournalTimestamp,
   deleteJournalEntry
 } from "./journal/data.js";
-import type { IssueRecord, JournalEntryRecord } from "../../types/module-records.js";
+import type { IssueRecord, JournalEntryRecord, LinkedJournalWrite } from "../../types/module-records.js";
 import type { StrengthCheckRecord } from "../../features/inspections/strength/index.js";
 import type { ReinforcementCheckRecord } from "../../features/inspections/reinforcement/index.js";
 
@@ -916,7 +917,7 @@ function fmtDate(ts) {
  * @param {string} params.construction - Конструкция (опционально, если не указана, берется из DOM)
  * @returns {Promise<string|null>} ID созданной записи или null
  */
-async function upsertJournalEntry({ module, status, context = "", details = "", exceededCount = 0, sourceId = null, construction: providedConstruction = null, evaluationSchemaVersion = null, projectId = workspace.getProjectId(), sourceRecord = null }) {
+async function upsertJournalEntry({ module, status, context = "", details = "", exceededCount = 0, sourceId = null, construction: providedConstruction = null, evaluationSchemaVersion = null, projectId = workspace.getProjectId(), sourceRecord = null, commitInspection = null as ((journal: LinkedJournalWrite) => Promise<unknown>) | null }) {
   if (!projectId) {
     console.warn("[Journal] Нельзя добавить запись без выбранного проекта");
     return null;
@@ -959,7 +960,14 @@ async function upsertJournalEntry({ module, status, context = "", details = "", 
 
     if (evaluationSchemaVersion === 2) entry.evaluationSchemaVersion = 2;
 
-    const entryId = await addJournalEntryToFirestore(entry);
+    let entryId: string;
+    if (commitInspection) {
+      const journal = await prepareLinkedJournalWrite(entry);
+      await commitInspection(journal);
+      entryId = journal.id;
+    } else {
+      entryId = await addJournalEntryToFirestore(entry);
+    }
     entry.id = entryId;
     if (projectId !== workspace.getProjectId()) return entryId;
     journalWriteVersion++;
@@ -992,7 +1000,12 @@ async function upsertJournalEntry({ module, status, context = "", details = "", 
         }));
     
     saveJournal();
-    await linkRepeatControlFromJournalEntry(entry);
+    try {
+      await linkRepeatControlFromJournalEntry(entry);
+    } catch (error) {
+      console.error("[Journal] Не удалось связать повторную проверку:", error);
+      showNotification("Проверка сохранена, но связь с замечанием не обновилась", "error");
+    }
     
     // Обновляем отображение журнала (только если открыта вкладка журнала)
     const journalSection = document.getElementById("journal");
@@ -1008,7 +1021,7 @@ async function upsertJournalEntry({ module, status, context = "", details = "", 
     return entryId;
   } catch (error) {
     console.error("[Journal] Ошибка добавления записи в журнал:", error);
-    showNotification("Не удалось сохранить запись в журнал", "error");
+    showNotification(commitInspection ? "Не удалось сохранить проверку и запись журнала" : "Не удалось сохранить запись в журнал", "error");
     return null;
   }
 }

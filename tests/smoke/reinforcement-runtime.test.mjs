@@ -500,7 +500,7 @@ function createRuntimeHarness({
     },
     async createCheck(projectId, payload) {
       calls.push(["create", projectId, payload]);
-      return { id: "created-1", ref: { path: "created" } };
+      return { id: payload.id, ref: { path: "created" } };
     },
     async updateCheck(projectId, id, payload) {
       calls.push(["update", projectId, id, payload]);
@@ -564,8 +564,11 @@ function createRuntimeHarness({
     addJournalEntry(payload) {
       journals.push(["add", payload]);
     },
-    upsertJournalEntry(payload) {
+    async upsertJournalEntry(payload) {
+      const id = `journal-${payload.sourceId}`;
+      await payload.commitInspection({ id, entry: { projectId: payload.projectId, sourceId: payload.sourceId } });
       journals.push(["upsert", payload]);
+      return id;
     },
     notifyFirestoreSyncStatus() {}
   });
@@ -643,7 +646,7 @@ test("changed column marking creates a new check and preserves the old one", asy
   assert.equal(calls[0][0], "create");
   assert.equal(state.checks.size, 2);
   assert.equal(state.checks.get("column-1").columns[0].marking, "К1");
-  assert.equal(state.checks.get("created-1").columns[0].marking, "К2");
+  assert.equal(state.checks.get(calls[0][2].id).columns[0].marking, "К2");
 });
 
 test("changed column measurements update the existing check", async () => {
@@ -918,7 +921,7 @@ test("partially filled check auto-saves with empty status", async () => {
   const createCall = calls.find((call) => call[0] === "create");
   assert.ok(createCall);
   assert.equal(createCall[2].status, "empty");
-  assert.equal(state.checks.get("created-1")?.status, "empty");
+  assert.equal(state.checks.get(createCall[2].id)?.status, "empty");
 });
 
 test("incomplete auto-saved check creates a linked pending journal entry", async () => {

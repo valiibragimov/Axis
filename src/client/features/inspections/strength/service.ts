@@ -1,3 +1,4 @@
+import type { LinkedJournalWrite } from "../../../types/module-records.js";
 import type {
   StrengthCheckRecord,
   StrengthBimElementRecord,
@@ -10,12 +11,14 @@ export interface StrengthRepository {
   loadBimElements(projectId: string): Promise<StrengthCollectionSnapshot>;
   createCheck(
     projectId: string,
-    data: StrengthCheckRecord
+    data: StrengthCheckRecord,
+    journal?: LinkedJournalWrite
   ): Promise<StrengthWriteResult>;
   updateCheck(
     projectId: string,
     checkId: string,
-    data: StrengthCheckRecord
+    data: StrengthCheckRecord,
+    journal?: LinkedJournalWrite
   ): Promise<StrengthWriteResult>;
   deleteCheck(projectId: string, checkId: string): Promise<void>;
   clearChecks(projectId: string): Promise<number>;
@@ -28,12 +31,14 @@ export interface StrengthService {
   loadBimElements(projectId: string): Promise<StrengthBimElementRecord[]>;
   createCheck(
     projectId: string,
-    data: StrengthCheckRecord
+    data: StrengthCheckRecord,
+    journal?: LinkedJournalWrite
   ): Promise<StrengthWriteResult>;
   updateCheck(
     projectId: string,
     checkId: string,
-    data: StrengthCheckRecord
+    data: StrengthCheckRecord,
+    journal?: LinkedJournalWrite
   ): Promise<StrengthWriteResult>;
   deleteCheck(projectId: string, checkId: string): Promise<void>;
   clearChecks(projectId: string): Promise<{
@@ -96,14 +101,14 @@ export function createStrengthService(
       return elements;
     },
 
-    async createCheck(projectId, data) {
-      const result = await repository.createCheck(projectId, data);
+    async createCheck(projectId, data, journal) {
+      const result = await repository.createCheck(projectId, data, journal);
       await refreshAnalyticsSafely(projectId);
       return result;
     },
 
-    async updateCheck(projectId, checkId, data) {
-      const result = await repository.updateCheck(projectId, checkId, data);
+    async updateCheck(projectId, checkId, data, journal) {
+      const result = await repository.updateCheck(projectId, checkId, data, journal);
       await refreshAnalyticsSafely(projectId);
       return result;
     },

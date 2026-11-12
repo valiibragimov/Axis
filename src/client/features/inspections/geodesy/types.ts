@@ -1,3 +1,4 @@
+import type { LinkedJournalWrite } from "../../../types/module-records.js";
 import type { AcceptanceCriteria } from "../acceptance.js";
 import type { BimElement, GeoPrefill } from "../../../types/domain.js";
 
@@ -202,6 +203,7 @@ export interface GeodesyJournalPayload {
   sourceId: string;
   projectId?: string | null;
   sourceRecord?: GeodesyNodeRecord;
+  commitInspection?(journal: LinkedJournalWrite): Promise<unknown>;
   construction: string;
 }
 

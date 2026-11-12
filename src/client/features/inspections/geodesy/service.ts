@@ -1,3 +1,4 @@
+import type { LinkedJournalWrite } from "../../../types/module-records.js";
 export interface GeodesyDocumentSnapshot {
   id: string;
   data(): Record<string, unknown>;
@@ -13,7 +14,8 @@ export interface GeodesyRepository {
   saveNode(
     projectId: string,
     nodeId: string,
-    data: Record<string, unknown>
+    data: Record<string, unknown>,
+    journal?: LinkedJournalWrite
   ): Promise<unknown>;
   markNodeDeleted(projectId: string, nodeId: string): Promise<unknown>;
   clearNodes(projectId: string): Promise<number>;
@@ -29,7 +31,8 @@ export interface GeodesyService {
   saveNode(
     projectId: string,
     nodeId: string,
-    data: Record<string, unknown>
+    data: Record<string, unknown>,
+    journal?: LinkedJournalWrite
   ): Promise<void>;
   deleteNode(projectId: string, nodeId: string): Promise<void>;
   clearNodes(projectId: string): Promise<{
@@ -76,8 +79,8 @@ export function createGeodesyService(
       return elements;
     },
 
-    async saveNode(projectId, nodeId, data) {
-      await repository.saveNode(projectId, nodeId, data);
+    async saveNode(projectId, nodeId, data, journal) {
+      await repository.saveNode(projectId, nodeId, data, journal);
       await refreshAnalyticsSafely(projectId);
     },
 

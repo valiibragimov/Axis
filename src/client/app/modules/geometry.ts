@@ -1,3 +1,4 @@
+import type { LinkedJournalWrite } from "../../types/module-records.js";
 import { inspectionLimitLabel } from "../../features/inspections/limit-label.js";
 import { setInspectionHistoryMetadata } from "../../features/inspections/inspection-form.js";
 import { markInspectionMode, canReplaceInspection, focusInspectionMode, startNewInspection, serializeInspectionSave } from "../../features/inspections/inspection-form.js";
@@ -122,7 +123,7 @@ const notifyFirestoreSyncStatusSafe = (ref: unknown) => geometryActions.notifySy
 
 const auth = getAuth();
 
-async function saveGeomInspection(projectId, inspectionId, checkData) {
+async function saveGeomInspection(projectId, inspectionId, checkData, journal?: LinkedJournalWrite) {
   const projectSnap = await getProjectDocSnapshot(projectId);
   const projectData = projectSnap.exists() ? projectSnap.data() || {} : {};
   const authUid = String(auth.currentUser?.uid || "").trim();
@@ -151,7 +152,7 @@ async function saveGeomInspection(projectId, inspectionId, checkData) {
   if (createdBy) inspectionPayload.createdBy = createdBy;
 
   const saved = await saveInspectionSourceDoc(projectId, "geomChecks", inspectionId,
-    { ...checkData, updatedAt: Date.now() }, inspectionPayload);
+    { ...checkData, updatedAt: Date.now() }, inspectionPayload, { journal });
   await refreshPendingProjectAnalytics(projectId);
   return saved;
 }
@@ -3237,13 +3238,15 @@ async function persistGeomCheck(skipJournalOnce: boolean) {
   const skipJournal = skipJournalOnce || skipGeomJournalOnce;
   skipGeomJournalOnce = false;
 
-  try {
-    const finalId = id;
-    const projectId = getCurrentProjectId();
-    const saved = await saveGeomInspection(projectId, id, data);
+  const projectId = getCurrentProjectId();
+  const commitInspection = async (journal?: LinkedJournalWrite) => {
+    const saved = await saveGeomInspection(projectId, id, data, journal);
     notifyFirestoreSyncStatusSafe(saved.ref);
-
-    if (!skipJournal) {
+  };
+  try {
+    if (skipJournal) {
+      await commitInspection();
+    } else {
       let context = "";
       if (floor) {
         context = `Этаж ${floor}`;
@@ -3263,12 +3266,13 @@ async function persistGeomCheck(skipJournalOnce: boolean) {
         status: data.status === "empty" ? "pending" : data.status,
         projectId,
         sourceRecord: data,
+        commitInspection,
         context: context,
         details: evaluation.summaryText || "Проверка геометрии",
-        sourceId: finalId,
+        sourceId: id,
         construction: data.construction || getSelectedConstructionKey()
       });
-      if (journalId === null) return;
+      if (!journalId) return;
     }
     setCurrentGeomCheckId(null);
     markInspectionMode("geometry", "saved");

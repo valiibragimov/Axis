@@ -115,7 +115,11 @@ export async function openSection(page, target) {
     await page.locator('.sidebar-drawer').waitFor({state:'hidden'});
   }
   if (page.viewportSize().width <= 768 && !await page.locator(".sidebar-drawer").evaluate(e=>e.open)) {
-    await swipe(page, {x:8,y:300}, {x:180,y:300});
+    if (page.context().browser().browserType().name() === "chromium") {
+      await swipe(page, {x:8,y:300}, {x:180,y:300});
+    } else {
+      await page.locator("#mobileSidebarToggle").click();
+    }
     await page.locator(".sidebar-drawer[open]").waitFor();
   }
   await page.locator(`#workspaceSidebar [data-target="${target}"]`).click();

@@ -1,3 +1,4 @@
+import type { LinkedJournalWrite } from "../../../types/module-records.js";
 import { inspectionLimitLabel } from "../limit-label.js";
 import { markInspectionMode, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
 import { isNormativeBearingLevel } from "../normative-rules.js";
@@ -139,11 +140,13 @@ export function bindGeodesyHandlers({
   const saveProjectNode = (
     projectId: string | null,
     nodeId: string,
-    data: GeodesyNodeRecord
+    data: GeodesyNodeRecord,
+    journal?: LinkedJournalWrite
   ) => geodesyNodeActions.saveProjectNode(
     projectId,
     nodeId,
-    data
+    data,
+    journal
   );
 
   btnGeo?.addEventListener("click", () => btnSaveNode?.click());
@@ -266,12 +269,11 @@ export function bindGeodesyHandlers({
 
       try {
         const savedRows = columns.map(row => ({ ...row }));
-        await saveProjectNode(projectId, key, data);
         const skipJournal = geodesyNodeState.skipJournalOnce;
-        if (geodesyNodeState.skipJournalOnce) {
-          geodesyNodeState.skipJournalOnce = false;
-        }
-        if (!skipJournal) {
+        geodesyNodeState.skipJournalOnce = false;
+        if (skipJournal) {
+          await saveProjectNode(projectId, key, data);
+        } else {
           const journalId = await upsertJournalEntry({ ...buildColumnJournalPayload({
             key,
             construction: data.construction || "",
@@ -279,8 +281,10 @@ export function bindGeodesyHandlers({
             floor,
             columns: savedRows,
             status: evaluation.status
-          }), projectId, sourceRecord: data });
-          if (journalId === null) return;
+          }), projectId, sourceRecord: data,
+            commitInspection: (journal: LinkedJournalWrite) => saveProjectNode(projectId, key, data, journal)
+          });
+          if (!journalId) return;
         }
 
         // Обновляем вкладку "Итог"
@@ -434,12 +438,11 @@ export function bindGeodesyHandlers({
 
       try {
         const savedRows = walls.map(row => ({ ...row }));
-        await saveProjectNode(projectId, key, data);
         const skipJournal = geodesyNodeState.skipJournalOnce;
-        if (geodesyNodeState.skipJournalOnce) {
-          geodesyNodeState.skipJournalOnce = false;
-        }
-        if (!skipJournal) {
+        geodesyNodeState.skipJournalOnce = false;
+        if (skipJournal) {
+          await saveProjectNode(projectId, key, data);
+        } else {
           const journalId = await upsertJournalEntry({ ...buildLinearJournalPayload({
             key,
             construction: data.construction || "",
@@ -449,8 +452,10 @@ export function bindGeodesyHandlers({
             entityLabel: wallEntityLabel,
             entityPlural: wallEntityPlural,
             emptyDetails: `Проверка ${wallEntityPluralGenitive}`
-          }), projectId, sourceRecord: data });
-          if (journalId === null) return;
+          }), projectId, sourceRecord: data,
+            commitInspection: (journal: LinkedJournalWrite) => saveProjectNode(projectId, key, data, journal)
+          });
+          if (!journalId) return;
         }
 
         // Обновляем вкладку "Итог"
@@ -601,12 +606,11 @@ export function bindGeodesyHandlers({
 
       try {
         const savedRows = beams.map(row => ({ ...row }));
-        await saveProjectNode(projectId, key, data);
         const skipJournal = geodesyNodeState.skipJournalOnce;
-        if (geodesyNodeState.skipJournalOnce) {
-          geodesyNodeState.skipJournalOnce = false;
-        }
-        if (!skipJournal) {
+        geodesyNodeState.skipJournalOnce = false;
+        if (skipJournal) {
+          await saveProjectNode(projectId, key, data);
+        } else {
           const journalId = await upsertJournalEntry({ ...buildLinearJournalPayload({
             key,
             construction: data.construction || "",
@@ -616,8 +620,10 @@ export function bindGeodesyHandlers({
             entityLabel: "Балка",
             entityPlural: "Балки",
             emptyDetails: "Проверка балок"
-          }), projectId, sourceRecord: data });
-          if (journalId === null) return;
+          }), projectId, sourceRecord: data,
+            commitInspection: (journal: LinkedJournalWrite) => saveProjectNode(projectId, key, data, journal)
+          });
+          if (!journalId) return;
         }
 
         // Обновляем вкладку "Итог"
@@ -793,12 +799,11 @@ export function bindGeodesyHandlers({
     saveNodes();
 
     try {
-      await saveProjectNode(projectId, key, data);
       const skipJournal = geodesyNodeState.skipJournalOnce;
-      if (geodesyNodeState.skipJournalOnce) {
-        geodesyNodeState.skipJournalOnce = false;
-      }
-      if (!skipJournal) {
+      geodesyNodeState.skipJournalOnce = false;
+      if (skipJournal) {
+        await saveProjectNode(projectId, key, data);
+      } else {
         const allOk = finalEvaluationStatus === "ok";
         const contextLabel = (heightOnly ? pointLabel : "") || axisState.location || axisState.nodeLabel || "узел";
         const context = floor ? `${floor}-${contextLabel}` : contextLabel;
@@ -816,12 +821,13 @@ export function bindGeodesyHandlers({
           status: allOk ? "ok" : finalEvaluationStatus === "bad" ? "exceeded" : "pending",
           projectId,
           sourceRecord: data,
+          commitInspection: (journal: LinkedJournalWrite) => saveProjectNode(projectId, key, data, journal),
           context: context,
           details: detailsParts.join("; ") || "Проверка узла",
           sourceId: key,
           construction: data.construction || getCurrentConstructionKey()
         });
-        if (journalId === null) return;
+        if (!journalId) return;
       }
 
       // Обновляем вкладку "Итог"

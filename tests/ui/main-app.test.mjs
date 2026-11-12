@@ -59,7 +59,8 @@ for (const theme of ["light", "dark"]) {
           assert.ok(bounds.width >= 44 && bounds.height >= 44 && bounds.x >= 0 && bounds.y >= 0);
           assert.equal(await page.locator("#sidebarToggle").isVisible(),false);
           assert.equal(await page.locator("#headerProfileButton").isVisible(),false);
-          await swipe(page,{x:8,y:300},{x:180,y:300});
+          if (selectedBrowser === chromium) await swipe(page,{x:8,y:300},{x:180,y:300});
+          else await opener.click();
           const drawer=page.locator(".sidebar-drawer");
           await drawer.waitFor({state:"visible"});
           assert.equal(await drawer.evaluate(e=>e.matches(":modal")),true);
@@ -75,7 +76,8 @@ for (const theme of ["light", "dark"]) {
           assert.equal(await drawer.getAttribute('data-state'),'open');
           assert.equal(await opener.getAttribute('aria-expanded'),'true');
           if(width===390) await app.capture(`drawer-${theme}`);
-          await swipe(page,{x:220,y:300},{x:40,y:300});
+          if (selectedBrowser === chromium) await swipe(page,{x:220,y:300},{x:40,y:300});
+          else await page.keyboard.press("Escape");
           await drawer.waitFor({state:"hidden"});
         }
       }

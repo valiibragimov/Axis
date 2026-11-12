@@ -109,7 +109,7 @@ function createHarness({
     },
     async createCheck(projectId, payload) {
       calls.push(["create", projectId, payload]);
-      return { id: "server-check", ref: { path: "created" } };
+      return { id: payload.id, ref: { path: "created" } };
     },
     async updateCheck(projectId, checkId, payload) {
       calls.push(["update", projectId, checkId, payload]);
@@ -180,7 +180,10 @@ function createHarness({
       journals.push(["add", payload]);
     },
     async upsertJournalEntry(payload) {
+      const id = `journal-${payload.sourceId}`;
+      await payload.commitInspection({ id, entry: { projectId: payload.projectId, sourceId: payload.sourceId } });
       journals.push(["upsert", payload]);
+      return id;
     },
     notifyFirestoreSyncStatus(ref) {
       calls.push(["sync", ref]);
@@ -244,17 +247,17 @@ test("strength action keeps check incomplete when actual strength is absent", as
   assert.equal(harness.journals.length, 0);
 });
 
-test("strength action saves a new check and replaces its provisional id", async () => {
+test("strength action saves a new check and links its id to the journal", async () => {
   const harness = createHarness();
 
   const checkId = await harness.actions.saveCheck();
 
-  assert.equal(checkId, "server-check");
+  assert.equal(checkId, harness.calls[0][2].id);
   assert.equal(harness.state.currentCheckId, null);
-  assert.equal(harness.state.checks.has("server-check"), true);
+  assert.equal(harness.state.checks.has(checkId), true);
   assert.equal(harness.calls[0][0], "create");
   assert.equal(harness.journals[0][0], "upsert");
-  assert.equal(harness.journals[0][1].sourceId, "server-check");
+  assert.equal(harness.journals[0][1].sourceId, checkId);
 });
 
 test("strength action updates the current check", async () => {

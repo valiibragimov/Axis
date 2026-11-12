@@ -1,3 +1,4 @@
+import type { LinkedJournalWrite } from "../../../types/module-records.js";
 /**
  * Модуль для работы с журналом проверок
  * Журнал является единым источником данных для итогового заключения
@@ -92,6 +93,11 @@ export function createJournalEntry({
 export async function addJournalEntry(entry) {
   if (!entry.sourceId) return (await addJournalEntryDoc(entry)).id;
 
+  const write = await prepareLinkedJournalWrite(entry);
+  return (await addJournalEntryDoc(write.entry, write.id)).id;
+}
+
+export async function prepareLinkedJournalWrite(entry): Promise<LinkedJournalWrite> {
   // Legacy entries have random IDs referenced by existing issues.
   const snapshot = await getLinkedJournalEntriesSnapshot(entry.projectId, entry.sourceId);
   const existing = snapshot.docs
@@ -99,12 +105,12 @@ export async function addJournalEntry(entry) {
     .sort((a, b) => (b.data().timestamp?.toMillis?.() || 0) - (a.data().timestamp?.toMillis?.() || 0))[0];
   if (existing) {
     entry.timestamp = existing.data().timestamp || entry.timestamp;
-    return (await addJournalEntryDoc(entry, existing.id)).id;
+    return { id: existing.id, entry };
   }
   const identity = JSON.stringify([entry.projectId, entry.module, entry.sourceId]);
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(identity));
   const id = "inspection_" + Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
-  return (await addJournalEntryDoc(entry, id)).id;
+  return { id, entry };
 }
 
 /**

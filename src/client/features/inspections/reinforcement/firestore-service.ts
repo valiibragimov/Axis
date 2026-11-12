@@ -73,18 +73,18 @@ export function createFirestoreReinforcementService(
       return getProjectCollectionSnapshot(projectId, "elements");
     },
 
-    async createCheck(projectId, data) {
+    async createCheck(projectId, data, journal) {
       const checkId = String(data.id || crypto.randomUUID());
       data.id = checkId;
       data.createdAt ??= Date.now();
       const result = await saveInspectionSourceDoc(projectId, "reinfChecks", checkId,
-        data, await buildInspection(projectId, checkId, data));
+        data, await buildInspection(projectId, checkId, data), { journal });
       return { id: result.id, ref: result.ref };
     },
 
-    async updateCheck(projectId, checkId, data) {
+    async updateCheck(projectId, checkId, data, journal) {
       const result = await saveInspectionSourceDoc(projectId, "reinfChecks", checkId,
-        { ...data, updatedAt: Date.now() }, await buildInspection(projectId, checkId, data));
+        { ...data, updatedAt: Date.now() }, await buildInspection(projectId, checkId, data), { journal });
       return { id: result.id, ref: result.ref };
     },
 

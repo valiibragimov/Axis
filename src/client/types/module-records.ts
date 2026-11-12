@@ -178,6 +178,11 @@ export interface JournalViewEntry extends Record<string, unknown> {
   sourceId?: string | null;
 }
 
+export interface LinkedJournalWrite {
+  id: string;
+  entry: Record<string, unknown>;
+}
+
 export interface JournalEntryRecord extends Record<string, unknown> {
   id?: string | null;
   module?: string | null;

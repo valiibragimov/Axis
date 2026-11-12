@@ -126,27 +126,29 @@ test("strength service loads active checks and excludes soft-deleted records", a
 
 test("strength service saves a check before refreshing analytics", async () => {
   const { repository, calls } = createRepository();
+  const journal = { id: "journal-1", entry: { projectId: "project-1" } };
   const service = createStrengthService(repository);
   const payload = { status: "ok", markValue: 30, actual: 31 };
 
-  const result = await service.createCheck("project-1", payload);
+  const result = await service.createCheck("project-1", payload, journal);
 
   assert.equal(result.id, "created-check");
   assert.deepEqual(calls, [
-    ["createCheck", "project-1", payload],
+    ["createCheck", "project-1", payload, journal],
     ["refreshAnalytics", "project-1"]
   ]);
 });
 
 test("strength service updates a check before refreshing analytics", async () => {
   const { repository, calls } = createRepository();
+  const journal = { id: "journal-1", entry: { projectId: "project-1" } };
   const service = createStrengthService(repository);
   const payload = { status: "exceeded", markValue: 30, actual: 28 };
 
-  await service.updateCheck("project-1", "check-1", payload);
+  await service.updateCheck("project-1", "check-1", payload, journal);
 
   assert.deepEqual(calls, [
-    ["updateCheck", "project-1", "check-1", payload],
+    ["updateCheck", "project-1", "check-1", payload, journal],
     ["refreshAnalytics", "project-1"]
   ]);
 });

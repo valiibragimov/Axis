@@ -1,3 +1,4 @@
+import type { LinkedJournalWrite } from "../../../types/module-records.js";
 import type {
   ReinforcementCheckRecord,
   ReinforcementCollectionSnapshot,
@@ -11,12 +12,14 @@ export interface ReinforcementRepository {
   ): Promise<ReinforcementCollectionSnapshot>;
   createCheck(
     projectId: string,
-    data: ReinforcementCheckRecord
+    data: ReinforcementCheckRecord,
+    journal?: LinkedJournalWrite
   ): Promise<ReinforcementWriteResult>;
   updateCheck(
     projectId: string,
     checkId: string,
-    data: ReinforcementCheckRecord
+    data: ReinforcementCheckRecord,
+    journal?: LinkedJournalWrite
   ): Promise<ReinforcementWriteResult>;
   deleteCheck(projectId: string, checkId: string): Promise<void>;
   clearChecks(projectId: string): Promise<number>;
@@ -29,12 +32,14 @@ export interface ReinforcementService {
   loadBimElements(projectId: string): Promise<ReinforcementCollectionSnapshot>;
   createCheck(
     projectId: string,
-    data: ReinforcementCheckRecord
+    data: ReinforcementCheckRecord,
+    journal?: LinkedJournalWrite
   ): Promise<ReinforcementWriteResult>;
   updateCheck(
     projectId: string,
     checkId: string,
-    data: ReinforcementCheckRecord
+    data: ReinforcementCheckRecord,
+    journal?: LinkedJournalWrite
   ): Promise<ReinforcementWriteResult>;
   deleteCheck(projectId: string, checkId: string): Promise<void>;
   clearChecks(projectId: string): Promise<{
@@ -89,14 +94,14 @@ export function createReinforcementService(
       return repository.loadBimElements(projectId);
     },
 
-    async createCheck(projectId, data) {
-      const result = await repository.createCheck(projectId, data);
+    async createCheck(projectId, data, journal) {
+      const result = await repository.createCheck(projectId, data, journal);
       await refreshAnalyticsSafely(projectId);
       return result;
     },
 
-    async updateCheck(projectId, checkId, data) {
-      const result = await repository.updateCheck(projectId, checkId, data);
+    async updateCheck(projectId, checkId, data, journal) {
+      const result = await repository.updateCheck(projectId, checkId, data, journal);
       await refreshAnalyticsSafely(projectId);
       return result;
     },

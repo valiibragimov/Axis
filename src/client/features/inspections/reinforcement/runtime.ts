@@ -1,3 +1,4 @@
+import type { LinkedJournalWrite } from "../../../types/module-records.js";
 import { inspectionLimitLabel } from "../limit-label.js";
 import { setInspectionHistoryMetadata } from "../inspection-form.js";
 import { markInspectionMode, canReplaceInspection, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
@@ -479,11 +480,12 @@ export function createReinforcementRuntime(
     state.checks.set(provisionalId, candidate);
     saveLocalChecks();
     renderChecks();
-    try {
+    let finalId = provisionalId;
+    const commitInspection = async (journal?: LinkedJournalWrite) => {
       const result = existing
-        ? await service.updateCheck(projectId, provisionalId, candidate)
-        : await service.createCheck(projectId, candidate);
-      const finalId = result.id;
+        ? await service.updateCheck(projectId, provisionalId, candidate, journal)
+        : await service.createCheck(projectId, candidate, journal);
+      finalId = result.id;
       notifyFirestoreSyncStatus(result.ref);
       if (finalId !== provisionalId) {
         state.checks.delete(provisionalId);
@@ -491,11 +493,15 @@ export function createReinforcementRuntime(
         saveLocalChecks();
         renderChecks();
       }
-      if (!skipJournalOption) {
+    };
+    try {
+      if (skipJournalOption) {
+        await commitInspection();
+      } else {
         const journalId = await upsertJournalEntry(
-          { ...buildReinforcementJournalPayload(candidate, finalId), projectId, sourceRecord: candidate }
+          { ...buildReinforcementJournalPayload(candidate, finalId), projectId, sourceRecord: candidate, commitInspection }
         );
-        if (journalId === null) return;
+        if (!journalId) return;
       }
       state.currentCheckId = null;
       markInspectionMode("reinforcement", "saved");
