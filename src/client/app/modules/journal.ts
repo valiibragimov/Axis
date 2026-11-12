@@ -74,6 +74,8 @@ let journalIssueEmptyEl = null;
 let journalIssueOpenCountEl = null;
 let journalIssueOverdueCountEl = null;
 let issueRecords: IssueRecord[] = [];
+let issueWriteVersion = 0;
+let issueProjectId: string | null = null;
 const ISSUE_REPEAT_CONTROL_STORAGE_KEY = "tehnadzor_repeat_control";
 
 export interface JournalGeodesyApi {
@@ -399,6 +401,7 @@ async function linkRepeatControlFromJournalEntry(entry: JournalEntryRecord) {
       repeatControlDetails: entry.details || null,
       status: "ready_for_review"
     });
+    issueWriteVersion++;
     issue.repeatControlJournalEntryId = entry.id || null;
     issue.repeatControlInspectionId = entry.sourceId || null;
     issue.repeatControlAt = repeatControlAt;
@@ -516,6 +519,7 @@ async function deleteIssueFromRegistry(issue: IssueRecord) {
 
   try {
     await deleteProjectIssue(workspace.getProjectId(), issue.id);
+    issueWriteVersion++;
     issueRecords = issueRecords.filter((item) => item.id !== issue.id);
     renderIssueRegistry();
     renderJournal();
@@ -606,6 +610,7 @@ function renderIssueRegistry() {
       action.disabled = true;
       try {
         await updateProjectIssueStatus(workspace.getProjectId(), issue.id, transition.nextStatus);
+        issueWriteVersion++;
         issue.status = transition.nextStatus;
         issue.updatedAt = Date.now();
         issue.closedAt = transition.nextStatus === "closed" ? Date.now() : null;
@@ -666,23 +671,28 @@ function renderIssueRegistry() {
 }
 
 async function loadIssuesFromFirestore() {
-  if (!workspace.getProjectId()) {
+  const projectId = workspace.getProjectId();
+  if (projectId !== issueProjectId) {
+    issueProjectId = projectId;
     issueRecords = [];
     renderIssueRegistry();
-    return;
   }
+  if (!projectId) return;
 
+  const version = issueWriteVersion;
   try {
-    issueRecords = await loadProjectIssues(workspace.getProjectId());
+    const records = await loadProjectIssues(projectId);
+    if (projectId !== workspace.getProjectId() || version !== issueWriteVersion) return;
+    issueRecords = records;
+    renderIssueRegistry();
   } catch (error) {
     console.error("[Issues] Ошибка загрузки замечаний:", error);
-    issueRecords = [];
   }
-  renderIssueRegistry();
 }
 
 async function createIssueFromJournalEntry(entry, button = null) {
-  if (!workspace.getProjectId()) {
+  const projectId = workspace.getProjectId();
+  if (!projectId) {
     showNotification("Сначала выберите или создайте объект.", "warning");
     return;
   }
@@ -702,10 +712,12 @@ async function createIssueFromJournalEntry(entry, button = null) {
   try {
     const payload = createIssuePayloadFromJournalEntry({
       ...entry,
-      projectId: workspace.getProjectId()
+      projectId
     });
-    const created = await createProjectIssue(workspace.getProjectId(), payload);
-    issueRecords.unshift(created);
+    const created = await createProjectIssue(projectId, payload);
+    if (projectId !== workspace.getProjectId()) return;
+    issueWriteVersion++;
+    issueRecords = [created, ...issueRecords.filter(issue => issue.id !== created.id)];
     renderIssueRegistry();
     renderJournal();
     showNotification("Замечание создано.", "success");
