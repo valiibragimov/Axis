@@ -140,7 +140,9 @@ export function setInspectionHistoryMetadata(row: HTMLElement, record: Inspectio
     ? (status === "ok" ? "ok" : "exceeded") : "pending";
   const title = row.querySelector(".node-title");
   if (!title) return;
-  const time = Number(record.createdAt);
+  const timestamp = record.createdAt;
+  const time = timestamp && typeof timestamp === "object" && "toMillis" in timestamp && typeof timestamp.toMillis === "function"
+    ? Number(timestamp.toMillis()) : Number(timestamp);
   const currentText = row.textContent?.replace(/\s+/g, " ").trim().toLowerCase() || "";
   const kind = section === "geo" ? (record.measurementScope === "height" ? "history_bearing_level" : "history_coordinates") :
     section === "geometry" ? "history_geometry" : section === "reinforcement" ? "history_reinforcement" : "history_strength";
