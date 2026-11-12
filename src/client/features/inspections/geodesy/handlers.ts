@@ -178,7 +178,11 @@ export function bindGeodesyHandlers({
     data.lastMsg = geoResult.innerHTML;
   }
 
+  let pendingNode: { key: string; projectId: string | null; construction: string; heightOnly: boolean } | null = null;
+
   function editableNodeKey(key: string | null | undefined, heightOnly: boolean) {
+    if (pendingNode && pendingNode.key === key && pendingNode.projectId === getCurrentProjectId() &&
+        pendingNode.construction === getCurrentConstructionKey() && pendingNode.heightOnly === heightOnly) return pendingNode.key;
     const node = key ? nodes.get(key) : undefined;
     return key && node?.coordinateUnit === "m" &&
       (!node.construction || node.construction === getCurrentConstructionKey()) &&
@@ -262,10 +266,9 @@ export function bindGeodesyHandlers({
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
-    nodes.set(key, data);
+    pendingNode = { key, projectId, construction: getCurrentConstructionKey(), heightOnly: false };
       geodesyNodeState.currentNodeKeys.column = key; // Сохраняем ключ для возможного следующего обновления
-      renderNodes();
-      saveNodes();
+
 
       try {
         const savedRows = columns.map(row => ({ ...row }));
@@ -290,6 +293,10 @@ export function bindGeodesyHandlers({
         // Обновляем вкладку "Итог"
         updateSummaryTab();
 
+        if (getCurrentProjectId() !== projectId) return;
+        nodes.set(key, data);
+        saveNodes();
+        renderNodes();
         finishSave(key);
         console.log("Колонны сохранены в Firebase:", key);
         const projCount = columns.filter(col => {
@@ -431,10 +438,9 @@ export function bindGeodesyHandlers({
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
-    nodes.set(key, data);
+    pendingNode = { key, projectId, construction: getCurrentConstructionKey(), heightOnly: false };
       geodesyNodeState.currentNodeKeys.wall = key;
-      renderNodes();
-      saveNodes();
+
 
       try {
         const savedRows = walls.map(row => ({ ...row }));
@@ -461,6 +467,10 @@ export function bindGeodesyHandlers({
         // Обновляем вкладку "Итог"
         updateSummaryTab();
 
+        if (getCurrentProjectId() !== projectId) return;
+        nodes.set(key, data);
+        saveNodes();
+        renderNodes();
         finishSave(key);
         console.log(`${wallEntityPlural} сохранены в Firebase:`, key);
         const projCount = walls.filter(wall => {
@@ -599,10 +609,9 @@ export function bindGeodesyHandlers({
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
-    nodes.set(key, data);
+    pendingNode = { key, projectId, construction: getCurrentConstructionKey(), heightOnly: false };
       geodesyNodeState.currentNodeKeys.beam = key;
-      renderNodes();
-      saveNodes();
+
 
       try {
         const savedRows = beams.map(row => ({ ...row }));
@@ -629,6 +638,10 @@ export function bindGeodesyHandlers({
         // Обновляем вкладку "Итог"
         updateSummaryTab();
 
+        if (getCurrentProjectId() !== projectId) return;
+        nodes.set(key, data);
+        saveNodes();
+        renderNodes();
         finishSave(key);
         console.log("Балки сохранены в Firebase:", key);
         const projCount = beams.filter(beam => {
@@ -794,9 +807,8 @@ export function bindGeodesyHandlers({
     data.createdAt = nodes.get(key)?.createdAt || Date.now();
     geoResult.dataset.loadedKey = key;
     presentSavedNode(data);
-    nodes.set(key, data);
-    renderNodes();
-    saveNodes();
+    pendingNode = { key, projectId, construction: getCurrentConstructionKey(), heightOnly };
+
 
     try {
       const skipJournal = geodesyNodeState.skipJournalOnce;
@@ -833,6 +845,10 @@ export function bindGeodesyHandlers({
       // Обновляем вкладку "Итог"
       updateSummaryTab();
 
+      if (getCurrentProjectId() !== projectId) return;
+      nodes.set(key, data);
+      saveNodes();
+      renderNodes();
       finishSave(key);
       console.log("Узел сохранён в Firebase:", key);
         const hasProj = heightOnly ? !isNaN(pH) : !isNaN(pX) && !isNaN(pY);
@@ -853,6 +869,7 @@ export function bindGeodesyHandlers({
   }
 
   function finishSave(key: string) {
+    if (pendingNode?.key === key) pendingNode = null;
     if (geoResult.dataset.loadedKey !== key) return;
     delete geoResult.dataset.loadedKey;
     for (const type of ["column", "wall", "beam"] as const) {
@@ -866,6 +883,7 @@ export function bindGeodesyHandlers({
   });
 
   function clearForm() {
+    pendingNode = null;
     delete geoResult.dataset.legacyUnits;
     delete geoResult.dataset.loadedKey;
     restoreAcceptanceCriteria(document.getElementById("geo"));

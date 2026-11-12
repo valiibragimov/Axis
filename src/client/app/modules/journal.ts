@@ -759,7 +759,11 @@ function loadJournal() {
 }
 
 function saveJournal() {
-  localStorage.setItem(journalStorageKey(), JSON.stringify(journal));
+  try {
+    localStorage.setItem(journalStorageKey(), JSON.stringify(journal));
+  } catch (error) {
+    console.warn("[Journal] Не удалось обновить локальный кеш журнала:", error);
+  }
 }
 
 const journalSessionsCache = new Map();
@@ -924,6 +928,7 @@ async function upsertJournalEntry({ module, status, context = "", details = "", 
   }
 
   const normalizedStatus = normalizeJournalStatus(status);
+  let entryId: string | null = null;
 
   try {
     // Используем переданную конструкцию или получаем из DOM
@@ -960,7 +965,6 @@ async function upsertJournalEntry({ module, status, context = "", details = "", 
 
     if (evaluationSchemaVersion === 2) entry.evaluationSchemaVersion = 2;
 
-    let entryId: string;
     if (commitInspection) {
       const journal = await prepareLinkedJournalWrite(entry);
       await commitInspection(journal);
@@ -1021,6 +1025,7 @@ async function upsertJournalEntry({ module, status, context = "", details = "", 
     return entryId;
   } catch (error) {
     console.error("[Journal] Ошибка добавления записи в журнал:", error);
+    if (entryId) return entryId;
     showNotification(commitInspection ? "Не удалось сохранить проверку и запись журнала" : "Не удалось сохранить запись в журнал", "error");
     return null;
   }

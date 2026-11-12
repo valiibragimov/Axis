@@ -180,7 +180,7 @@ export interface JournalViewEntry extends Record<string, unknown> {
 
 export interface LinkedJournalWrite {
   id: string;
-  entry: Record<string, unknown>;
+  entry: JournalEntryRecord;
 }
 
 export interface JournalEntryRecord extends Record<string, unknown> {

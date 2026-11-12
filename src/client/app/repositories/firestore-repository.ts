@@ -242,7 +242,8 @@ export async function saveInspectionSourceDoc(
   options: { merge?: boolean; journal?: LinkedJournalWrite } = {}
 ) {
   const { journal, ...sourceOptions } = options;
-  if (journal && (journal.entry.projectId !== projectId || journal.entry.sourceId !== sourceId)) {
+  if (journal && (journal.entry.projectId !== projectId || journal.entry.sourceId !== sourceId ||
+      !journal.entry.module || journal.entry.module !== inspection.module)) {
     throw new Error("Journal entry does not match the inspection source.");
   }
   const journalRef = journal ? doc(db, JOURNAL_COLLECTION, journal.id) : null;

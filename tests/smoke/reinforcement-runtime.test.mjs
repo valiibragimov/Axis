@@ -486,7 +486,8 @@ test("row runtime adds, changes and removes elements", () => {
 function createRuntimeHarness({
   constructionKey = "slab",
   withChecksList = false,
-  simulateDeferredConstructionReset = false
+  simulateDeferredConstructionReset = false,
+  rejectJournalOnce = false
 } = {}) {
   const state = createReinforcementState();
   const dom = createDom(constructionKey);
@@ -565,6 +566,10 @@ function createRuntimeHarness({
       journals.push(["add", payload]);
     },
     async upsertJournalEntry(payload) {
+      if (rejectJournalOnce) {
+        rejectJournalOnce = false;
+        return null;
+      }
       const id = `journal-${payload.sourceId}`;
       await payload.commitInspection({ id, entry: { projectId: payload.projectId, sourceId: payload.sourceId } });
       journals.push(["upsert", payload]);
@@ -936,4 +941,19 @@ test("incomplete auto-saved check creates a linked pending journal entry", async
   assert.equal(journals[0][0], "upsert");
   assert.equal(journals[0][1].status, "pending");
   assert.ok(state.checks.has(journals[0][1].sourceId));
+});
+
+
+test("rejected journal preparation leaves history unchanged and retries the same inspection", async () => {
+  const { calls, journals, runtime, state } = createRuntimeHarness({ rejectJournalOnce: true });
+  await runtime.saveCheck();
+  const retryId = state.currentCheckId;
+  assert.ok(retryId);
+  assert.equal(state.checks.size, 0);
+  assert.equal(calls.length, 0);
+
+  await runtime.saveCheck();
+  assert.equal(state.checks.size, 1);
+  assert.ok(state.checks.has(retryId));
+  assert.equal(journals[0][1].sourceId, retryId);
 });

@@ -347,7 +347,7 @@ export function createStrengthActions({
       return null;
     }
 
-    const provisionalId = existing && existingId || crypto.randomUUID();
+    const provisionalId = existingId || crypto.randomUUID();
     const data = form.readCheck(existing);
     const evaluation = evaluateStrengthCheck(data);
     data.status = evaluation.status;
@@ -358,10 +358,6 @@ export function createStrengthActions({
     data.createdAt = existing?.createdAt || now();
     data.id = provisionalId;
     setCurrentStrengthCheckId(state, provisionalId);
-    state.checks.set(provisionalId, data);
-    saveLocalChecks();
-    renderChecks();
-
     let finalId = provisionalId;
     const commitInspection = async (journal?: LinkedJournalWrite) => {
       const result = existing
@@ -369,13 +365,6 @@ export function createStrengthActions({
         : await service.createCheck(projectId, data, journal);
       notifyFirestoreSyncStatus(result.ref);
       finalId = result.id;
-      if (finalId !== provisionalId) {
-        state.checks.delete(provisionalId);
-        state.checks.set(finalId, { ...data, id: finalId });
-        saveLocalChecks();
-        renderChecks();
-      }
-
     };
     try {
       if (skipJournal) {
@@ -394,6 +383,10 @@ export function createStrengthActions({
         });
         if (!journalId) return null;
       }
+      if (getCurrentProjectId() !== projectId) return finalId;
+      state.checks.set(finalId, { ...data, id: finalId });
+      saveLocalChecks();
+      renderChecks();
       setCurrentStrengthCheckId(state, null);
       markInspectionMode("strength", "saved");
       updateSummary();

@@ -3050,7 +3050,7 @@ async function persistGeomCheck(skipJournalOnce: boolean) {
   const existing = getCurrentGeomCheckId() && geomChecks.has(getCurrentGeomCheckId())
     ? geomChecks.get(getCurrentGeomCheckId())
     : null;
-  const id = existing ? getCurrentGeomCheckId() : crypto.randomUUID();
+  const id = getCurrentGeomCheckId() || crypto.randomUUID();
   const flags = getGeometryConstructionFlags();
   if (flags.isUnsupported) {
     setGeometryUnsupportedState({ notify: true });
@@ -3231,9 +3231,6 @@ async function persistGeomCheck(skipJournalOnce: boolean) {
 
   data.id = id;
   setCurrentGeomCheckId(id);
-  geomChecks.set(id, data);
-  saveGeomChecks();
-  renderGeomChecks();
 
   const skipJournal = skipJournalOnce || skipGeomJournalOnce;
   skipGeomJournalOnce = false;
@@ -3274,6 +3271,10 @@ async function persistGeomCheck(skipJournalOnce: boolean) {
       });
       if (!journalId) return;
     }
+    if (getCurrentProjectId() !== projectId) return;
+    geomChecks.set(id, data);
+    saveGeomChecks();
+    renderGeomChecks();
     setCurrentGeomCheckId(null);
     markInspectionMode("geometry", "saved");
   } catch (err) {

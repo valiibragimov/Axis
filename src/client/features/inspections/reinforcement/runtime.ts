@@ -463,9 +463,7 @@ export function createReinforcementRuntime(
       isSameReinforcementCheckIdentity(current, candidate)
         ? current
         : null;
-    const provisionalId = existing
-      ? String(currentId)
-      : crypto.randomUUID();
+    const provisionalId = currentId && (!current || existing) ? currentId : crypto.randomUUID();
     const evaluation = evaluateReinforcementCheck(candidate);
     candidate.status = evaluation.status;
     candidate.summaryText = evaluation.summaryText;
@@ -477,9 +475,6 @@ export function createReinforcementRuntime(
     candidate.id = provisionalId;
     state.currentCheckId = provisionalId;
 
-    state.checks.set(provisionalId, candidate);
-    saveLocalChecks();
-    renderChecks();
     let finalId = provisionalId;
     const commitInspection = async (journal?: LinkedJournalWrite) => {
       const result = existing
@@ -487,12 +482,6 @@ export function createReinforcementRuntime(
         : await service.createCheck(projectId, candidate, journal);
       finalId = result.id;
       notifyFirestoreSyncStatus(result.ref);
-      if (finalId !== provisionalId) {
-        state.checks.delete(provisionalId);
-        state.checks.set(finalId, { ...candidate, id: finalId });
-        saveLocalChecks();
-        renderChecks();
-      }
     };
     try {
       if (skipJournalOption) {
@@ -503,6 +492,10 @@ export function createReinforcementRuntime(
         );
         if (!journalId) return;
       }
+      if (getCurrentProjectId() !== projectId) return;
+      state.checks.set(finalId, { ...candidate, id: finalId });
+      saveLocalChecks();
+      renderChecks();
       state.currentCheckId = null;
       markInspectionMode("reinforcement", "saved");
     } catch (error) {
