@@ -303,7 +303,7 @@ test("geodesy displays the selected bearing-level limit instead of a universal X
     const criteria = page.locator("#geo [data-acceptance]");
     await criteria.locator("summary").click();
     await criteria.locator("[data-normative-context]").selectOption("bearing-level");
-    assert.match(await criteria.locator("p").innerText(), /5\.12/u);
+    assert.match(await criteria.locator('[aria-live="polite"]').innerText(), /5\.12/u);
     await page.locator("#geoPointLabel").fill("Bearing point A");
     assert.match(await page.locator("#tolHField").inputValue(), /-5 … 0/u);
     assert.equal(await page.locator("#projX").isVisible(), false);
