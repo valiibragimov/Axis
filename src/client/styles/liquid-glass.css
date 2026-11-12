@@ -783,16 +783,15 @@
 
 @layer design {
   .inspection-mode {
-    display: grid;
+    display: none;
     gap: .25rem;
     margin-block-end: 1rem;
     padding: .75rem 1rem;
     border-inline-start: 3px solid var(--accent);
     background: var(--surface-subtle);
   }
+  :is([data-inspection-mode="edit"], [data-inspection-mode="repeat"], [data-inspection-mode="saved"]) .inspection-mode { display: grid; }
   .inspection-mode > [data-mode] { display: none; }
-  :is(#geo, #geometry, #reinforcement, #strength):not([data-inspection-mode]) .inspection-mode > [data-mode="new"],
-  [data-inspection-mode="new"] .inspection-mode > [data-mode="new"],
   [data-inspection-mode="edit"] .inspection-mode > [data-mode="edit"],
   [data-inspection-mode="repeat"] .inspection-mode > [data-mode="repeat"],
   [data-inspection-mode="saved"] .inspection-mode > [data-mode="saved"] { display: block; }
