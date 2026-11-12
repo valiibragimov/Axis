@@ -404,3 +404,39 @@ test("geodesy saves independent points, edits one ID and records repeat control 
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });
+
+
+test("reinforcement repeat control waits for the source to load and saves new evidence", { timeout: 60000 }, async () => {
+  const app = await startApp({ browserType: selectedBrowser });
+  const { page } = app;
+  try {
+    await openSection(page, "reinforcement");
+    const floor = page.locator("#reinfFloor");
+    if (await floor.isVisible()) await floor.fill("2");
+    await page.locator("#projDia").fill("16");
+    const actual = page.locator("#factDia");
+    await actual.fill("18");
+    const save = async () => {
+      await page.locator("#btnReinf").click();
+      await page.locator('#reinforcement[data-inspection-mode="saved"]').waitFor();
+    };
+    await save();
+    const [original] = await app.records("reinfChecks");
+    await openSection(page, "journal");
+    await page.locator(`#journalTable tbody tr[data-source-id="${original.id}"] .journal-issue-btn`).click();
+    await page.locator(".journal-issue-card__repeat-action").click();
+    await page.locator('#reinforcement[data-inspection-mode="repeat"]').waitFor();
+    assert.equal(await actual.inputValue(), "");
+    assert.equal(await page.locator("#projDia").inputValue(), "16");
+    await actual.fill("16");
+    await save();
+    const records = await app.records("reinfChecks");
+    assert.equal(records.length, 2);
+    assert.equal(Number(records.find(record => record.id === original.id).factDia), 18);
+    const repeated = records.find(record => record.id !== original.id);
+    assert.equal(Number(repeated.factDia), 16);
+    await openSection(page, "journal");
+    await page.locator(`#journalTable tbody tr[data-source-id="${repeated.id}"]`).waitFor();
+    assert.deepEqual(app.errors, []);
+  } finally { await app.close(); }
+});
