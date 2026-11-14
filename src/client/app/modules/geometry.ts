@@ -1272,6 +1272,11 @@ function updateGeomFieldsVisibility() {
   }
   if (geomSheetTriggerRow) {
     geomSheetTriggerRow.style.display = isFormwork || isUnsupported || ["excavation", "concrete_preparation"].includes(getSelectedConstructionKey()) ? "none" : "";
+    const elements = geomSheetTriggerRow.querySelector<HTMLButtonElement>('[data-sheet-target="geomElementsSheet"]');
+    const numbers = geomSheetTriggerRow.querySelector<HTMLButtonElement>('[data-sheet-target="geomNumbersSheet"]');
+    if (elements) elements.hidden = !(isColumn || isWall || isStair || isBeam);
+    if (numbers) numbers.hidden = !showPlateNumbers && !behavior.showCommonWidth &&
+      !behavior.showCommonVerticalDeviation && !behavior.showCommonPlaneDeviation;
   }
   if (isFormwork && geomFormworkTypeEl && getSelectedConstructionSubtype()) {
     geomFormworkTypeEl.value = getSelectedConstructionSubtype();

@@ -306,7 +306,8 @@ test("geodesy displays the selected bearing-level limit instead of a universal X
     await criteria.locator('[data-condition="surface"]').selectOption("bearing_steel_precast");
     assert.match(await criteria.locator('[aria-live="polite"]').innerText(), /5\.12/u);
     await page.locator("#geoPointLabel").fill("Bearing point A");
-    assert.match(await page.locator("#tolHField").inputValue(), /-5 … 0/u);
+    assert.equal(await page.locator("#tolHField").isVisible(), false);
+    assert.equal(await criteria.locator('[data-condition="positioning"]').isVisible(), false);
     assert.equal(await page.locator("#projX").isVisible(), false);
     assert.equal(await criteria.locator("[data-reference]").first().isVisible(), false);
     await page.locator("#projH").fill("10");
@@ -322,6 +323,7 @@ test("geodesy displays the selected bearing-level limit instead of a universal X
     assert.equal(saved.projX, null);
     assert.equal(saved.axisMode, null);
     assert.equal(saved.acceptanceCriteria.rules.geoHeight.id, "sp70-bearing");
+    assert.match(await page.locator("#geoResult").innerText(), /-5 … 0/u);
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });

@@ -11,9 +11,10 @@ test("earthwork points persist with frozen rules, reopen, and remain pending wit
     await page.locator("#constructionType").selectOption("excavation");
     await openSection(page, "geometry");
     const criteria = page.locator("#geometry [data-acceptance]");
-    for (const [key, value] of Object.entries({ earthStage: "final", soil: "ordinary", location: "foundation", excavationMethod: "hydraulic" })) {
+    for (const [key, value] of Object.entries({ earthStage: "final", soil: "ordinary", location: "foundation" })) {
       await criteria.locator(`[data-condition="${key}"]`).selectOption(value);
     }
+    assert.equal(await criteria.locator('[data-condition="excavationMethod"]').isVisible(), false);
     const panel = page.locator("#geometry [data-site-control]");
     await panel.locator('[data-site-field="drawing"]').fill("Synthetic drawing A, rev 1");
     const point = panel.locator("[data-site-point]").nth(1);
@@ -54,6 +55,7 @@ test("concrete preparation saves multiple thicknesses without adopting foundatio
     await page.locator("#constructionType").selectOption("concrete_preparation");
     const panel = page.locator("#geometry [data-site-control]");
     await panel.locator('[data-site-field="drawing"]').fill("Preparation drawing 10, rev 2");
+    await panel.getByText("Документы и прочность бетона", { exact: true }).click();
     await panel.locator('[data-site-field="concreteClass"]').fill("B7.5");
     await panel.locator('[data-site-field="preparationApplication"]').selectOption("monolithic_nonrock");
     const point = panel.locator("[data-site-point]").first();

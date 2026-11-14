@@ -95,6 +95,7 @@ export function evaluateSiteControl(construction: string, site: SiteControl | un
   if (measurements.some(m => m.status === "incomplete")) missing.push("Проектные и фактические значения во всех точках");
   const geometry = summarizeMeasurements([...measurements.map(m => m.status), ...geometricRequirements]);
   const base = summarizeMeasurements(readiness);
-  return { ...summarizeMeasurements([...measurements.map(m => m.status), ...geometricRequirements, ...readiness]), measurements, missing,
-    geometry, readiness: base, summaryText: `Измерения: ${geometry.summaryText}; ${earth ? "готовность основания" : "документы подготовки"}: ${base.summaryText}${missing.length ? "; требуется: " + missing.join("; ") : ""}` };
+  const outstanding = [...new Set(missing)];
+  return { ...summarizeMeasurements([...measurements.map(m => m.status), ...geometricRequirements, ...readiness]), measurements, missing: outstanding,
+    geometry, readiness: base, summaryText: `Измерения: ${geometry.summaryText}; ${earth ? "готовность основания" : "документы подготовки"}: ${base.summaryText}${outstanding.length ? "; требуется: " + outstanding.join("; ") : ""}` };
 }
