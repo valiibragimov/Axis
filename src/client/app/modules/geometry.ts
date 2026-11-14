@@ -1,3 +1,4 @@
+import { mountSiteControl, readSiteControl, restoreSiteControl } from "../../features/inspections/site-control/form.js";
 import type { LinkedJournalWrite } from "../../types/module-records.js";
 import { inspectionLimitLabel } from "../../features/inspections/limit-label.js";
 import { inspectionOrigin, setInspectionHistoryMetadata } from "../../features/inspections/inspection-form.js";
@@ -174,6 +175,9 @@ function renderGeometryResult(evaluation: ReturnType<typeof evaluateGeomCheck>) 
   if (!geometryResult) return;
   geometryResult.className = evaluation.status === "ok" ? "result ok" : evaluation.status === "exceeded" ? "result not-ok" : "result";
   geometryResult.textContent = geometryVerdict(evaluation);
+  if (evaluation.summaryText.includes("готовность основания") || evaluation.summaryText.includes("документы подготовки")) {
+    const readiness = document.createElement("p"); readiness.textContent = evaluation.summaryText; geometryResult.append(readiness);
+  }
   if (evaluation.status === "exceeded" && evaluation.hasIncompleteMeasurements) {
     geometryResult.append(` — ${t("engineering_incomplete")}`);
   }
@@ -182,7 +186,7 @@ function renderGeometryResult(evaluation: ReturnType<typeof evaluateGeomCheck>) 
     const line = document.createElement("div");
     const labelKey = "dimension_" + label;
     const translated = t(labelKey);
-    const name = translated === labelKey ? t({
+    const name = label.includes("Точка") || label.includes("отметки") || label.includes("/") ? label : translated === labelKey ? t({
       thickness: "form_measured_element_thickness", vertical: "form_vertical_deviation",
       flatness: "form_measured_slab_flatness", opening: "form_measured_opening_dimensions"
     }[label] || "physical_dimensions") : translated;
@@ -199,6 +203,7 @@ let commonPhysicalDimensions: PhysicalDimensions = {};
 function renderCommonDimensions() {
   const root = document.querySelector<HTMLElement>("#geometry [data-step='2']");
   if (!root) return;
+  mountSiteControl(root, getSelectedConstructionKey());
   const dimensions = document.getElementById("geomPhysicalDimensions");
   if (dimensions) {
     dimensions.replaceChildren();
@@ -1247,7 +1252,7 @@ function updateGeomFieldsVisibility() {
   const boredPileElement = getSelectedPileElement();
   const showRangeLocation =
     behavior.locationMode === "plate_range" || behavior.locationMode === "strip_foundation";
-  const showPlateNumbers = isPlate && !isUnsupported && getSelectedConstructionKey() !== "excavation";
+  const showPlateNumbers = isPlate && !isUnsupported && !["excavation", "concrete_preparation"].includes(getSelectedConstructionKey());
 
   if (geomBehaviorMessage) {
     geomBehaviorMessage.hidden = !isUnsupported;
@@ -1266,7 +1271,7 @@ function updateGeomFieldsVisibility() {
     geomBimPanelHost.style.display = isFormwork ? "none" : "";
   }
   if (geomSheetTriggerRow) {
-    geomSheetTriggerRow.style.display = isFormwork || isUnsupported ? "none" : "";
+    geomSheetTriggerRow.style.display = isFormwork || isUnsupported || ["excavation", "concrete_preparation"].includes(getSelectedConstructionKey()) ? "none" : "";
   }
   if (isFormwork && geomFormworkTypeEl && getSelectedConstructionSubtype()) {
     geomFormworkTypeEl.value = getSelectedConstructionSubtype();
@@ -3034,6 +3039,7 @@ function loadGeomCheck(id) {
   commonPhysicalDimensions = structuredClone(d.physicalDimensions || {});
   renderCommonDimensions();
   restoreAcceptanceCriteria(document.getElementById("geometry"), d.acceptanceCriteria);
+  restoreSiteControl(document.querySelector<HTMLElement>("#geometry [data-step='2']")!, getSelectedConstructionKey(), d.siteControl);
   setCurrentGeomCheckId(id);
   markInspectionMode("geometry", "edit");
   focusInspectionMode("geometry");
@@ -3095,6 +3101,7 @@ async function persistGeomCheck(skipJournalOnce: boolean) {
     ...existing,
     evaluationSchemaVersion: 2,
     physicalDimensions: structuredClone(commonPhysicalDimensions),
+    ...(["excavation", "concrete_preparation"].includes(getSelectedConstructionKey()) ? { siteControl: readSiteControl(document.getElementById("geometry")!, getSelectedConstructionKey()) } : {}),
     acceptanceCriteria: readAcceptanceCriteria(document.getElementById("geometry")),
     createdAt: existing?.createdAt || Date.now(),
     construction: getSelectedConstructionKey(),
@@ -3300,6 +3307,7 @@ function clearGeomForm() {
   commonPhysicalDimensions = {};
   renderCommonDimensions();
   restoreAcceptanceCriteria(document.getElementById("geometry"));
+  restoreSiteControl(document.querySelector<HTMLElement>("#geometry [data-step='2']")!, getSelectedConstructionKey());
   setCurrentGeomCheckId(null);
   clearGeomBimSelection({ keepManualFields: false });
   const flags = getGeometryConstructionFlags();
@@ -3479,6 +3487,7 @@ function initGeometryHandlers() {
       if (current !== previousConstruction) {
         commonPhysicalDimensions = {};
         restoreAcceptanceCriteria(document.getElementById("geometry"));
+        restoreSiteControl(document.querySelector<HTMLElement>("#geometry [data-step='2']")!, getSelectedConstructionKey());
         setCurrentGeomCheckId(null);
       }
       previousConstruction = current;

@@ -141,6 +141,7 @@ const PROFILE_TO_LEGACY_TYPE: Readonly<Record<ConstructionBehaviorProfile, strin
 });
 
 const ALL_CONSTRUCTION_CATEGORIES: readonly ConstructionCategoryOption[] = Object.freeze([
+  { key: "earthworks", label: "Земляные работы", visible: true },
   { key: "foundation", label: "Фундамент", visible: true },
   { key: "vertical_load_bearing", label: "Вертикальные несущие элементы", visible: true },
   { key: "horizontal_load_bearing", label: "Горизонтальные несущие элементы", visible: true },
@@ -346,7 +347,7 @@ const unsupportedBehavior = (
 
 const ALL_CONSTRUCTION_OPTIONS: readonly ConstructionOption[] = Object.freeze([
   {
-    key: "excavation", label: "Котлован", categoryKey: "foundation", legacyType: "Элемент", visible: true,
+    key: "excavation", label: "Котлован (зем. работы)", aliases: ["Котлован"], categoryKey: "earthworks", legacyType: "Элемент", visible: true,
     modules: {
       geo: plateBehavior({ floorVisible: false, floorRequired: false, locationMode: "none", geodesyHeightOnly: true, showOpeningPoints: false }),
       geometry: plateBehavior({ floorVisible: false, floorRequired: false, locationMode: "none", showPlateFlatness: false, showOpeningSizes: false, showNote: true }), reinforcement: unsupportedBehavior(),
@@ -359,8 +360,8 @@ const ALL_CONSTRUCTION_OPTIONS: readonly ConstructionOption[] = Object.freeze([
   {
     key: "concrete_preparation", label: "Бетонная подготовка", categoryKey: "foundation", legacyType: "Элемент", visible: true,
     modules: {
-      geo: plateBehavior({ floorVisible: false, floorRequired: false, locationMode: "none", geodesyHeightOnly: true, showOpeningPoints: false }),
-      geometry: unsupportedBehavior(), reinforcement: unsupportedBehavior(),
+      geo: plateBehavior({ floorVisible: false, floorRequired: false, locationMode: "plate_range", geodesyHeightOnly: false, showOpeningPoints: false }),
+      geometry: plateBehavior({ floorVisible: false, floorRequired: false, locationMode: "plate_range", showOpeningSizes: false, showPlateFlatness: false, geometryProjectHeightLabel: "Проектная толщина подготовки", geometryFactHeightLabel: "Фактическая толщина подготовки" }), reinforcement: unsupportedBehavior(),
       strength: plateBehavior({ floorVisible: false, floorRequired: false }),
       bim: unsupportedBehavior(), autofill: unsupportedBehavior(),
       journal: plateBehavior({ floorVisible: false }), display: plateBehavior({ floorVisible: false })

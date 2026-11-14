@@ -191,7 +191,7 @@ export function createGeodesyForm({
   document.getElementById("geo")?.addEventListener("input", renderGeoToleranceFields);
   document.getElementById("geo")?.addEventListener("change", renderGeoToleranceFields);
   document.getElementById("geo")?.addEventListener("change", event => {
-    if ((event.target as HTMLElement).matches("[data-normative-context]")) updateGeoFieldsVisibility();
+    if ((event.target as HTMLElement).matches("[data-condition], [data-normative-date]")) updateGeoFieldsVisibility();
   });
   function updateGeoFieldsVisibility() {
     renderGeoToleranceFields();

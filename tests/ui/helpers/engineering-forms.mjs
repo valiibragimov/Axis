@@ -4,12 +4,15 @@ export async function completeSlabAcceptance(page) {
   }
   if (await page.locator("#factPlateFlatness").isVisible()) await page.locator("#factPlateFlatness").fill("0");
   const criteria = page.locator("#geometry [data-acceptance]");
-  if (!await criteria.evaluate(element => element.open)) await criteria.locator("summary").click();
-  await criteria.locator("[data-normative-context]").selectOption("project");
-  await criteria.locator("[data-reference]").fill("Synthetic project drawing: dimensional acceptance criteria");
-  for (const key of ["dimensions", "thickness", "flatness"]) {
+  if (!await criteria.evaluate(element => element.open)) await criteria.locator(":scope > summary").click();
+  await criteria.locator('[data-condition="technology"]').selectOption("monolithic");
+  await criteria.locator('[data-condition="stage"]').selectOption("completed");
+  await criteria.locator('[data-condition="controlComplete"]').selectOption("yes");
+  await criteria.locator("details > summary").click();
+  for (const key of ["length", "width", "thickness", "flatness"]) {
+    await criteria.locator(`[data-limit="${key}"] [data-reference]`).fill("Synthetic drawing / revision 1 / clause 2");
     await criteria.locator(`[data-limit="${key}"] [data-bound="min"]`).fill("-5");
     await criteria.locator(`[data-limit="${key}"] [data-bound="max"]`).fill("5");
+    await criteria.locator(`[data-limit="${key}"] [data-confirmed]`).check();
   }
-  await criteria.locator("[data-confirmed]").check();
 }

@@ -59,6 +59,7 @@ export function beginRepeatInspection(id: InspectionSection, sourceId: string) {
   const section = getSection(id);
   if (!section) return;
   const form = section.querySelector('[data-step="2"]');
+  for (const select of form?.querySelectorAll<HTMLSelectElement>('select[data-side="actual"]') || []) { select.value = ""; select.dispatchEvent(new Event("input", { bubbles: true })); }
   for (const input of actualFields(form)) {
     if (input instanceof HTMLInputElement && input.type === "checkbox") input.checked = false;
     else input.value = "";

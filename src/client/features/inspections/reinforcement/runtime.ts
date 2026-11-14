@@ -1,3 +1,4 @@
+import { parameterCriteria } from "../automatic-rules.js";
 import { reinforcementMeasurementCriteria } from "../normative-rules.js";
 import type { LinkedJournalWrite } from "../../../types/module-records.js";
 import { inspectionLimitLabel } from "../limit-label.js";
@@ -120,7 +121,7 @@ export function buildReinforcementMeasurementResults(measurements: Reinforcement
   return fields.flatMap(([name, project, actual, key]) => {
     const p = measurementNumber(measurements[project]), a = measurementNumber(measurements[actual]);
     if (p == null && a == null) return [];
-    const basis = reinforcementMeasurementCriteria(criteria, key, p);
+    const basis = criteria?.schemaVersion === 2 ? parameterCriteria(criteria, key, p) : reinforcementMeasurementCriteria(criteria, key, p);
     const verdict = key === "diameter" ? p == null || a == null || p <= 0 || a <= 0 ? "incomplete" : p === a ? "ok" : "exceeded" : comparePhysicalMeasurement(p, a, key, basis);
     const text = t(verdict === "ok" ? "engineering_conforms" : verdict === "exceeded" ? "engineering_nonconforms" : verdict === "incomplete" ? "engineering_incomplete" : "assessment_no_applicable_limit");
     return [{ name, ok: verdict === "ok", regulatoryDoc: key === "diameter" ? "PROJECT_DESIGN" : criteria?.reference || "",
