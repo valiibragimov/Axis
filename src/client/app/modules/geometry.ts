@@ -183,6 +183,7 @@ function renderGeometryResult(evaluation: ReturnType<typeof evaluateGeomCheck>) 
   }
   for (const measurement of evaluation.measurements) {
     const { label, key, project, actual, criteria, status } = measurement;
+    if (project == null && actual == null && label === "Точка без обозначения") continue;
     const line = document.createElement("div");
     const labelKey = "dimension_" + label;
     const translated = t(labelKey);
@@ -1272,6 +1273,11 @@ function updateGeomFieldsVisibility() {
   }
   if (geomSheetTriggerRow) {
     geomSheetTriggerRow.style.display = isFormwork || isUnsupported || ["excavation", "concrete_preparation"].includes(getSelectedConstructionKey()) ? "none" : "";
+    const elements = geomSheetTriggerRow.querySelector<HTMLButtonElement>('[data-sheet-target="geomElementsSheet"]');
+    const numbers = geomSheetTriggerRow.querySelector<HTMLButtonElement>('[data-sheet-target="geomNumbersSheet"]');
+    if (elements) elements.hidden = !(isColumn || isWall || isStair || isBeam);
+    if (numbers) numbers.hidden = !showPlateNumbers && !behavior.showCommonWidth &&
+      !behavior.showCommonVerticalDeviation && !behavior.showCommonPlaneDeviation;
   }
   if (isFormwork && geomFormworkTypeEl && getSelectedConstructionSubtype()) {
     geomFormworkTypeEl.value = getSelectedConstructionSubtype();

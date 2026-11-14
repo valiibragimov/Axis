@@ -1,12 +1,13 @@
 import { localInspectionDate, type NormativeModule } from "../../features/inspections/normative-rules.js";
 import { automaticCriteria, parameterCriteria } from "../../features/inspections/automatic-rules.js";
 import { measurementNumber, type AcceptanceCriteria, type ProjectCriterion } from "../../features/inspections/acceptance.js";
-import { getConstructionCategoryKey } from "../construction.js";
+import { getConstructionCategoryKey, getConstructionModuleBehavior } from "../construction.js";
+import { commonDimensionKeys, elementDimensionKeys } from "../../features/inspections/geometry/dimensions.js";
 
 const automated = new WeakMap<Element, { module: NormativeModule; construction: () => string }>();
 const restored = new WeakMap<Element, AcceptanceCriteria>();
 const conditions = [
-  ["controlComplete", "Обязательные измерения, технический осмотр и документы по РД завершены", "yes:Да, подтверждено инженером|no:Нет, контроль не завершён", "structure"],
+  ["controlComplete", "Измерения, осмотр и документы проверены", "yes:Да|no:Нет", "structure"],
   ["technology", "Технология", "monolithic:Монолитный бетон / железобетон|precast:Сборная конструкция|other:Другая", "structure"],
   ["stage", "Стадия конструкции", "completed:Готовая конструкция|in_progress:В процессе работ", "geometry"],
   ["support", "Опирающиеся элементы", "monolithic:Монолитное перекрытие|precast_beams:Сборные балки|other:Другие", "vertical"],
@@ -17,7 +18,7 @@ const conditions = [
   ["coverSectionMm", "Размер сечения по направлению замера защитного слоя, мм", "", "reinforcement"],
   ["hoopsSectionMm", "Высота сечения для хомутов, мм", "", "reinforcement"],
   ["earthStage", "Этап земляных работ", "rough:Черновая разработка|final:Окончательная разработка|acceptance:Приёмка основания", "earth"],
-  ["soil", "Условия грунта", "ordinary:Нескальный, невалунный, немноголетнемёрзлый|rock:Скальный|boulders:Валунный|permafrost:Многолетнемёрзлый", "earth"],
+  ["soil", "Тип грунта", "ordinary:Обычный нескальный грунт|rock:Скальный|boulders:Валунный|permafrost:Многолетнемёрзлый", "earth"],
   ["location", "Участок дна", "foundation:Место устройства фундамента / укладки конструкции|other:Другой участок", "earth"],
   ["excavationMethod", "Способ разработки", "dragline:Механический драглайн|front_shovel:Механическая прямая лопата|backhoe:Механическая обратная лопата|hydraulic:Гидравлический экскаватор с зубьями|grading:Планировочное / зачистное оборудование|bulldozer:Бульдозер|trencher:Траншейный экскаватор|scraper:Скрепер|other:Другой способ", "earth"]
 ];
@@ -27,7 +28,7 @@ export function mountAcceptanceCriteria(root: HTMLElement, keys: Array<{ key: st
   if (root.querySelector("[data-acceptance]") || !automatic) return;
   const panel = document.createElement("details"); panel.className = "card"; panel.dataset.acceptance = ""; panel.open = true;
   automated.set(panel, automatic);
-  const summary = document.createElement("summary"); summary.textContent = "Условия работ и автоматическая оценка"; panel.append(summary);
+  const summary = document.createElement("summary"); summary.textContent = "Условия оценки"; panel.append(summary);
   const field = (parent: HTMLElement, title: string, type: string) => {
     const label = document.createElement("label"); label.textContent = title;
     const input = document.createElement("input"); input.type = type; input.step = "any";
@@ -45,11 +46,12 @@ export function mountAcceptanceCriteria(root: HTMLElement, keys: Array<{ key: st
     input.dataset.condition = key; if (key === "controlComplete") input.dataset.side = "actual"; label.append(input); fields.append(label);
   }
   const guidance = document.createElement("p"); guidance.setAttribute("aria-live", "polite"); panel.append(guidance);
-  const special = document.createElement("details"); const heading = document.createElement("summary"); heading.textContent = "Документированные требования РД"; special.append(heading);
+  const special = document.createElement("details"); special.className = "inspection-project-criteria";
+  const heading = document.createElement("summary"); heading.textContent = "Требования РД"; special.append(heading);
   const note = document.createElement("p"); note.textContent = "Укажите конкретный чертёж, редакцию и пункт. Требования РД не ослабляют применимую норму."; special.append(note);
   const parameters = automatic.module === "geometry" ? [...keys.filter(k => k.key !== "dimensions"), ...Object.entries(labels).map(([key, label]) => ({ key, label }))] : keys;
   for (const { key, label } of parameters) {
-    const group = document.createElement("fieldset"); group.dataset.limit = key;
+    const group = document.createElement("fieldset"); group.dataset.limit = key; group.className = "grid-2";
     const legend = document.createElement("legend"); legend.textContent = label; group.append(legend);
     field(group, "Чертёж, редакция, пункт", "text").dataset.reference = "";
     field(group, "Нижнее отклонение по РД, мм", "number").dataset.bound = "min";
@@ -60,13 +62,65 @@ export function mountAcceptanceCriteria(root: HTMLElement, keys: Array<{ key: st
   panel.append(special);
   const refresh = () => {
     const construction = automatic.construction(); const earth = construction === "excavation";
+    const prep = construction === "concrete_preparation";
+    const site = earth || prep;
+    const selection = document.getElementById("construction")?.dataset;
+    const pileElement = selection?.pileElementKey;
+    const behavior = getConstructionModuleBehavior(construction, automatic.module, selection?.subtypeKey, pileElement);
+    panel.hidden = !behavior.supported;
+    const value = (key: string) => fields.querySelector<HTMLInputElement>(`[data-condition="${key}"]`)?.value;
+    const bearing = ["foundation_slab", "strip_foundation", "floor_slab"].includes(construction);
+    const stage = value("earthStage");
     fields.querySelectorAll<HTMLElement>("[data-scope]").forEach(label => {
       const scope = label.dataset.scope;
-      label.hidden = scope === "earth" ? !earth : earth || construction === "concrete_preparation" || construction === "formwork" ||
-        (scope === "vertical" ? automatic.module !== "geometry" || !["wall", "column"].includes(construction) : scope !== "structure" && scope !== automatic.module);
+      const key = label.querySelector<HTMLElement>("[data-condition]")?.dataset.condition;
+      if (scope === "earth") {
+        label.hidden = !earth || (key === "excavationMethod" && stage !== "rough") ||
+          (key === "location" && stage !== "final" && stage !== "acceptance");
+      } else if (site || construction === "formwork") {
+        label.hidden = true;
+      } else if (scope === "geo") {
+        label.hidden = automatic.module !== "geo" || (key === "surface"
+          ? !bearing || value("technology") !== "monolithic"
+          : !["column", "beam"].includes(construction) || value("technology") !== "precast");
+      } else if (scope === "vertical") {
+        label.hidden = automatic.module !== "geometry" || !["wall", "column"].includes(construction) ||
+          value("technology") !== "monolithic" || value("stage") !== "completed";
+      } else {
+        label.hidden = scope !== "structure" && scope !== automatic.module;
+        if (key === "hoopsSectionMm" || key === "coverSectionMm") {
+          label.hidden ||= value("technology") !== "monolithic" || value("reinforcement") !== "tied" ||
+            (key === "hoopsSectionMm" && !behavior.showReinforcementHoopsStep);
+        }
+      }
     });
+    const bearingHeight = bearing && value("technology") === "monolithic" && value("surface") === "bearing_steel_precast";
+    const common = commonDimensionKeys(construction, pileElement);
+    const byProfile: Record<string, string[]> = {
+      column: [...elementDimensionKeys("columns"), "section", "vertical"],
+      wall: [...elementDimensionKeys("walls"), "thickness", "vertical", "flatness", "opening"],
+      beam: [...elementDimensionKeys("beams"), "section"],
+      stair: [...common, ...elementDimensionKeys("stairs"), "width", "step"],
+      formwork: ["height", "width", "thickness", "vertical"]
+    };
+    const plate = [...common, "thickness", ...(behavior.showPlateFlatness ? ["flatness"] : []),
+      ...(behavior.showOpeningSizes && !["strip_foundation", "pile_grillage"].includes(construction) ? ["opening"] : []),
+      ...(construction === "strip_foundation" || (construction === "pile_grillage" && pileElement !== "pile") ? ["section"] : [])];
+    for (const group of special.querySelectorAll<HTMLElement>("[data-limit]")) {
+      const key = group.dataset.limit!;
+      if (automatic.module === "geo") {
+        group.hidden = (key === "geoPlan" && (behavior.geodesyHeightOnly || bearingHeight)) ||
+          (key === "geoFlatness" && !behavior.showGeoFlatnessCheck);
+      } else if (automatic.module === "reinforcement") {
+        group.hidden = key === "hoopsStep" && !behavior.showReinforcementHoopsStep;
+      } else if (site) {
+        group.hidden = !(["length", "width", "geoHeight", "sideNorth", "sideSouth", "sideEast", "sideWest", earth ? "depth" : "thickness"].includes(key));
+      } else {
+        group.hidden = !(byProfile[behavior.profile] || plate).includes(key);
+      }
+    }
     const criteria = readAcceptanceCriteria(panel.parentElement);
-    guidance.textContent = [criteria.reference || "Недостаточно данных. Укажите условия работ; для остальных параметров нужны подтверждённые требования РД.", ...(criteria.missing || [])].join(". ");
+    guidance.textContent = criteria.reference || (criteria.missing?.length ? "Заполните условия для подбора допуска." : "Для параметров без нормы укажите требования РД.");
   };
   for (const event of ["input", "change"]) panel.addEventListener(event, () => { restored.delete(panel); refresh(); });
   document.getElementById("construction")?.addEventListener("change", () => { restored.delete(panel); refresh(); });
@@ -83,7 +137,7 @@ export function readAcceptanceCriteria(root: ParentNode | null): AcceptanceCrite
   context.subtype = document.getElementById("construction")?.dataset.subtypeKey || "";
   panel.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-condition]").forEach(input => { if (!input.closest("label")?.hidden) context[input.dataset.condition!] = input.value; });
   const project: Record<string, ProjectCriterion> = {};
-  panel.querySelectorAll<HTMLElement>("[data-limit]").forEach(group => {
+  panel.querySelectorAll<HTMLElement>("[data-limit]:not([hidden])").forEach(group => {
     project[group.dataset.limit!] = { reference: group.querySelector<HTMLInputElement>("[data-reference]")?.value.trim() || "", confirmed: group.querySelector<HTMLInputElement>("[data-confirmed]")?.checked === true,
       min: measurementNumber(group.querySelector<HTMLInputElement>('[data-bound="min"]')?.value), max: measurementNumber(group.querySelector<HTMLInputElement>('[data-bound="max"]')?.value) };
   });

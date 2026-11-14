@@ -245,7 +245,18 @@
   .result.not-ok { border-color: var(--danger); color: var(--text); }
   .result:empty { display: none; }
   .result { max-height: none; }
-  [data-site-point] { margin-block: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; }
+  [data-site-points] { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 12px; margin-block: 12px; }
+  [data-site-point], [data-acceptance] fieldset {
+    padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); min-width: 0;
+  }
+  [data-site-point] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  [data-site-point] > :first-of-type, [data-site-point] > button,
+  [data-site-point] label:has(select) { grid-column: 1 / -1; }
+  [data-site-point] > label, [data-acceptance] label { margin: 0; }
+  .inspection-project-criteria { margin-block-start: 12px; padding-block-start: 8px; border-top: 1px solid var(--border); }
+  .inspection-project-criteria > summary { padding-block: 8px; }
+  .inspection-project-criteria > fieldset + fieldset { margin-block-start: 8px; }
+  [data-acceptance] > p:empty { display: none; }
   [data-site-control] label, [data-acceptance] label { min-width: 0; }
   .summary-value, .summary-card-value, .overview-metric strong, .overview-readiness-value, .control-plan-metric strong, .summary-module-stat-value { font-variant-numeric: tabular-nums; }
   .summary-module-card, .summary-issues-panel, .summary-workspace-card, .summary-text-content, .summary-meta-item {

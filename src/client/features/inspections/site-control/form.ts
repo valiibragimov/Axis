@@ -37,17 +37,29 @@ function input(parent: HTMLElement, title: string, key: string, value = "", actu
 }
 function addPoint(root: HTMLElement, point?: SiteControl["points"][number]) {
   const row = document.createElement("fieldset"); row.dataset.sitePoint = point?.id || crypto.randomUUID();
-  const legend = document.createElement("legend"); legend.textContent = "Контрольная точка"; row.append(legend);
+  const legend = document.createElement("legend");
+  legend.textContent = pointNames[point?.parameter || "geoHeight"] || "Контрольная точка";
+  row.append(legend);
   input(row, "Обозначение точки / оси", "label", point?.label);
-  const label = document.createElement("label"); label.textContent = "Параметр";
+  const label = document.createElement("label"); label.textContent = "Параметр"; label.hidden = !!point;
   const select = document.createElement("select"); select.dataset.siteField = "parameter";
-  for (const [key, title] of Object.entries(pointNames)) select.add(new Option(title, key));
+  const inapplicable = root.dataset.construction === "excavation" ? "thickness" : "depth";
+  for (const [key, title] of Object.entries(pointNames)) {
+    if (key !== inapplicable || key === point?.parameter) select.add(new Option(title, key));
+  }
   select.value = point?.parameter || "geoHeight"; label.append(select); row.append(label);
+  select.addEventListener("change", () => { legend.textContent = pointNames[select.value]; });
   input(row, "Проектное значение", "project", point?.project).inputMode = "decimal";
   input(row, "Фактическое значение", "actual", point?.actual, true).inputMode = "decimal";
   const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "Удалить точку"; remove.dataset.remove = "";
-  remove.addEventListener("click", () => { row.remove(); root.dispatchEvent(new Event("input", { bubbles: true })); }); row.append(remove);
+  remove.setAttribute("aria-label", "Удалить контрольную точку");
+  remove.addEventListener("click", () => {
+    row.remove();
+    root.querySelector<HTMLButtonElement>("#btnAddSitePoint")?.focus();
+    root.dispatchEvent(new Event("input", { bubbles: true }));
+  }); row.append(remove);
   root.querySelector("[data-site-points]")?.append(row);
+  if (!point) select.focus();
 }
 export function mountSiteControl(root: HTMLElement, construction: string) {
   let panel = root.querySelector<HTMLElement>("[data-site-control]");
@@ -55,14 +67,26 @@ export function mountSiteControl(root: HTMLElement, construction: string) {
   if (panel && panel.dataset.construction !== construction) { panel.remove(); panel = null; }
   if (!applicable || panel) return;
   panel = document.createElement("details"); panel.dataset.siteControl = ""; panel.dataset.construction = construction; panel.className = "card"; panel.setAttribute("open", "");
-  const summary = document.createElement("summary"); summary.textContent = construction === "excavation" ? "Основание и контрольные точки котлована" : "Бетонная подготовка: точки и документы"; panel.append(summary);
-  const hint = document.createElement("p"); hint.textContent = "Здесь — привязка каждой стороны, отметки и дополнительные измерения. Знак ΔH: плюс — недобор грунта, минус — перебор. Геометрия не заменяет приёмку основания или контроль прочности."; panel.append(hint);
+  const summary = document.createElement("summary"); summary.textContent = "Контрольные точки"; panel.append(summary);
+  if (construction === "excavation") {
+    const hint = document.createElement("p"); hint.className = "caption";
+    hint.textContent = "Дно выше проектной отметки — недобор, ниже — перебор.";
+    panel.append(hint);
+  }
+  const points = document.createElement("div"); points.dataset.sitePoints = ""; panel.append(points);
+  const add = document.createElement("button"); add.type = "button"; add.textContent = "Добавить точку"; add.id = "btnAddSitePoint";
+  const target = panel; add.addEventListener("click", () => addPoint(target)); panel.append(add);
+  const inspection = document.createElement("details"); inspection.className = "inspection-project-criteria";
+  const inspectionHeading = document.createElement("summary");
+  inspectionHeading.textContent = construction === "excavation" ? "Осмотр основания и испытания" : "Документы и прочность бетона";
+  inspection.append(inspectionHeading); panel.append(inspection);
   const grid = document.createElement("div"); grid.className = "grid-2"; panel.append(grid);
   const tests = document.createElement("details"); tests.dataset.soilTests = ""; tests.hidden = true;
-  const testsHeading = document.createElement("summary"); testsHeading.textContent = "Лабораторные и полевые испытания по РД"; tests.append(testsHeading); panel.append(tests);
+  const testsHeading = document.createElement("summary"); testsHeading.textContent = "Лабораторные и полевые испытания по РД"; tests.append(testsHeading); inspection.append(tests);
   for (const [key, title, kind, scope] of schemas) {
     if (scope !== "both" && scope !== (construction === "excavation" ? "earth" : "preparation")) continue;
-    const parent = /^(density|compaction|moisture|testCriteria|testReport|testsConform)/u.test(key) ? tests : grid;
+    const parent = /^(density|compaction|moisture|testCriteria|testReport|testsConform)/u.test(key) ? tests :
+      ["drawing", "axes", "surveyComplete"].includes(key) ? grid : inspection;
     if (kind === "text" || kind === "number") { const field = input(parent, title, key, "", ["density", "compaction", "moisture", "affectedLayerMm", "inspectionAct", "testReport", "qualityDocument", "strengthReport"].includes(key)); field.type = kind; field.step = "any"; }
     else {
       const label = document.createElement("label"); label.textContent = title;
@@ -72,9 +96,7 @@ export function mountSiteControl(root: HTMLElement, construction: string) {
       label.append(select); parent.append(label);
     }
   }
-  const points = document.createElement("div"); points.dataset.sitePoints = ""; panel.append(points);
-  const add = document.createElement("button"); add.type = "button"; add.textContent = "+ Контрольная точка"; add.id = "btnAddSitePoint";
-  const target = panel; add.addEventListener("click", () => addPoint(target)); panel.append(add);
+  inspection.append(tests);
   const result = root.querySelector("#geometryResult"); if (result) result.before(panel); else root.append(panel);
   const refreshTests = () => { tests.hidden = target.querySelector<HTMLSelectElement>('[data-site-field="baseType"]')?.value !== "artificial" && target.querySelector<HTMLSelectElement>('[data-site-field="testsRequired"]')?.value !== "yes"; };
   panel.addEventListener("input", refreshTests); panel.addEventListener("change", refreshTests);

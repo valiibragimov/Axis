@@ -44,8 +44,11 @@ export function automaticCriteria(module: NormativeModule, construction: string,
   if (concrete.includes(construction) && !context.technology) missing.push("Технология изготовления конструкции");
   if (module === "geometry" && concrete.includes(construction) && !context.stage) missing.push("Стадия выполнения работ");
   if (module === "reinforcement" && concrete.includes(construction) && !context.reinforcement) missing.push("Способ соединения арматуры");
-  if (construction === "excavation") for (const key of ["earthStage", "soil", "location", "excavationMethod"]) {
-    if (!context[key]) missing.push(`Условия земляных работ: ${key}`);
+  if (construction === "excavation") {
+    if (!context.earthStage) missing.push("Этап земляных работ");
+    if (!context.soil) missing.push("Тип грунта");
+    if (context.earthStage === "rough" && !context.excavationMethod) missing.push("Способ разработки");
+    if ((context.earthStage === "final" || context.earthStage === "acceptance") && !context.location) missing.push("Участок дна");
   }
   const valid = validInspectionDate(date) && date >= from && date <= until;
   if (!valid) missing.push("Редакция нормативов на дату проверки не подтверждена каталогом");

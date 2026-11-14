@@ -261,7 +261,7 @@
                   <button type="button" class="wizard-sheet-close" data-sheet-close data-i18n="form_close">Закрыть</button>
                 </div>
                 <div class="wizard-sheet-body">
-                  <div class="grid-3 mt8" id="coordinatesBlock">
+                  <div class="grid-2 mt8" id="coordinatesBlock">
                     <div>
                       <label data-i18n="form_design_x" for="projX">Проектная X</label>
                       <input type="number" id="projX" inputmode="decimal" placeholder="м" data-i18n-placeholder="form_m" />
@@ -270,7 +270,7 @@
                       <label data-i18n="form_measured_x" for="factX">Фактическая X</label>
                       <input type="number" id="factX" inputmode="decimal" placeholder="м" data-i18n-placeholder="form_m" />
                     </div>
-                    <div>
+                    <div hidden>
                       <label data-i18n="form_x_y_tolerance" for="tolXYField">Допуск X/Y</label>
                       <input id="tolXYField" value="" readonly disabled />
                     </div>
@@ -283,7 +283,6 @@
                       <label data-i18n="form_measured_y" for="factY">Фактическая Y</label>
                       <input type="number" id="factY" inputmode="decimal" placeholder="м" data-i18n-placeholder="form_m" />
                     </div>
-                    <div class="coordinate-grid-spacer" aria-hidden="true"></div>
 
                     <div id="projHField">
                       <label data-i18n="form_design_h" for="projH">Проектная H</label>
@@ -293,7 +292,7 @@
                       <label data-i18n="form_measured_h" for="factH">Фактическая H</label>
                       <input type="number" id="factH" inputmode="decimal" placeholder="м" data-i18n-placeholder="form_m" />
                     </div>
-                    <div id="tolHFieldWrap">
+                    <div id="tolHFieldWrap" hidden>
                       <label data-i18n="form_h_tolerance" for="tolHField">Допуск H</label>
                       <input value="—" readonly disabled id="tolHField" />
                     </div>
