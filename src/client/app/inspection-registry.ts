@@ -1576,12 +1576,12 @@ const preparationNotApplicable = (module: InspectionModule) => notApplicableModu
   "Для этого вида подготовительных работ проверка в данном модуле не применяется.");
 
 export const INSPECTION_REGISTRY = Object.freeze({
-  excavation: Object.freeze({ category: "foundation", construction: "excavation", modules: Object.freeze({
+  excavation: Object.freeze({ category: "earthworks", construction: "excavation", modules: Object.freeze({
     geodesy: preparationGeodesyModule, geometry: moduleConfig("geometry", "object", [], [], [], [], "Размеры котлована: допуск требует подтверждённого проектного основания."),
     reinforcement: preparationNotApplicable("reinforcement"), strength: preparationNotApplicable("strength")
   }) }),
   concrete_preparation: Object.freeze({ category: "foundation", construction: "concrete_preparation", modules: Object.freeze({
-    geodesy: preparationGeodesyModule, geometry: preparationNotApplicable("geometry"),
+    geodesy: geodesyFoundationModule, geometry: moduleConfig("geometry", "object", [FIELDS.projHeight, FIELDS.factHeight], [], [withProjectCriteriaRequirement(DOCS.sp126)], [], "Геометрия бетонной подготовки по подтверждённой РД; минимум толщины не является допуском."),
     reinforcement: preparationNotApplicable("reinforcement"), strength: strengthConcreteModule
   }) }),
   foundation_slab: Object.freeze({

@@ -1,3 +1,5 @@
+import { evaluateSiteControl } from "../site-control/evaluation.js";
+import { parameterCriteria } from "../automatic-rules.js";
 import { RULESET, resolveNormativeCriteria, sectionTolerance, sp70Reference } from "../normative-rules.js";
 import { compareMeasurement, comparePhysicalMeasurement, measurementNumber, summarizeMeasurements } from "../acceptance.js";
 import { getConstructionProfile, getConstructionModuleBehavior, normalizeConstructionKey } from "../../../app/construction.js";
@@ -29,6 +31,7 @@ export function evaluateGeometryCheck(check: GeometryCheckRecord) {
   const positions: Record<string, number> = { vertical: 1, clearSpan: 5, section: 6, thickness: 6, opening: 8 };
   const results: Array<ReturnType<typeof compareMeasurement>> = [];
   const assess = (project: unknown, actual: unknown, key: string, basis = criteria, physical = true, label = key) => {
+    basis = parameterCriteria(basis, key, project);
     const status = (physical ? comparePhysicalMeasurement : compareMeasurement)(project, actual, key, basis);
     results.push(status);
     if (measurementNumber(actual) != null || (physical && measurementNumber(project) != null)) {
@@ -49,12 +52,17 @@ export function evaluateGeometryCheck(check: GeometryCheckRecord) {
     const values = row.physicalDimensions as PhysicalDimensions | undefined;
     for (const key of keys) {
       const value = values?.[key];
-      if (construction === "excavation" && (!value || (measurementNumber(value.project) === null && measurementNumber(value.actual) === null))) continue;
+      if (criteria?.schemaVersion !== 2 && construction === "excavation" && (!value || (measurementNumber(value.project) === null && measurementNumber(value.actual) === null))) continue;
       const automaticSpan = useNormativeDimensions && criteria != null && ["length", "clearLength", "clearWidth"].includes(key);
-      pair(value || {}, "project", "actual", automaticSpan ? "clearSpan" : "dimensions", key);
+      pair(value || {}, "project", "actual", criteria?.schemaVersion === 2 ? key : automaticSpan ? "clearSpan" : "dimensions", key);
     }
   };
   dimensions(check, commonDimensionKeys(construction, String(check.constructionPileElement || "")));
+  if (["excavation", "concrete_preparation"].includes(construction) && (criteria?.schemaVersion === 2 || check.siteControl)) {
+    const site = evaluateSiteControl(construction, check.siteControl, criteria);
+    const combined = summarizeMeasurements([...results, ...(site.status === "exceeded" ? ["exceeded" as const] : site.status === "ok" ? ["ok" as const] : ["incomplete" as const])]);
+    return { ...combined, measurements: [...measurements, ...site.measurements], summaryText: `${combined.summaryText}; ${site.summaryText}` };
+  }
   if (construction === "excavation") return { ...summarizeMeasurements(results), measurements };
   const profile = getConstructionProfile(construction, "geometry");
   const rows = profile === "column" ? check.columns : profile === "wall" ? check.walls : profile === "beam" ? check.beams : profile === "stair" ? check.stairs : null;
@@ -71,7 +79,7 @@ export function evaluateGeometryCheck(check: GeometryCheckRecord) {
         pair(row, "projBeamWidth", "factBeamWidth", "section");
         pair(row, "projBeamHeight", "factBeamHeight", "section");
       } else {
-        pair(row, "projFlightWidth", "factFlightWidth", "dimensions");
+        pair(row, "projFlightWidth", "factFlightWidth", criteria?.schemaVersion === 2 ? "width" : "dimensions");
         if (!String(row.position || "").trim()) results.push("incomplete");
         if (row.elementType !== "landing") {
           pair(row, "projStepHeight", "factStepHeight", "step");
@@ -86,8 +94,8 @@ export function evaluateGeometryCheck(check: GeometryCheckRecord) {
       }
     }
   } else if (profile === "formwork") {
-    pair(check, "formworkProjHeight", "formworkFactHeight", "dimensions");
-    pair(check, "formworkProjWidth", "formworkFactWidth", "dimensions");
+    pair(check, "formworkProjHeight", "formworkFactHeight", criteria?.schemaVersion === 2 ? "height" : "dimensions");
+    pair(check, "formworkProjWidth", "formworkFactWidth", criteria?.schemaVersion === 2 ? "width" : "dimensions");
     pair(check, "formworkProjThickness", "formworkFactThickness", "thickness");
     assess(0, check.formworkVerticalDeviation, "vertical", criteria, false);
   } else {
@@ -99,6 +107,10 @@ export function evaluateGeometryCheck(check: GeometryCheckRecord) {
     const p = String(row.projOpeningSizes ?? row.openingSizes ?? "").trim();
     const a = String(row.factOpeningSizes ?? "").trim();
     if (!p && !a) return;
+    if (criteria?.schemaVersion === 2 && ["strip_foundation", "pile_grillage"].includes(construction)) {
+      assess(p, a, construction === "pile_grillage" && check.constructionPileElement === "pile" ? "diameter" : "section", criteria);
+      return;
+    }
     // Keep entered order: differently located openings must not be paired by sorted dimensions.
     const parse = (text: string) => text.split(/[,;\n]+/u).map(value => value.trim().split(/[xх×]/iu).map(measurementNumber));
     const project = parse(p), actual = parse(a);

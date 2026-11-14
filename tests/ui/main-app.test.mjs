@@ -301,13 +301,14 @@ test("geodesy displays the selected bearing-level limit instead of a universal X
     const { page } = app;
     await openSection(page, "geo");
     const criteria = page.locator("#geo [data-acceptance]");
-    await criteria.locator("summary").click();
-    await criteria.locator("[data-normative-context]").selectOption("bearing-level");
+    await criteria.locator('[data-condition="technology"]').selectOption("monolithic");
+    await criteria.locator('[data-condition="controlComplete"]').selectOption("yes");
+    await criteria.locator('[data-condition="surface"]').selectOption("bearing_steel_precast");
     assert.match(await criteria.locator('[aria-live="polite"]').innerText(), /5\.12/u);
     await page.locator("#geoPointLabel").fill("Bearing point A");
     assert.match(await page.locator("#tolHField").inputValue(), /-5 … 0/u);
     assert.equal(await page.locator("#projX").isVisible(), false);
-    assert.equal(await criteria.locator("[data-reference]").isVisible(), false);
+    assert.equal(await criteria.locator("[data-reference]").first().isVisible(), false);
     await page.locator("#projH").fill("10");
     await page.locator("#factH").fill("9.995");
     await page.locator("#btnGeo").click();
@@ -320,7 +321,7 @@ test("geodesy displays the selected bearing-level limit instead of a universal X
     assert.equal(saved.measurementScope, "height");
     assert.equal(saved.projX, null);
     assert.equal(saved.axisMode, null);
-    assert.equal(saved.acceptanceCriteria.normativeRule, "sp70-2026-11-v1/bearing-level");
+    assert.equal(saved.acceptanceCriteria.rules.geoHeight.id, "sp70-bearing");
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });
@@ -331,8 +332,9 @@ test("geodesy saves independent points, edits one ID and records repeat control 
   try {
     await openSection(page, "geo");
     const criteria = page.locator("#geo [data-acceptance]");
-    await criteria.locator("summary").click();
-    await criteria.locator("[data-normative-context]").selectOption("bearing-level");
+    await criteria.locator('[data-condition="technology"]').selectOption("monolithic");
+    await criteria.locator('[data-condition="controlComplete"]').selectOption("yes");
+    await criteria.locator('[data-condition="surface"]').selectOption("bearing_steel_precast");
     await page.locator("#projH").fill("10");
     const name = page.locator("#geoPointLabel");
     const fact = page.locator("#factH");

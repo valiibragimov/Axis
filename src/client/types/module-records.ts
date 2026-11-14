@@ -1,3 +1,4 @@
+import type { SiteControl } from "../features/inspections/site-control/evaluation.js";
 import type { AcceptanceCriteria } from "../features/inspections/acceptance.js";
 import type { PhysicalDimensions } from "../features/inspections/geometry/dimensions.js";
 export type CheckStatus = "empty" | "ok" | "exceeded" | string;
@@ -113,6 +114,7 @@ export interface GeometryBeamRecord extends Record<string, unknown> {
 }
 
 export interface GeometryCheckRecord extends BimBindingCheckData {
+  siteControl?: SiteControl;
   repeatOf?: string | null;
   physicalDimensions?: PhysicalDimensions;
   acceptanceCriteria?: AcceptanceCriteria | null;

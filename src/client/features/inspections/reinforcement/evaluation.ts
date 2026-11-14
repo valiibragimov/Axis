@@ -1,3 +1,4 @@
+import { parameterCriteria } from "../automatic-rules.js";
 import { reinforcementMeasurementCriteria } from "../normative-rules.js";
 import { getConstructionModuleBehavior, normalizeConstructionKey } from "../../../app/construction.js";
 import { compareMeasurement, comparePhysicalMeasurement, measurementNumber, summarizeMeasurements } from "../acceptance.js";
@@ -8,6 +9,8 @@ import type {
   ReinforcementJournalPayload,
   ReinforcementMeasurements
 } from "./types.js";
+
+const measurementCriteria: typeof reinforcementMeasurementCriteria = (criteria, key, design) => criteria?.schemaVersion === 2 ? parameterCriteria(criteria, key, design) : reinforcementMeasurementCriteria(criteria, key, design);
 
 function parseMeasurement(value: unknown) {
   if (value == null || value === "") return null;
@@ -45,10 +48,10 @@ export function evaluateReinforcementCheck(check: ReinforcementCheckRecord): Rei
     const diameter = Number(item.projDia) > 0 && Number(item.factDia) > 0 ? isStrictMeasurementMatch(item.projDia, item.factDia) : null;
     const checks: Array<ReturnType<typeof compareMeasurement>> = [
       diameter == null ? "incomplete" : diameter ? "ok" : "exceeded",
-      ...(check.construction === "pile_grillage" && check.constructionPileElement === "pile" ? [] : [comparePhysicalMeasurement(item.projStep, item.factStep, "step", reinforcementMeasurementCriteria(check.acceptanceCriteria, "step", measurementNumber(item.projStep)))]),
-      comparePhysicalMeasurement(item.projCover, item.factCover, "cover", reinforcementMeasurementCriteria(check.acceptanceCriteria, "cover", measurementNumber(item.projCover)))
+      ...(check.construction === "pile_grillage" && check.constructionPileElement === "pile" ? [] : [comparePhysicalMeasurement(item.projStep, item.factStep, "step", measurementCriteria(check.acceptanceCriteria, "step", measurementNumber(item.projStep)))]),
+      comparePhysicalMeasurement(item.projCover, item.factCover, "cover", measurementCriteria(check.acceptanceCriteria, "cover", measurementNumber(item.projCover)))
     ];
-    if (includeHoops) checks.push(comparePhysicalMeasurement(item.projHoopsStep, item.factHoopsStep, "hoopsStep", reinforcementMeasurementCriteria(check.acceptanceCriteria, "hoopsStep", measurementNumber(item.projHoopsStep))));
+    if (includeHoops) checks.push(comparePhysicalMeasurement(item.projHoopsStep, item.factHoopsStep, "hoopsStep", measurementCriteria(check.acceptanceCriteria, "hoopsStep", measurementNumber(item.projHoopsStep))));
     return checks;
   });
   const result = summarizeMeasurements(results);
@@ -65,7 +68,7 @@ function appendJournalDifferences(details: string[], measurements: Reinforcement
     [measurements.projCover, measurements.factCover, "cover", "Защитный слой"],
     [measurements.projHoopsStep, measurements.factHoopsStep, "hoopsStep", "Шаг хомутов"]
   ] as const) {
-    if (compareMeasurement(project, actual, key, reinforcementMeasurementCriteria(check.acceptanceCriteria, key, measurementNumber(project))) === "exceeded") details.push(`${label}: ${project}→${actual}`);
+    if (compareMeasurement(project, actual, key, measurementCriteria(check.acceptanceCriteria, key, measurementNumber(project))) === "exceeded") details.push(`${label}: ${project}→${actual}`);
   }
 }
 

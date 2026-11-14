@@ -9,15 +9,6 @@ export function localInspectionDate(now = new Date()) {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
-export const NORMATIVE_OPTIONS = [
-  { id: "precast-base", module: "geo", ru: "Сборный элемент: риски в нижнем сечении, X/Y вдоль осей рисок", en: "Precast element: lower marks, X/Y along the marked axes" },
-  { id: "bearing-level", module: "geo", ru: "Монолитная опорная поверхность под стальной или сборный элемент", en: "Cast-in-place bearing level for a steel or precast element" },
-  { id: "monolithic", module: "geometry", ru: "Готовая монолитная бетонная или железобетонная конструкция", en: "Completed cast-in-place concrete structure" },
-  { id: "monolithic-floor-support", module: "geometry", ru: "Монолитная стена или колонна под монолитным перекрытием: вертикальность на всю высоту", en: "Cast-in-place wall or column supporting cast-in-place floors: full-height verticality" },
-  { id: "precast-beam-support", module: "geometry", ru: "Монолитная стена или колонна под сборными балками: вертикальность на всю высоту", en: "Cast-in-place wall or column supporting precast beams: full-height verticality" },
-  { id: "tied-longitudinal", module: "reinforcement", ru: "Вязаный каркас или сетка в монолите: продольный шаг, хомуты и защитный слой", en: "Cast-in-place tied cage or mesh: longitudinal spacing, stirrups and cover" }
-] as const;
-
 const supportedGeometry = new Set(["foundation_slab", "strip_foundation", "floor_slab", "column", "wall", "beam", "elevator_shaft"]);
 const bearingConstructions = new Set(["foundation_slab", "strip_foundation", "floor_slab"]);
 
@@ -76,7 +67,7 @@ export function sectionTolerance(designMm: number | null) {
 }
 
 export function isNormativeBearingLevel(criteria: AcceptanceCriteria | null | undefined) {
-  return criteria?.normativeRule === `${RULESET}/bearing-level`;
+  return criteria?.normativeRule === `${RULESET}/bearing-level` || criteria?.rules?.geoHeight?.id === "sp70-bearing";
 }
 
 export function reinforcementMeasurementCriteria(criteria: AcceptanceCriteria | null | undefined, key: string, designMm: number | null) {

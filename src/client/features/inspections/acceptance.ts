@@ -1,4 +1,9 @@
 export interface AcceptanceCriteria {
+  schemaVersion?: 2;
+  context?: Record<string, string>;
+  rules?: Record<string, AppliedRule>;
+  projectCriteria?: Record<string, ProjectCriterion>;
+  missing?: string[];
   reference: string;
   confirmed: boolean;
   normativeRule?: string;
@@ -6,6 +11,30 @@ export interface AcceptanceCriteria {
   hoopsSectionMm?: number;
   coverSectionMm?: number;
   limits: Record<string, { min: number | null; max: number | null }>;
+}
+
+export interface ProjectCriterion {
+  min: number | null;
+  max: number | null;
+  reference: string;
+  confirmed: boolean;
+}
+
+export interface AppliedRule {
+  id: string;
+  version: string;
+  kind: "normative" | "project";
+  parameter: string;
+  unit: string;
+  reference: string;
+  validFrom: string;
+  validTo: string;
+  min: number | null;
+  max: number | null;
+  formula?: "section-v1" | "spacing-v1" | "hoops-v1" | "cover-v1";
+  method: string;
+  minimumCount: number;
+  conditions: Record<string, string>;
 }
 
 export function measurementNumber(value: unknown): number | null {
