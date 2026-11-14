@@ -183,6 +183,7 @@ function renderGeometryResult(evaluation: ReturnType<typeof evaluateGeomCheck>) 
   }
   for (const measurement of evaluation.measurements) {
     const { label, key, project, actual, criteria, status } = measurement;
+    if (project == null && actual == null && label === "Точка без обозначения") continue;
     const line = document.createElement("div");
     const labelKey = "dimension_" + label;
     const translated = t(labelKey);

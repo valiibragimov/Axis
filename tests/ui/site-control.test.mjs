@@ -36,7 +36,11 @@ test("earthwork points persist with frozen rules, reopen, and remain pending wit
     await page.locator("#geomChecksList .node").filter({ hasText: "Котлован" }).locator(".node-open-button").click();
     assert.equal(await page.locator('#geometry [data-site-point]').nth(1).locator('[data-site-field="actual"]').inputValue(), "10.05");
     for (const theme of ["dark", "light"]) {
-      await page.evaluate(value => { document.body.classList.remove("theme-light", "theme-dark"); document.body.classList.add("theme-" + value); }, theme);
+      await page.evaluate(async value => {
+        const { toggleTheme } = await import("/dist/app/ui/theme.js");
+        if (!document.documentElement.classList.contains("theme-" + value)) toggleTheme();
+      }, theme);
+      assert.equal(await page.locator("html").evaluate((element, value) => element.classList.contains("theme-" + value), theme), true);
       await page.setViewportSize({ width: 390, height: 844 });
       await page.locator('#geometry [data-wizard-step="2"]').click();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
