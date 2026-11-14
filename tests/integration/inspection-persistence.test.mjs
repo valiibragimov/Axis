@@ -250,15 +250,36 @@ test("browser Firestore retries and channel cancellation remain consistent acros
     browser = await chromium.launch({ headless: true, ...(process.platform === "win32" ? { channel: "chrome" } : {}) });
     const context = await browser.newContext();
     const page = await context.newPage();
-    const errors = [], consoleErrors = [];
-    context.on("page", page => {
-      page.on("pageerror", error => errors.push(error.message));
-      page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
-    });
-    page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
-    page.on("pageerror", error => errors.push(error.message));
+    const errors = [], consoleErrors = [], networkConsoleErrors = [];
+    let interruptedTerminations = 0;
+    const isTransportUrl = value => {
+      try {
+        const url = new URL(value);
+        return url.origin === `http://${browserAddress}` &&
+          /^\/google\.firestore\.v1\.Firestore\/(Listen|Write)\/channel$/.test(url.pathname);
+      } catch { return false; }
+    };
+    const observePage = tab => {
+      tab.on("pageerror", error => errors.push(error.message));
+      tab.on("console", message => {
+        if (message.type() !== "error") return;
+        // Channel cancellation/reconnection can log a browser network error even
+        // before the explicit response cut. Never exempt SDK errors or other URLs.
+        const expected = isTransportUrl(message.location().url) &&
+          /^Failed to load resource: net::ERR_[A-Z_]+$/.test(message.text());
+        (expected ? networkConsoleErrors : consoleErrors).push(message.text());
+      });
+    };
+    context.on("page", observePage);
+    observePage(page);
     await context.route("**/*", route => {
       const origin = new URL(route.request().url()).origin;
+      // Best-effort channel shutdown may fail during tab/network teardown.
+      // Exercise this deterministically rather than relying on CI socket timing.
+      if (isTransportUrl(route.request().url()) && new URL(route.request().url()).searchParams.get("TYPE") === "terminate") {
+        interruptedTerminations += 1;
+        return route.abort("failed");
+      }
       return origin === server.url || origin === `http://${browserAddress}` ? route.continue() : route.abort();
     });
     await page.goto(server.url + "/infrastructure/firebase/app.js");
@@ -426,10 +447,12 @@ test("browser Firestore retries and channel cancellation remain consistent acros
     assert.ok(reopened.aborts > 0);
     assert.ok(reopened.abortReasons.includes("AbortError"));
     t.diagnostic(JSON.stringify({ repeatedSaves: 20, serverReads: 200, completedSubscriptions: reopened.listeners + peerResult.listeners, abortsInSurvivingTab: reopened.aborts, firstAbortMessage: reopened.firstAbortMessage,
-      unhandledRejections: reopened.unhandled.length + peerResult.unhandled.length, pageErrors: errors.length, injectedDisconnects: transportProxy.disconnects, expectedNetworkConsoleErrors: consoleErrors.length }));
+      unhandledRejections: reopened.unhandled.length + peerResult.unhandled.length, pageErrors: errors.length, injectedDisconnects: transportProxy.disconnects, interruptedTerminations, expectedNetworkConsoleErrors: networkConsoleErrors.length }));
     assert.deepEqual(reopened.unhandled, []);
     assert.deepEqual(errors, []);
-    assert.ok(consoleErrors.every(message => /^Failed to load resource: net::ERR_/.test(message)), consoleErrors.join("\n"));
+    assert.ok(interruptedTerminations > 0, "exercise failed best-effort channel termination");
+    assert.ok(networkConsoleErrors.length > 0, "observe the injected browser network failure");
+    assert.deepEqual(consoleErrors, []);
   } finally {
     await Promise.all([browser?.close(), server?.close(), transportProxy?.close(), environment.cleanup(), rm(temporaryRoot, { recursive: true, force: true })]);
   }
