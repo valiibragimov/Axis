@@ -391,6 +391,8 @@ test("geodesy saves independent points, edits one ID and records repeat control 
     await page.locator("#btnGeo").click();
     assert.equal((await app.records("geoNodes")).length, 2, "Repeat control requires fresh evidence");
     await fact.fill("9.996");
+    assert.equal(await criteria.locator('[data-condition="controlComplete"]').inputValue(), "", "Repeat control requires a fresh completeness confirmation");
+    await criteria.locator('[data-condition="controlComplete"]').selectOption("yes");
     await save();
     const afterRepeat = await app.records("geoNodes");
     assert.equal(afterRepeat.length, 3);
