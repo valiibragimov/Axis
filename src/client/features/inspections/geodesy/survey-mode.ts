@@ -16,6 +16,16 @@ const number = (key: string) => measurementNumber(value(key));
 let restoredPoint: AxisIntersection | null = null;
 let catalog: AxisIntersection[] = [];
 let catalogProject: string | null = null;
+let catalogGeneration = 0;
+
+export function resetSurveyProject() {
+  ++catalogGeneration;
+  catalogProject = null;
+  catalog = [];
+  document.querySelector<HTMLSelectElement>("#geoAxisIntersection")?.replaceChildren(new Option("Выберите пересечение", ""));
+  document.querySelector<HTMLFormElement>("#geoAxisCatalog")?.reset();
+  restoreSurveyMode();
+}
 
 function clearObservedFields() {
   for (const key of ["actual1", "actual2", "evidence"]) field(key).value = "";
@@ -57,7 +67,6 @@ export function mountSurveyMode(getProject: () => string | null, getCategory: ()
   const editor = document.querySelector<HTMLFormElement>("#geoAxisCatalog")!;
   const card = document.getElementById("geoAxisDesign")!;
   const live = document.getElementById("geoSurveyPreview")!;
-  let generation = 0;
   let writing = false;
 
   const render = () => {
@@ -75,11 +84,11 @@ export function mountSurveyMode(getProject: () => string | null, getCategory: ()
 
   async function load(preferred = pointSelect.value) {
     const project = getProject();
-    const request = ++generation;
+    const request = ++catalogGeneration;
     if (!project) return;
     try {
       const points = await loadAxisCatalog(project);
-      if (getProject() !== project || request !== generation) return;
+      if (getProject() !== project || request !== catalogGeneration) return;
       const before = catalog.find(point => point.id === pointSelect.value);
       const after = points.find(point => point.id === preferred);
       if (!restoredPoint && JSON.stringify(before) !== JSON.stringify(after)) clearObservedFields();
@@ -89,7 +98,7 @@ export function mountSurveyMode(getProject: () => string | null, getCategory: ()
       pointSelect.value = preferred;
       render();
     } catch {
-      if (request === generation && getProject() === project) report("Не удалось загрузить каталог осей. Повторите попытку.");
+      if (request === catalogGeneration && getProject() === project) report("Не удалось загрузить каталог осей. Повторите попытку.");
     }
   }
 
@@ -109,14 +118,6 @@ export function mountSurveyMode(getProject: () => string | null, getCategory: ()
   section()?.addEventListener("input", render);
   section()?.addEventListener("change", render);
   document.getElementById("construction")?.addEventListener("change", render);
-  document.getElementById("projectSelector")?.addEventListener("change", () => {
-    ++generation;
-    catalogProject = null;
-    catalog = [];
-    pointSelect.replaceChildren(new Option("Выберите пересечение", ""));
-    editor.reset();
-    restoreSurveyMode();
-  });
   editor.addEventListener("submit", async event => {
     event.preventDefault();
     const project = getProject();

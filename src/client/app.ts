@@ -1,6 +1,6 @@
 import { bindInspectionForms, canReplaceInspectionProject, resetInspectionModes } from "./features/inspections/inspection-form.js";
 import { mountAcceptanceCriteria, restoreAcceptanceCriteria } from "./app/ui/acceptance-criteria.js";
-import { mountSurveyMode } from "./features/inspections/geodesy/survey-mode.js";
+import { mountSurveyMode, resetSurveyProject } from "./features/inspections/geodesy/survey-mode.js";
 import { initializeLocalization } from "./shared/i18n/index.js";
 import {
   getAuth
@@ -104,6 +104,7 @@ function setCurrentProjectIdState(projectId) {
   const previousProjectId = currentProjectId;
   currentProjectId = writeStoredProjectId(projectId);
   if (previousProjectId !== currentProjectId) {
+    resetSurveyProject();
     geodesyRuntimeRef?.resetCurrentNodeKeys();
     delete geoResult.dataset.legacyUnits;
     currentGeomCheckId = null;
