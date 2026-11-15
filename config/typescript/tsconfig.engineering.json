@@ -18,6 +18,7 @@
     "../../src/client/features/inspections/assessment-status.ts",
     "../../src/client/features/inspections/geometry/dimensions.ts",
     "../../src/client/features/inspections/geodesy/evaluation.ts",
+    "../../src/client/features/inspections/geodesy/axis-evaluation.ts",
     "../../src/client/app/construction.ts",
     "../../src/client/app/inspection-registry.ts",
     "../../src/client/features/inspections/reinforcement/evaluation.ts",

@@ -257,6 +257,17 @@
   .inspection-project-criteria > summary { padding-block: 8px; }
   .inspection-project-criteria > fieldset + fieldset { margin-block-start: 8px; }
   [data-acceptance] > p:empty { display: none; }
+  #geoSurvey, #geoSurveyCatalog, #geoBindingHint { display: none; }
+  #geo:is([data-survey-mode="axis"], [data-survey-mode="height"], [data-survey-mode="foundation"]) #geoSurvey,
+  #geo[data-survey-mode="axis"] #geoSurveyCatalog,
+  #geo[data-survey-mode="foundation"] #geoBindingHint { display: block; }
+  #geo:is([data-survey-mode="axis"], [data-survey-mode="height"], [data-survey-mode="foundation"]) #geoLegacyFields,
+  #geo[data-survey-mode="axis"] [data-acceptance],
+  #geo[data-survey-mode="axis"] :is(#geoSurveyElement, .geo-survey-project),
+  #geo[data-survey-mode="height"] .geo-survey-second { display: none; }
+  #geo[data-survey-mode="binding"] :is(#projHField, #factHField, #tolHFieldWrap) { display: none !important; }
+  #geoSurvey label { min-width: 0; }
+  #geoAxisDesign, #geoSurveyPreview { overflow-wrap: anywhere; }
   [data-site-control] label, [data-acceptance] label { min-width: 0; }
   .summary-value, .summary-card-value, .overview-metric strong, .overview-readiness-value, .control-plan-metric strong, .summary-module-stat-value { font-variant-numeric: tabular-nums; }
   .summary-module-card, .summary-issues-panel, .summary-workspace-card, .summary-text-content, .summary-meta-item {

@@ -301,6 +301,7 @@ test("geodesy displays the selected bearing-level limit instead of a universal X
     const { page } = app;
     await openSection(page, "geo");
     const criteria = page.locator("#geo [data-acceptance]");
+    await page.locator("#geoSurveyMode").selectOption("legacy");
     await criteria.locator('[data-condition="technology"]').selectOption("monolithic");
     await criteria.locator('[data-condition="controlComplete"]').selectOption("yes");
     await criteria.locator('[data-condition="surface"]').selectOption("bearing_steel_precast");
@@ -334,6 +335,7 @@ test("geodesy saves independent points, edits one ID and records repeat control 
   try {
     await openSection(page, "geo");
     const criteria = page.locator("#geo [data-acceptance]");
+    await page.locator("#geoSurveyMode").selectOption("legacy");
     await criteria.locator('[data-condition="technology"]').selectOption("monolithic");
     await criteria.locator('[data-condition="controlComplete"]').selectOption("yes");
     await criteria.locator('[data-condition="surface"]').selectOption("bearing_steel_precast");

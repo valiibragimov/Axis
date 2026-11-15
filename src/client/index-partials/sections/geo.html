@@ -140,6 +140,56 @@
             <span data-mode="saved" data-i18n="inspection_saved_hint">Следующее сохранение создаст отдельную запись. Для правки откройте запись из истории.</span>
           </div>
         <h3 class="inspection-form-title" data-i18n="inspection_measurements">Измерения</h3>
+            <label for="geoSurveyMode">Вид геодезического контроля</label>
+            <select id="geoSurveyMode" class="ui-select">
+              <option value="binding">Привязка конструкции к осям</option>
+              <option value="axis">Разбивочные оси · пересечение</option>
+              <option value="height">Высотный контроль H</option>
+              <option value="legacy" hidden>Сохранённая форма</option>
+            </select>
+            <div id="geoSurvey" class="mt8">
+              <div id="geoSurveyCatalog">
+                <label for="geoAxisIntersection">Проектное пересечение</label>
+                <select id="geoAxisIntersection"><option value="">Выберите пересечение</option></select>
+                <p id="geoAxisDesign" class="caption"></p>
+                <details class="inspection-project-criteria">
+                  <summary>Каталог проектных пересечений объекта</summary>
+                  <form id="geoAxisCatalog">
+                    <div class="grid-2">
+                      <label>Пересечение, например А/1<input name="label" required maxlength="60"></label>
+                      <label>Система координат и горизонт<input name="system" required maxlength="100"></label>
+                      <label>Проект X<input name="x" required inputmode="decimal"></label>
+                      <label>Проект Y<input name="y" required inputmode="decimal"></label>
+                      <label>Единицы<select name="unit"><option value="m">м</option><option value="mm">мм</option></select></label>
+                      <label>Чертёж или каталог, редакция<input name="source" required maxlength="240"></label>
+                    </div>
+                    <details class="inspection-project-criteria">
+                      <summary>Предел смещения точки по ППГР / РД</summary>
+                      <div class="grid-2">
+                        <label>Максимальное смещение в плане, мм<input name="limit" inputmode="decimal"></label>
+                        <label>Документ, редакция и пункт<input name="reference" maxlength="240"></label>
+                      </div>
+                    </details>
+                    <p class="caption">Запись с тем же обозначением и системой будет обновлена. Сохранённые замеры сохраняют исходный проект.</p>
+                    <button type="submit" class="btn-secondary">Сохранить проектное пересечение</button>
+                  </form>
+                </details>
+                <label>Независимый замер: ссылка на схему или протокол<input name="evidence" data-side="actual" maxlength="240"></label>
+                <p class="caption">СП 126.13330.2017, пп. 7.2–7.3 и табл. 7.1. Предел смещения отдельной точки берётся из ППГР или РД.</p>
+              </div>
+              <div id="geoSurveyElement">
+                <label>Точка или элемент, этаж и оси<input name="label" maxlength="180"></label>
+                <p id="geoBindingHint" class="caption">Укажите две оси в порядке измерений. Проектные и фактические расстояния вводите со знаком по одному направлению.</p>
+              </div>
+              <div class="grid-2">
+                <label class="geo-survey-project"><span id="geoSurveyProject1Label">Проект</span><input name="project1" inputmode="decimal"></label>
+                <label><span id="geoSurveyActual1Label">Факт</span><input name="actual1" data-side="actual" inputmode="decimal"></label>
+                <label class="geo-survey-project geo-survey-second">Проект · от второй оси, м<input name="project2" inputmode="decimal"></label>
+                <label class="geo-survey-second"><span id="geoSurveyActual2Label">Факт</span><input name="actual2" data-side="actual" inputmode="decimal"></label>
+              </div>
+              <p id="geoSurveyPreview" role="status" class="caption"></p>
+            </div>
+            <div id="geoLegacyFields">
             <div id="geoManualAssistNote" class="geo-manual-note" hidden></div>
             <div id="geoBehaviorMessage" class="geo-manual-note" hidden></div>
             <!-- Поле маркировки для колонны -->
@@ -352,7 +402,8 @@
               </div>
             </dialog>
 
-            <div id="geoResult" class="result"></div>
+            </div>
+            <div id="geoResult" class="result" role="status"></div>
 
         <div class="inspection-actions">
           <div class="row">

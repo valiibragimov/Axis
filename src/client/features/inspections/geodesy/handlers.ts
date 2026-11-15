@@ -1,5 +1,6 @@
 import type { LinkedJournalWrite } from "../../../types/module-records.js";
 import { inspectionLimitLabel } from "../limit-label.js";
+import { readSurveyMode, restoreSurveyMode } from "./survey-mode.js";
 import { inspectionOrigin, markInspectionMode, startNewInspection, serializeInspectionSave } from "../inspection-form.js";
 import { isNormativeBearingLevel } from "../normative-rules.js";
 import { t } from "../../../shared/i18n/index.js";
@@ -8,6 +9,7 @@ import {
 } from "../../../app/construction.js";
 import { readAcceptanceCriteria, restoreAcceptanceCriteria } from "../../../app/ui/acceptance-criteria.js";
 import { getConfirmedGeoTolerance } from "./evaluation.js";
+import { compareMeasurement } from "../acceptance.js";
 import { renderRegulatoryBasisHtml } from "../../../app/services/regulatory-basis.js";
 import { APP_CONFIG } from "../../../config.js";
 import {
@@ -159,6 +161,11 @@ export function bindGeodesyHandlers({
     geoResult.textContent = t(data.status === "ok" ? "engineering_conforms" : data.status === "bad" ? "engineering_nonconforms" :
       data.dataStatus === "checked" ? "assessment_no_applicable_limit" : "engineering_incomplete");
     if (data.status === "bad" && data.dataStatus !== "checked") geoResult.append(` — ${t("engineering_incomplete")}`);
+    if (data.surveyMode && data.surveyMode !== "binding") {
+      geoResult.append(document.createTextNode(` · ${data.summaryText || ""}`));
+      data.lastMsg = geoResult.innerHTML;
+      return;
+    }
     const rows = data.columns || data.walls || data.beams || [data, ...(data.openingPoints || [])];
     for (const [index, row] of rows.entries()) {
       const suffixes = row.bindingType === "number_letters" ? ["_num_let1", "_num_let2"] : row.bindingType === "letter_numbers" ? ["_let_num1", "_let_num2"] : [""];
@@ -166,7 +173,11 @@ export function bindGeodesyHandlers({
         const p = row["proj" + axis + suffix], f = row["fact" + axis + suffix];
         if (p == null || f == null || p === "" || f === "") continue;
         const line = document.createElement("div");
-        line.textContent = `${index + 1} ${axis}${suffix ? " " + suffix.slice(-1) : ""}: ${p} / ${f} m; Δ=${((Number(f) - Number(p)) * 1000).toFixed(1)} mm · ${inspectionLimitLabel(data.acceptanceCriteria, axis === "H" ? "geoHeight" : "geoPlan")}`;
+        const delta = (Number(f) - Number(p)) * 1000;
+        const key = axis === "H" ? "geoHeight" : "geoPlan";
+        const result = compareMeasurement(0, delta, key, data.acceptanceCriteria);
+        const verdict = result === "ok" ? t("engineering_conforms") : result === "exceeded" ? t("engineering_nonconforms") : t("assessment_no_applicable_limit");
+        line.textContent = `${index + 1} ${axis}${suffix ? " " + suffix.slice(-1) : ""}: ${p} / ${f} м · Δ ${delta.toFixed(2)} мм · ${inspectionLimitLabel(data.acceptanceCriteria, key)} · ${verdict}`;
         geoResult.append(line);
       }
     }
@@ -192,6 +203,45 @@ export function bindGeodesyHandlers({
   async function saveCheck() {
     const projectId = getCurrentProjectId();
     if (!validateProject(projectId)) return;
+    const scope = document.getElementById("geo")?.dataset.surveyMode;
+    if (scope === "axis" || scope === "height" || scope === "foundation") {
+      const draft = readSurveyMode(projectId);
+      if (!draft) {
+        showNotification(scope === "axis" ? "Выберите пересечение и введите фактические координаты со ссылкой на замер." : "Укажите точку, проектные и фактические измерения.", "warning");
+        return;
+      }
+      const loaded = geoResult.dataset.loadedKey;
+      const previous = loaded ? nodes.get(loaded) : undefined;
+      const key = previous?.surveyMode === scope && loaded ? loaded : crypto.randomUUID();
+      const record: GeodesyNodeRecord = {
+        ...buildCurrentConstructionPayload(), ...(scope === "axis" ? {} : bim.collectNodeData()), ...draft,
+        ...inspectionOrigin("geo", nodes.get(key)),
+        createdAt: nodes.get(key)?.createdAt || Date.now(),
+        evaluationSchemaVersion: 2, measurementSchemaVersion: 2, coordinateUnit: "m", deviationUnit: "mm",
+        location: draft.pointLabel ?? null
+      };
+      try {
+        const journalId = await upsertJournalEntry({
+          evaluationSchemaVersion: 2, module: "Геодезия",
+          status: draft.status === "bad" ? "exceeded" : draft.status === "ok" ? "ok" : "pending",
+          projectId, sourceRecord: record,
+          commitInspection: (journal: LinkedJournalWrite) => saveProjectNode(projectId, key, record, journal),
+          context: draft.pointLabel || "", details: String(draft.summaryText), sourceId: key,
+          construction: String(record.construction || getCurrentConstructionKey())
+        });
+        if (!journalId || getCurrentProjectId() !== projectId) return;
+        presentSavedNode(record);
+        nodes.set(key, record);
+        saveNodes();
+        renderNodes();
+        updateSummaryTab();
+        geoResult.dataset.loadedKey = key;
+        finishSave(key);
+      } catch {
+        showNotification("Ошибка сохранения в Firebase. Повторите попытку.", "error");
+      }
+      return;
+    }
     if (geoResult.dataset.legacyUnits === "1") {
       showNotification("Единицы старой записи не определены. Исходная запись сохранена; создайте новую проверку после очистки формы.", "warning");
       return;
@@ -203,7 +253,8 @@ export function bindGeodesyHandlers({
       getCurrentConstructionSubtype()
     );
 
-    const heightOnly = geoBehavior.geodesyHeightOnly || isNormativeBearingLevel(readAcceptanceCriteria(document.getElementById("geo")));
+    const planOnly = scope === "binding" && !geoBehavior.geodesyHeightOnly;
+    const heightOnly = !planOnly && (geoBehavior.geodesyHeightOnly || isNormativeBearingLevel(readAcceptanceCriteria(document.getElementById("geo"))));
 
     if (geoFlags.isUnsupported) {
       setGeoUnsupportedState({ notify: true });
@@ -720,20 +771,20 @@ export function bindGeodesyHandlers({
     const key = editableNodeKey(geoResult.dataset.loadedKey, heightOnly) ?? crypto.randomUUID();
     // Подготавливаем данные узла для вычисления статуса
     const nodeDataForEval = {
-      measurementScope: heightOnly ? "height" as const : "coordinates" as const,
+      measurementScope: heightOnly ? "height" as const : planOnly ? "plan" as const : "coordinates" as const,
       projX: !heightOnly && !isNaN(pX) ? +projX.value : null,
       factX: !heightOnly && !isNaN(fX) ? +factX.value : null,
       projY: !heightOnly && !isNaN(pY) ? +projY.value : null,
       factY: !heightOnly && !isNaN(fY) ? +factY.value : null,
-      projH: !isNaN(pH) ? +projH.value : null,
-      factH: !isNaN(fH) ? +factH.value : null
+      projH: !planOnly && !isNaN(pH) ? +projH.value : null,
+      factH: !planOnly && !isNaN(fH) ? +factH.value : null
     };
 
     // Вычисляем статус узла с помощью чистой функции
     const geoToleranceXY = confirmedGeoTolerance("geoPlan");
     const geoToleranceH = confirmedGeoTolerance("geoHeight");
     const evaluation = evaluateGeoNode(nodeDataForEval, geoToleranceXY, geoToleranceH);
-    const requiredDesignFields = heightOnly ? [projH] : [projX, projY, projH];
+    const requiredDesignFields = heightOnly ? [projH] : planOnly ? [projX, projY] : [projX, projY, projH];
     if (requiredDesignFields.some(input => input.dataset.unitUnconfirmed === "1")) evaluation.status = "empty";
 
     const stairNameValue = geoBehavior.showStairName ? (geoStairNameEl?.value?.trim() || "") : "";
@@ -768,6 +819,7 @@ export function bindGeodesyHandlers({
       ...bim.collectNodeData(),
       floor: geoBehavior.floorVisible === false ? null : (floor || null),
       measurementScope: nodeDataForEval.measurementScope,
+      ...(planOnly ? { surveyMode: "binding" as const } : {}),
       pointLabel: heightOnly ? pointLabel : null,
       location: heightOnly ? pointLabel : axisState.isPlate ? (axisState.location || null) : null,
       stairName: stairNameValue || null,
@@ -826,7 +878,7 @@ export function bindGeodesyHandlers({
         const detailsParts = [];
         if (!heightOnly && !isNaN(pX) && !isNaN(fX)) detailsParts.push(`ΔX=${(Math.abs(fX - pX) * 1000).toFixed(1)} мм`);
         if (!heightOnly && !isNaN(pY) && !isNaN(fY)) detailsParts.push(`ΔY=${(Math.abs(fY - pY) * 1000).toFixed(1)} мм`);
-        if (!isNaN(pH) && !isNaN(fH)) detailsParts.push(`ΔH=${((fH - pH) * 1000).toFixed(1)} мм`);
+        if (!planOnly && !isNaN(pH) && !isNaN(fH)) detailsParts.push(`ΔH=${((fH - pH) * 1000).toFixed(1)} мм`);
         if (plateFlatnessData && plateFlatnessComplete) {
           detailsParts.push(`Плоскостность=${plateFlatnessData.actual.toFixed(1)} мм при допуске ${plateFlatnessData.tolerance.toFixed(1)} мм`);
         }
@@ -887,6 +939,7 @@ export function bindGeodesyHandlers({
   });
 
   function clearForm() {
+    restoreSurveyMode();
     pendingNode = null;
     delete geoResult.dataset.legacyUnits;
     delete geoResult.dataset.loadedKey;
