@@ -21,6 +21,7 @@ export interface GeodesyCoordinateEvaluation extends GeodesyEvaluation {
   details: Array<{
     axis: "X" | "Y" | "H";
     dev: number;
+    delta: number;
     ok: boolean;
     tol: number;
   }>;
@@ -71,7 +72,7 @@ export interface GeodesyOpeningPointDraft {
 }
 
 export interface GeodesyCoordinateDraft {
-  measurementScope?: "height" | "coordinates";
+  measurementScope?: "height" | "coordinates" | "plan";
   projX: number | null;
   factX: number | null;
   projY: number | null;
@@ -154,7 +155,10 @@ export interface GeodesyBimApi {
 export interface GeodesyNodeRecord
   extends GeodesyBimNodeData, Record<string, unknown> {
   repeatOf?: string | null;
-  measurementScope?: "height" | "coordinates";
+  surveyMode?: "axis" | "height" | "foundation" | "binding";
+  axisObservation?: import("./axis-evaluation.js").AxisObservation;
+  bindingOffsets?: { project1: number; actual1: number; project2: number | null; actual2: number | null };
+  measurementScope?: "height" | "coordinates" | "plan";
   pointLabel?: string | null;
   acceptanceCriteria?: AcceptanceCriteria | null;
   coordinateUnit?: "m";

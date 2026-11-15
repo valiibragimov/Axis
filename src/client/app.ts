@@ -1,5 +1,6 @@
 import { bindInspectionForms, canReplaceInspectionProject, resetInspectionModes } from "./features/inspections/inspection-form.js";
 import { mountAcceptanceCriteria, restoreAcceptanceCriteria } from "./app/ui/acceptance-criteria.js";
+import { mountSurveyMode, resetSurveyProject } from "./features/inspections/geodesy/survey-mode.js";
 import { initializeLocalization } from "./shared/i18n/index.js";
 import {
   getAuth
@@ -103,6 +104,7 @@ function setCurrentProjectIdState(projectId) {
   const previousProjectId = currentProjectId;
   currentProjectId = writeStoredProjectId(projectId);
   if (previousProjectId !== currentProjectId) {
+    resetSurveyProject();
     geodesyRuntimeRef?.resetCurrentNodeKeys();
     delete geoResult.dataset.legacyUnits;
     currentGeomCheckId = null;
@@ -1074,7 +1076,12 @@ bindInspectionForms();
 
 void initializeLocalization().then(() => {
   const geo = document.querySelector<HTMLElement>("#geo [data-step='2']");
-  if (geo) mountAcceptanceCriteria(geo, [{ key: "geoPlan", label: "X/Y (mm)" }, { key: "geoHeight", label: "H (mm)" }, { key: "geoFlatness", label: "Плоскостность / Flatness (mm)" }], { module: "geo", construction: () => getCurrentConstructionKey() || "" });
+  if (geo) {
+    mountAcceptanceCriteria(geo, [{ key: "geoPlan", label: "Отклонение в плане, мм" }, { key: "geoHeight", label: "Отметка H, мм" }, { key: "geoFlatness", label: "Плоскостность, мм" }], { module: "geo", construction: () => getCurrentConstructionKey() || "" });
+    const criteria = geo.querySelector("[data-acceptance]");
+    if (criteria) geo.querySelector("#geoSurveyMode")?.after(criteria);
+  }
+  mountSurveyMode(() => currentProjectId, getCurrentConstructionCategoryKey, message => showNotification(message, "info"));
   const reinf = document.querySelector<HTMLElement>("#reinforcement [data-step='2']");
   if (reinf) mountAcceptanceCriteria(reinf, [{ key: "step", label: "Шаг / Spacing (mm)" }, { key: "cover", label: "Защитный слой / Cover (mm)" }, { key: "hoopsStep", label: "Хомуты / Stirrups (mm)" }], { module: "reinforcement", construction: () => getCurrentConstructionKey() || "" });
 });

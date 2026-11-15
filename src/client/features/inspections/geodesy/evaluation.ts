@@ -65,12 +65,13 @@ export function evaluateGeoNode(
   const hasFactXY = actualX != null && actualY != null;
 
   const heightOnly = node.measurementScope === "height";
-  const hasAllData = (heightOnly || (hasProjXY && hasFactXY)) && projectH != null && actualH != null;
+  const planOnly = node.measurementScope === "plan";
+  const hasAllData = (heightOnly || (hasProjXY && hasFactXY)) && (planOnly || (projectH != null && actualH != null));
   const details: GeodesyCoordinateEvaluation["details"] = [];
   for (const [axis, project, actual, tolerance] of [
     ["X", projectX, actualX, toleranceXY], ["Y", projectY, actualY, toleranceXY], ["H", projectH, actualH, toleranceH]
   ] as const) {
-    if ((!heightOnly || axis === "H") && project != null && actual != null) details.push(buildCoordinateCheck(axis, project, actual, tolerance));
+    if ((!heightOnly || axis === "H") && (!planOnly || axis !== "H") && project != null && actual != null) details.push(buildCoordinateCheck(axis, project, actual, tolerance));
   }
   return {
     status: details.some(check => Number.isFinite(check.tol) && !check.ok) ? "bad" :

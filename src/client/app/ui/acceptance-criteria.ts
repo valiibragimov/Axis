@@ -70,6 +70,7 @@ export function mountAcceptanceCriteria(root: HTMLElement, keys: Array<{ key: st
     panel.hidden = !behavior.supported;
     const value = (key: string) => fields.querySelector<HTMLInputElement>(`[data-condition="${key}"]`)?.value;
     const bearing = ["foundation_slab", "strip_foundation", "floor_slab"].includes(construction);
+    const surveyMode = automatic.module === "geo" ? panel.closest("#geo")?.getAttribute("data-survey-mode") : null;
     const stage = value("earthStage");
     fields.querySelectorAll<HTMLElement>("[data-scope]").forEach(label => {
       const scope = label.dataset.scope;
@@ -81,8 +82,8 @@ export function mountAcceptanceCriteria(root: HTMLElement, keys: Array<{ key: st
         label.hidden = true;
       } else if (scope === "geo") {
         label.hidden = automatic.module !== "geo" || (key === "surface"
-          ? !bearing || value("technology") !== "monolithic"
-          : !["column", "beam"].includes(construction) || value("technology") !== "precast");
+          ? !bearing || value("technology") !== "monolithic" || surveyMode === "foundation" || surveyMode === "binding"
+          : !["column", "beam"].includes(construction) || value("technology") !== "precast" || surveyMode === "height");
       } else if (scope === "vertical") {
         label.hidden = automatic.module !== "geometry" || !["wall", "column"].includes(construction) ||
           value("technology") !== "monolithic" || value("stage") !== "completed";
@@ -109,8 +110,10 @@ export function mountAcceptanceCriteria(root: HTMLElement, keys: Array<{ key: st
     for (const group of special.querySelectorAll<HTMLElement>("[data-limit]")) {
       const key = group.dataset.limit!;
       if (automatic.module === "geo") {
-        group.hidden = (key === "geoPlan" && (behavior.geodesyHeightOnly || bearingHeight)) ||
-          (key === "geoFlatness" && !behavior.showGeoFlatnessCheck);
+        group.hidden = (key === "geoPlan" && (surveyMode === "height" || behavior.geodesyHeightOnly ||
+          (bearingHeight && surveyMode !== "foundation" && surveyMode !== "binding"))) ||
+          (key === "geoHeight" && (surveyMode === "foundation" || (surveyMode === "binding" && !behavior.geodesyHeightOnly))) ||
+          (key === "geoFlatness" && (!behavior.showGeoFlatnessCheck || surveyMode === "height" || surveyMode === "foundation"));
       } else if (automatic.module === "reinforcement") {
         group.hidden = key === "hoopsStep" && !behavior.showReinforcementHoopsStep;
       } else if (site) {
@@ -124,6 +127,7 @@ export function mountAcceptanceCriteria(root: HTMLElement, keys: Array<{ key: st
   };
   for (const event of ["input", "change"]) panel.addEventListener(event, () => { restored.delete(panel); refresh(); });
   document.getElementById("construction")?.addEventListener("change", () => { restored.delete(panel); refresh(); });
+  if (automatic.module === "geo") root.addEventListener("geo-survey-mode", refresh);
   const headingElement = root.querySelector(".inspection-form-title"); if (headingElement) headingElement.after(panel); else root.prepend(panel);
   refresh();
 }

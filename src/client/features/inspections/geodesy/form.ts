@@ -1,4 +1,5 @@
 import { markInspectionMode, canReplaceInspection, focusInspectionMode } from "../inspection-form.js";
+import { restoreSurveyMode } from "./survey-mode.js";
 import { isNormativeBearingLevel } from "../normative-rules.js";
 import { t } from "../../../shared/i18n/index.js";
 import { compareMeasurement, measurementNumber } from "../acceptance.js";
@@ -1750,6 +1751,13 @@ export function createGeodesyForm({
     });
 
     restoreAcceptanceCriteria(document.getElementById("geo"), n.acceptanceCriteria);
+    restoreSurveyMode(n);
+    if (n.surveyMode && n.surveyMode !== "binding") {
+      geoResult.className = n.status === "ok" ? "result ok" : n.status === "bad" ? "result not-ok" : "result";
+      geoResult.textContent = String(n.summaryText || "");
+      focusInspectionMode("geo");
+      return true;
+    }
     renderGeoToleranceFields();
     if (n.coordinateUnit === "m") for (const input of [projX, projY, projH]) delete input.dataset.unitUnconfirmed;
 
