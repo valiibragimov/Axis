@@ -214,8 +214,12 @@ app.post(API_ROUTES.uploadDocument, ifcImportLimiter, requireFirebaseAuth, expre
   if (!req.user?.uid) return res.status(401).json({ ok: false, error: "AUTH_REQUIRED" });
   const parsed = documentUploadQuerySchema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ ok: false, error: "DOCUMENT_INVALID_ID" });
+  // Only a binary request may enter the upload or empty-body recovery path.
+  const bytes: unknown = req.body === undefined ? Buffer.alloc(0) : req.body;
+  if (req.is("application/octet-stream") === false || !Buffer.isBuffer(bytes)) {
+    return res.status(422).json({ ok: false, error: "PDF_INVALID_OR_TOO_LARGE" });
+  }
   try {
-    const bytes = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
     const result = await withHeavyOperationLock(req, res, { key: `document:${req.user.uid}:${parsed.data.projectId}`, rateWindowMs: 60000, rateMax: 5 },
       () => uploadDocument(parsed.data, req.user.uid, bytes));
     if (res.destroyed) return;
